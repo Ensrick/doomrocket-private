@@ -13,7 +13,7 @@ types = {
 	animation_variable_float = { type = "float", min = -12, max = 12 }
 	aoe_push_mass = { type = "int", min = 0, max = 15 }
 	attack_arm = { type = "int", min = 1, max = 2 }
-	backend_session_id = { type = "int", min = 0, max = 4294967295 }
+	backend_session_id = { type = "int", min = 0, max = 2147483647 }
 	backstab_multiplier = { type = "float", min = 1, max = 2.5, bits = 2 }
 	bool = { type = "bool" }
 	boost_curve_multiplier = { type = "float", min = 0, max = 20, tolerance = 0.1 }
@@ -89,7 +89,7 @@ types = {
 	inventory_package_list = { type = "array", max_size = 80, element = "weapon_id" }
 	item_set_id = { type = "int", min = 0, max = 3 }
 	item_template_name = { type = "int", min = 1, max = 512 }
-	level_seed = { type = "int", min = 0, max = 4294967295 }
+	level_seed = { type = "int", min = 0, max = 2147483647 }
 	level_unit_index = { type = "int", min = 0, max = 65535 }
 	life_time = { type = "int", min = 0, max = 31 }
 	light_weight_projectile_index = { type = "int", min = 1, max = 128 }
@@ -209,7 +209,7 @@ types = {
 	twitch_template_lookup = { type = "array", max_size = 5, element = "twitch_lookup" }
 	uint_16 = { type = "int", min = 0, max = 65535 }
 	uint_19 = { type = "int", min = 0, max = 524287 }
-	uint_32 = { type = "int", min = 0, max = 4294967295 }
+	uint_32 = { type = "int", min = 0, max = 2147483647 }
 	uint_8 = { type = "int", min = 0, max = 255 }
 	unit_node = { type = "int", min = 0, max = 511 }
 	667EFC4A = { type = "array", max_size = 16, element = "medium_lookup" }
