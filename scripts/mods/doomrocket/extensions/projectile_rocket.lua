@@ -106,11 +106,14 @@ ProjectileRocket.update = function (self, dt)
             self.current_direction = new_direction
         end
 
-        self:guide_force(dt)
         self:straighten_rocket(vel)
         self:move_particles(self.actor)
 
-        if speed < 4 then
+        -- The rocket is ballistic now (see ROCKET in bt_doomrocket_launch_action), so a
+        -- slow high lob is nearly stationary in Z at the top of its arc. The old
+        -- `speed < 4` test would detonate it in mid-air there. Detonate only on a real
+        -- stop (impact), and only after it has cleared the muzzle.
+        if self.time_pass > 0.35 and speed < 1.5 then
             self:rocket_explode()
         end
 
@@ -126,13 +129,16 @@ ProjectileRocket.straighten_rocket = function(self, direction)
     rotate_actor(self.actor, new_rotation)
 end
 
+-- No longer called from update. Kept for reference only.
+--
+-- This applied a one-frame upward kick at launch: exp(-500 * t^2) decays to ~0.7% by
+-- t = 0.1s, so it was a Dirac-style impulse rather than sustained thrust. It was also
+-- unreliable: `math.random(0.75, 1)` hits Lua 5.1's integer path and evaluates as
+-- math.random(0, 1), so the kick was multiplied by ZERO on roughly half of all shots,
+-- producing a flat dart. The arc now comes from a solved ballistic launch velocity, so
+-- every shot lobs identically and predictably, which is what makes it dodgeable.
 ProjectileRocket.guide_force = function(self, dt)
-    local pos = pos_actor(self.actor)
-    local launch_pos = Vector3(self.launch_x, self.launch_y, self.launch_z)
-    local dist_to_target = vec_dsit(Vector3(self.target_x, self.target_y, self.target_z), launch_pos)
-
-    local dirac_delta = math_ex(-500*math_pow(self.time_pass,2)) * 0.1*dist_to_target*math.random(0.75, 1)
-    actor_add_vel(self.actor, Vector3(0,0,dirac_delta))
+    return
 end
 
 ProjectileRocket.move_particles = function(self, actor)

@@ -8,6 +8,23 @@ local TWO_PI = PI * 2
 local BOT_THREAT_UPDATE_TIME = 1
 CLIENT_CONTROLLED_RATLING_GUN = true
 
+-- Rocket flight tuning. The rocket is a physics projectile
+-- (explosive_pickup_projectile_unit), so once launched it is purely ballistic under
+-- the engine's -9.82 gravity. We solve for the launch velocity that lands on the
+-- target after FLIGHT_TIME seconds, which is what makes the shot a slow, high lob
+-- instead of the near-flat dart it used to be.
+--
+-- Raise FLIGHT_TIME for a slower, higher, easier-to-dodge arc; lower it to flatten
+-- and speed the shot up. Apex height is roughly (0.5 * G * T)^2 / (2 * G), so
+-- T = 2.6 peaks around 8 m above the firing line.
+local ROCKET = {
+	GRAVITY = 9.82,
+	-- Flight time scales with range so short shots are not absurdly lofted.
+	SECONDS_PER_METRE = 0.13,
+	MIN_FLIGHT_TIME = 1.7,
+	MAX_FLIGHT_TIME = 3.4,
+}
+
 BTDoomrocketLaunchAction.init = function (self, ...)
 	BTDoomrocketLaunchAction.super.init(self, ...)
 end
@@ -605,9 +622,23 @@ BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
 	local target_vector = position + Vector3(0,0,0.25)
 	local start_vector = from_position
 
+	-- Ballistic lob. Previously this was direction_unit_vector * 10: a flat 10 m/s dart
+	-- aimed straight down the line of sight, with the only vertical component coming from
+	-- a one-frame kick in ProjectileRocket.guide_force. That read as a fast hitscan-ish
+	-- shot with no arc to read and no practical window to shoot it down.
+	--
+	-- Solve the launch velocity for a fixed flight time instead:
+	--   horizontal = delta / T          (constant, no drag)
+	--   vertical   = dz / T + 0.5 * G * T
+	-- which lands on the target at T and peaks near the midpoint.
 	local direction_vector = target_vector - start_vector
-	local direction_unit_vector = direction_vector/Vector3.length(direction_vector)
-	local impulse_vector = direction_unit_vector*10
+	local flat_distance = Vector3.length(Vector3.flat(direction_vector))
+	local flight_time = math.clamp(flat_distance * ROCKET.SECONDS_PER_METRE, ROCKET.MIN_FLIGHT_TIME, ROCKET.MAX_FLIGHT_TIME)
+	local impulse_vector = Vector3(
+		direction_vector.x / flight_time,
+		direction_vector.y / flight_time,
+		direction_vector.z / flight_time + 0.5 * ROCKET.GRAVITY * flight_time
+	)
 
 	local rotation = Unit.local_rotation(unit, 0)
 	-- local rocket_launcher_id = Managers.state.unit_storage:go_id(data.ratling_gun_unit)

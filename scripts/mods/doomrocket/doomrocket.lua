@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.6-dev"
+local MOD_VERSION = "0.1.7-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -154,7 +154,6 @@ if spawn_mod then
 		table.insert(spawn_mod["all_units"], breed_name)
 	end
 end
-mod:echo("done")
 
 for bt_name, bt_node in pairs(BreedBehaviors) do
     bt_node[1] = "BTSelector_" .. bt_name
