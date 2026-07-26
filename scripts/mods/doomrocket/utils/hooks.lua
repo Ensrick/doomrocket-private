@@ -275,19 +275,28 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 		-- of it should draw.
 		local hidden = 0
 
-		for mesh_index = 0, 63 do
-			if Unit.has_mesh and not Unit.has_mesh(unit, mesh_index) then
-				break
-			end
+		-- v0.1.10-dev hid 0: the loop was gated on Unit.has_mesh(unit, index), but that
+		-- API does not take a mesh index, so it returned false and broke immediately.
+		-- Ask the unit how many meshes it has; fall back to the range the existing
+		-- create_unit_extensions hook already writes to (it hides up to index 16, so
+		-- those indices are known to exist on this donor).
+		local num_meshes = 0
+		local counted = pcall(function()
+			num_meshes = Unit.num_meshes(unit)
+		end)
 
-			local ok = pcall(Unit.set_mesh_visibility, unit, mesh_index, false, "default")
-
-			if not ok then
-				break
-			end
-
-			hidden = hidden + 1
+		if not counted or not num_meshes or num_meshes <= 0 then
+			num_meshes = 17
 		end
+
+		for mesh_index = 0, num_meshes - 1 do
+			if pcall(Unit.set_mesh_visibility, unit, mesh_index, false, "default") then
+				hidden = hidden + 1
+			end
+		end
+
+		printf("[doomrocket] donor reports %s mesh(es)%s",
+			tostring(num_meshes), counted and "" or " (Unit.num_meshes unavailable; used fallback)")
 
 		printf("[doomrocket] warlock body attached; hid %d base mesh(es) on the donor unit", hidden)
 	end
