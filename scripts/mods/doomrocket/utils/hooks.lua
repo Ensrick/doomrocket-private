@@ -338,26 +338,22 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				-- This DCC-compiled unit's skin follows only its OWN animation system
 				-- (v0.1.22 proved that path; v0.1.18-20 and v0.1.23 falsified
 				-- scene-graph link driving with and without "transform" bone mode).
-				-- The rig was authored to fit the gun rat's animation set, so: swap
-				-- the unit onto the VANILLA ratling state machine (name-matched
-				-- skeleton; clips resolve from the force-loaded ratling breed
-				-- package) and let the Unit.animation_event mirror below replay the
-				-- donor rat's events on it. Falls back to the unit's own baked idle
-				-- SM if the swap is rejected.
+				--
+				-- NEVER point this unit at a vanilla state machine: the call succeeds
+				-- but the engine dies ~0.2s later in an UNCATCHABLE AnimationBlender
+				-- assert (v0.1.24 crash, Error Context "AnimationBlender Layer 0 /
+				-- LayerState 1") - vanilla compiled clips cannot bind to a
+				-- mod-compiled skeleton. Gun-rat animations must be compiled AGAINST
+				-- this skeleton as mod clips; as each lands in the unit's own state
+				-- machine under the ratling event name, the mirror hooks below start
+				-- driving it automatically.
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
-				local swapped = pcall(set_animation_state_machine, outfit_unit,
-					"units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
 				Unit.enable_animation_state_machine(outfit_unit)
-				if swapped then
-					mod._warlock_outfits[unit] = outfit_unit
-					printf("[doomrocket] warlock outfit on ratling state machine; mirroring anim events")
-				else
-					printf("[doomrocket] ratling state machine swap REJECTED; falling back to own idle")
-					if Unit.has_animation_event(outfit_unit, "idle") then
-						Unit.animation_event(outfit_unit, "idle")
-					end
+				if Unit.has_animation_event(outfit_unit, "idle") then
+					Unit.animation_event(outfit_unit, "idle")
 				end
+				mod._warlock_outfits[unit] = outfit_unit
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
