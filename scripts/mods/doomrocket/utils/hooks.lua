@@ -235,6 +235,15 @@ end)
 
 
 mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, unit, start_n, inventory_configuration, item_extension_init_data)
+	-- Prune the armor bridge to nodes the OWNER actually has, BEFORE vanilla links.
+	--
+	-- vanilla link_unit does Unit.node(source, source_node), and a missing node is an
+	-- engine-level fatal that pcall cannot catch, so the bridge may only name nodes that
+	-- exist on this breed's base skeleton. Unit.has_node is the safe existence test.
+	-- Pruning here (rather than shipping a hand-verified list) means we can name every
+	-- bone the mesh is weighted to and let the ones the base lacks drop out quietly.
+	mod._prune_armor_bridge(unit)
+
 	local result = func(self, unit, start_n, inventory_configuration, item_extension_init_data)
 
 	local outfit_units = self.inventory_item_outfit_units

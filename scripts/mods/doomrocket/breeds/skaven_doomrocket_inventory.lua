@@ -30,6 +30,27 @@ AttachmentNodeLinking.doomrocket_pack = {
     },
 }
 
+-- Bones the Warlock Bombardier mesh is weighted to that the original torso/limb bridge
+-- never named. Without these the parts sit at bind pose and visibly float: the backpack
+-- (j_backpack), the loot sack, the first two tail segments, and the face detail bones.
+-- mod._prune_armor_bridge drops any of these the base skeleton turns out to lack.
+local DOOMROCKET_EXTRA_ARMOR_NODES = {
+    "j_backpack",
+    "j_loot_sack",
+    "j_loot_sack_component6",
+    "j_loot_sack_component7",
+    "j_skull_parent",
+    "j_skull_dynamic",
+    "j_tail1",
+    "j_tail2",
+    "j_jaw",
+    "j_nose",
+    "j_leftear",
+    "j_rightear",
+    "j_lip_left",
+    "j_lip_right",
+}
+
 AttachmentNodeLinking.doomrocket_armor = {
     {
         target = 0,
@@ -503,3 +524,48 @@ end
 local num_invents = #NetworkLookup.ai_inventory
 NetworkLookup.ai_inventory["doomrocket_inventory"] = num_invents + 1
 NetworkLookup.ai_inventory[num_invents + 1] = "doomrocket_inventory"
+-- Append the extra weighted bones to the armor bridge (target == source: the node has
+-- the same name on the item and on the owner).
+for i = 1, #DOOMROCKET_EXTRA_ARMOR_NODES do
+    local node = DOOMROCKET_EXTRA_ARMOR_NODES[i]
+    AttachmentNodeLinking.doomrocket_armor[#AttachmentNodeLinking.doomrocket_armor + 1] = {
+        target = node,
+        source = node,
+    }
+end
+
+-- Called from the AIInventoryExtension._setup_configuration hook before vanilla links.
+-- Runs once: Unit.node on a node the owner lacks is an uncatchable engine fatal, so any
+-- entry whose source is absent from the base skeleton is removed here instead.
+local _armor_bridge_pruned = false
+
+function mod._prune_armor_bridge(owner_unit)
+    if _armor_bridge_pruned or not owner_unit or not Unit.alive(owner_unit) then
+        return
+    end
+
+    local bridge = AttachmentNodeLinking.doomrocket_armor
+    local kept, dropped = {}, {}
+
+    for i = 1, #bridge do
+        local entry = bridge[i]
+        local source = entry.source
+
+        if type(source) ~= "string" or Unit.has_node(owner_unit, source) then
+            kept[#kept + 1] = entry
+        else
+            dropped[#dropped + 1] = source
+        end
+    end
+
+    for i = #bridge, 1, -1 do
+        bridge[i] = nil
+    end
+    for i = 1, #kept do
+        bridge[i] = kept[i]
+    end
+
+    _armor_bridge_pruned = true
+    printf("[doomrocket] armor bridge: %d node(s) linked, %d dropped (absent on base)%s",
+        #kept, #dropped, #dropped > 0 and (": " .. table.concat(dropped, ", ")) or "")
+end
