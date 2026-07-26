@@ -3,3 +3,4 @@ bundleV2/*
 *.processed
 # game-derived splice payloads - never commit (publication boundary)
 .build/
+__pycache__/
