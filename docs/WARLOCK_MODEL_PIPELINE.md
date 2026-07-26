@@ -59,12 +59,16 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 | v0.1.21/22 | CORRECT deformation | Own-ASM driving works; per-bone link driving was the actual stick-figure cause | A DCC-compiled unit's skin follows only its own animation system |
 | v0.1.23 | Stick figure again (bridge retry with bone-mode calls) | Confirms: scene-graph link driving never reaches the skin, with or without "transform" bone mode | Per-bone bridges are game-compiled-unit territory (plague monk) |
 | v0.1.24 | CRASH ~0.2s after spawn, `AnimationBlender Layer 0 / LayerState 1`, no Lua stack | Vanilla state machine on a mod-compiled skeleton: `Unit.set_animation_state_machine` SUCCEEDS, then the blender asserts on evaluation - pcall cannot catch it | NEVER point a mod skeleton at a vanilla state machine |
+| v0.1.25 | CRASH in aim_system update, Lua stack ends in our `animation_set_constraint_target` mirror (index 0, aim-target Vector3) | Raw variable/constraint indices are only meaningful within ONE compiled state machine; forwarding them to a unit on a different SM is an engine assert - the pcall wrapper caught nothing | Mirror animation state by NAME only (events gated on `has_animation_event`); never by raw index |
 
 ## Uncatchable crash classes (pcall is useless)
 
 - Boot-flushing a spliced child material (`PatchedResourcePackage::flush`).
 - Vanilla state machine / clips evaluated against a mod-compiled skeleton
   (`AnimationBlender` assert, delayed ~1 frame after a successful-looking call).
+- `Unit.animation_set_variable` / `animation_set_constraint_target` with an
+  index from a DIFFERENT state machine (indices are per-compiled-SM; the
+  pcall wrapper around the call catches nothing).
 - `Unit.node()` on a missing node (why the old bridge pruned via
   `Unit.has_node`).
 

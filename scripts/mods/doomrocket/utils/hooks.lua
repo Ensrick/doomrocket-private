@@ -237,29 +237,16 @@ mod:hook(Unit, "animation_event", function(func, unit, event, ...)
 	return func(unit, event, ...)
 end)
 
--- Locomotion blend speeds and aim come through animation variables and
--- constraint targets, not events. The outfit runs the IDENTICAL ratling state
--- machine, so raw variable/constraint indices are layout-compatible; pcall
--- guards the mirror in case the outfit fell back to its own idle machine.
-mod:hook(Unit, "animation_set_variable", function(func, unit, index, value, ...)
-	local outfit = mod._warlock_outfits[unit]
-
-	if outfit and Unit.alive(outfit) then
-		pcall(func, outfit, index, value, ...)
-	end
-
-	return func(unit, index, value, ...)
-end)
-
-mod:hook(Unit, "animation_set_constraint_target", function(func, unit, index, value, ...)
-	local outfit = mod._warlock_outfits[unit]
-
-	if outfit and Unit.alive(outfit) then
-		pcall(func, outfit, index, value, ...)
-	end
-
-	return func(unit, index, value, ...)
-end)
+-- NO raw-index animation mirroring. v0.1.25 crash: the rat's aim system
+-- called animation_set_constraint_target(rat, 0, aim_target); forwarding that
+-- raw index to the outfit - whose own state machine has no constraints - is
+-- an engine assert that pcall CANNOT catch (same uncatchable class as the
+-- v0.1.24 AnimationBlender crash). Variable and constraint indices are only
+-- meaningful within one compiled state machine. If our SM ever needs
+-- variable/aim mirroring, it must translate by NAME (capture the rat's
+-- animation_find_variable name->index calls, re-find on the outfit), never
+-- by index. Events are mirrored above because they are name-based and gated
+-- on Unit.has_animation_event.
 
 
 -- Runtime material swap for the warlock body (Pusfume native contract).

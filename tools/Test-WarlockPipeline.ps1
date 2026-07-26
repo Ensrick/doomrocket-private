@@ -79,6 +79,15 @@ foreach ($call in @(
     Assert-True ($hooks -match $call) "hooks.lua warlock branch missing required call: $call"
 }
 
+# v0.1.25 crash class: variable/constraint indices are only meaningful within
+# one compiled state machine; forwarding a raw index to a unit on a different
+# SM is an engine assert pcall cannot catch. Only name-based event mirroring
+# (gated on Unit.has_animation_event) is safe.
+Assert-True ($hooks -notmatch 'mod:hook\(Unit,\s*"animation_set_variable"') `
+    "hooks.lua must not mirror animation_set_variable by raw index (v0.1.25 crash class)"
+Assert-True ($hooks -notmatch 'mod:hook\(Unit,\s*"animation_set_constraint_target"') `
+    "hooks.lua must not mirror animation_set_constraint_target by raw index (v0.1.25 crash class)"
+
 $doomrocketLua = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\doomrocket.lua") -Raw
 Assert-True ($doomrocketLua -match 'chr_third_person_mesh') `
     "doomrocket.lua must force-load the Globadier donor package (spliced children reference its aux textures)"
