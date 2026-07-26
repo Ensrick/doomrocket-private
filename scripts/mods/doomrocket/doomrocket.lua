@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.1-dev"
+local MOD_VERSION = "0.1.2-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -249,7 +249,10 @@ mod:hook(ConflictDirector, 'refresh_conflict_director_patches', function (func, 
 			end
 
 			if not has_doomrockets then
-				CurrentSpecialsSettings.breeds[#CurrentSpecialsSettings + 1] = 'skaven_doomrocket'
+				-- Was #CurrentSpecialsSettings (the settings table itself, hash-only, so
+				-- always 0), which wrote to index 1 and overwrote the first special in the
+				-- pool instead of appending to it.
+				CurrentSpecialsSettings.breeds[#CurrentSpecialsSettings.breeds + 1] = 'skaven_doomrocket'
 			end
 		end
 	end
