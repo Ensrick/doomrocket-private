@@ -250,15 +250,46 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 
 	local is_mat_aval = Application.can_get('material', "     GvOtsyNy1'")
 
+	local wearing_warlock_body = false
+
 	for i, outfit_unit in ipairs(outfit_units) do
 		if Unit.alive(outfit_unit) then
 			local outfit_unit_name = Unit.get_data(outfit_unit, "unit_name")
 			if outfit_unit_name == "units/beings/enemies/skaven_plague_monk/chr_skaven_plague_monk" then
 				Unit.disable_animation_state_machine(outfit_unit)
+			elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then
+				-- Crunch's model is a FULL BODY, not a cuirass overlay like the plague-monk
+				-- placeholder it replaced. The base ratling gunner therefore still renders
+				-- inside it, which is the vanilla black-rat/stormvermin body still showing.
+				wearing_warlock_body = true
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
 				Unit.set_material(outfit_unit, 'lambert1', "     GvOtsyNy1'")
 			end
 		end
+	end
+
+	if wearing_warlock_body and Unit.alive(unit) then
+		-- Hide the donor body's renderables only. Do NOT use Unit.set_unit_visibility on
+		-- the owner: the outfit is linked to the owner's scene-graph nodes and driven by
+		-- the owner's animation, so the base unit must keep animating even though nothing
+		-- of it should draw.
+		local hidden = 0
+
+		for mesh_index = 0, 63 do
+			if Unit.has_mesh and not Unit.has_mesh(unit, mesh_index) then
+				break
+			end
+
+			local ok = pcall(Unit.set_mesh_visibility, unit, mesh_index, false, "default")
+
+			if not ok then
+				break
+			end
+
+			hidden = hidden + 1
+		end
+
+		printf("[doomrocket] warlock body attached; hid %d base mesh(es) on the donor unit", hidden)
 	end
 
 	local weapon_units = self.inventory_item_weapon_units
