@@ -1,13 +1,22 @@
-# Splice game-compiled child materials over the SDK-compiled warlock materials
-# in the built doomrocket bundle. MUST run after every `VMBLauncher build` and
-# before deploy/upload.
+# Splice game-compiled child materials over the compiled
+# child_materials/warlock_bombardier/wb_*_child resources in the built
+# doomrocket bundle. MUST run after every `VMBLauncher build` and before
+# deploy/upload.
 #
 # Why: the mod SDK cannot compile the character-skinning shader permutation -
 # SDK-authored character materials always render the skin rigid and dark
-# (vt2-pusfume issue #6, NATIVE_CHARACTER_MILESTONE.md). The only proven fix is
-# replacing each compiled material payload with the game's own compiled child
-# (a slim binding table: parent shader hash + texture ids + variables), patched
-# to reference this mod's texture resources.
+# (vt2-pusfume issue #6, NATIVE_CHARACTER_MILESTONE.md). The proven fix is
+# replacing each compiled child-material payload with the game's own compiled
+# child (a slim binding table: parent shader hash + texture ids + variables),
+# patched to reference this mod's texture resources.
+#
+# CRITICAL LAYOUT RULE (v0.1.16 boot-crash lesson): spliced children must NOT
+# live in the boot-flushed main package. They ride in
+# resource_packages/doomrocket/warlock_child.package, which is absent from
+# doomrocket.mod's packages list and is loaded at runtime via
+# mod:load_package AFTER the Globadier donor package is resident. The five
+# materials/warlock_bombardier/wb_* boot materials stay SDK-compiled; the
+# runtime swaps each slot to the child via Unit.set_material (hooks.lua).
 #
 # Donors (Pusfume-proven):
 #   opaque (armor/backpack/skin) <- Globadier dark-pact mtr_outfit child, 768 B
@@ -59,7 +68,7 @@ $laurelPayload = Join-Path $buildDir "laurel\C70B1AAD3B363E24.material"
 $furPayload = Join-Path $buildDir "fur\units_beings_enemies_mtr_fur_1bit_climate.material"
 
 # --- 2. Build patched payloads ---------------------------------------------
-# Texture ids = murmur64 of extensionless resource paths (see tools/ notes).
+# Texture ids = murmur64 of extensionless resource paths.
 # Globadier channels: texture_map_02af90f8=diffuse, 27b67fd2=emissive (donor's
 # black map kept - its residency comes from the chr_third_person_mesh package
 # loaded in doomrocket.lua), 8bf37d8e=normal+gloss-in-alpha. Variable C985395A
@@ -71,10 +80,10 @@ $opaque = @(
     @{ Name = "wb_skin";     Df = "B42E3663823A42B7"; Nm = "643B3C4BBA851928" }  # flat nm
 )
 foreach ($mat in $opaque) {
-    Write-Host "[splice] payload $($mat.Name) (globadier opaque donor)"
+    Write-Host "[splice] payload $($mat.Name)_child (globadier opaque donor)"
     Invoke-Py @($makeTool,
         "--extracted", $globadierPayload,
-        "--resource", "materials/warlock_bombardier/$($mat.Name)",
+        "--resource", "child_materials/warlock_bombardier/$($mat.Name)_child",
         "--expect-size", "768", "--expect-parent", "3D25339231384C80",
         "--map", "DD74D8319F514D96=$($mat.Df)",
         "--map", "E334A8CB6BCB5E6D=$($mat.Nm)",
@@ -82,13 +91,13 @@ foreach ($mat in $opaque) {
         "--expect-texture", "texture_map_02af90f8=$($mat.Df)",
         "--expect-texture", "texture_map_27b67fd2=45FFAEEF53695A86",
         "--expect-texture", "texture_map_8bf37d8e=$($mat.Nm)",
-        "--out", (Join-Path $buildDir "$($mat.Name).payload"))
+        "--out", (Join-Path $buildDir "$($mat.Name)_child.payload"))
 }
 
-Write-Host "[splice] payload wb_whiskers (laurel alpha-card donor)"
+Write-Host "[splice] payload wb_whiskers_child (laurel alpha-card donor)"
 Invoke-Py @($makeTool,
     "--extracted", $laurelPayload,
-    "--resource", "materials/warlock_bombardier/wb_whiskers",
+    "--resource", "child_materials/warlock_bombardier/wb_whiskers_child",
     "--expect-size", "128", "--expect-parent", "F85B289742D5D69A",
     "--map", "C9CF19C214612D75=C02CF6B03A57BA9A",
     "--map", "CDA03B9B0226037A=643B3C4BBA851928",
@@ -96,26 +105,25 @@ Invoke-Py @($makeTool,
     "--expect-texture", "texture_map_c0ba2942=C02CF6B03A57BA9A",
     "--expect-texture", "texture_map_59cd86b9=643B3C4BBA851928",
     "--expect-texture", "texture_map_b788717c=3784C666E3B8724B",
-    "--out", (Join-Path $buildDir "wb_whiskers.payload"))
+    "--out", (Join-Path $buildDir "wb_whiskers_child.payload"))
 
 # Fur keeps every donor texture id: the donor references the exact vanilla fur
-# maps this design wants, and the ratling-gunner breed package (force-loaded
-# "global" in doomrocket.lua) keeps them resident. Self-map = validated no-op.
-Write-Host "[splice] payload wb_fur (native skaven fur donor, unpatched)"
+# maps this design wants; skaven levels keep them resident. Self-map = no-op.
+Write-Host "[splice] payload wb_fur_child (native skaven fur donor, unpatched)"
 Invoke-Py @($makeTool,
     "--extracted", $furPayload,
-    "--resource", "materials/warlock_bombardier/wb_fur",
+    "--resource", "child_materials/warlock_bombardier/wb_fur_child",
     "--expect-size", "256", "--expect-parent", "7B55B884FAFA2B12",
     "--map", "1916CFCA6ED85BFD=1916CFCA6ED85BFD",
     "--expect-texture", "texture_map_5e198820=1916CFCA6ED85BFD",
-    "--out", (Join-Path $buildDir "wb_fur.payload"))
+    "--out", (Join-Path $buildDir "wb_fur_child.payload"))
 
 # --- 3. Splice each payload into exactly one built bundle ------------------
 
 $materials = @("wb_armor", "wb_backpack", "wb_skin", "wb_whiskers", "wb_fur")
 foreach ($mat in $materials) {
-    $payload = Join-Path $buildDir "$mat.payload"
-    $resource = "materials/warlock_bombardier/$mat"
+    $payload = Join-Path $buildDir "${mat}_child.payload"
+    $resource = "child_materials/warlock_bombardier/${mat}_child"
     $splicedInto = @()
     foreach ($bundleFile in (Get-ChildItem -LiteralPath $bundleRoot -Filter *.mod_bundle -File)) {
         & py -3 $spliceTool $bundleFile.FullName --type material --name $resource --payload $payload --dry-run *> $null
@@ -131,4 +139,4 @@ foreach ($mat in $materials) {
     Write-Host "[splice] $resource -> $($splicedInto[0])"
 }
 
-Write-Host "[splice] OK - 5 warlock materials now carry game child bindings"
+Write-Host "[splice] OK - 5 warlock child materials carry game bindings"

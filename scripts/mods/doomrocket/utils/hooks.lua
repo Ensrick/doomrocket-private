@@ -234,6 +234,55 @@ mod:hook(Unit, "animation_event", function(func, unit, event, ...)
 end)
 
 
+-- Runtime material swap for the warlock body (Pusfume native contract).
+-- The five boot-package wb_* materials are SDK compiles, which the engine can
+-- only render RIGID and dark: the mod SDK never emits the character-skinning
+-- shader permutation (vt2-pusfume issue #6). The real bindings are game child
+-- payloads spliced over child_materials/warlock_bombardier/wb_*_child, which
+-- ride in a separate NON-boot package (boot-flushing a spliced child crashes
+-- the engine at PatchedResourcePackage::flush - v0.1.16). Swap every slot once
+-- both packages are resident; the hook runs per spawn, so a miss self-heals
+-- on the next bombardier.
+local WARLOCK_DONOR_PACKAGE = "units/beings/player/dark_pact_skins/skaven_wind_globadier/skin_1001/third_person/chr_third_person_mesh"
+local WARLOCK_CHILD_PACKAGE = "resource_packages/doomrocket/warlock_child"
+local WARLOCK_SLOT_MATERIALS = {
+	DoomRocket_Armor = "child_materials/warlock_bombardier/wb_armor_child",
+	DoomRocket_Backpack = "child_materials/warlock_bombardier/wb_backpack_child",
+	wb_skin = "child_materials/warlock_bombardier/wb_skin_child",
+	wb_fur = "child_materials/warlock_bombardier/wb_fur_child",
+	wb_whiskers = "child_materials/warlock_bombardier/wb_whiskers_child",
+}
+local warlock_child_package_requested = false
+
+mod._apply_warlock_child_materials = function(outfit_unit)
+	if not Managers.package:has_loaded(WARLOCK_DONOR_PACKAGE, "global") then
+		printf("[doomrocket] warlock materials skipped: globadier donor package not resident yet")
+		return
+	end
+
+	if not mod.load_package or not mod.package_status then
+		printf("[doomrocket] warlock materials skipped: VMF package API unavailable")
+		return
+	end
+
+	if not warlock_child_package_requested then
+		warlock_child_package_requested = true
+		mod:load_package(WARLOCK_CHILD_PACKAGE, nil, true)
+	end
+
+	if mod:package_status(WARLOCK_CHILD_PACKAGE) ~= "loaded" then
+		printf("[doomrocket] warlock materials skipped: child package status %s",
+			tostring(mod:package_status(WARLOCK_CHILD_PACKAGE)))
+		return
+	end
+
+	for slot_name, material_path in pairs(WARLOCK_SLOT_MATERIALS) do
+		Unit.set_material(outfit_unit, slot_name, material_path)
+	end
+
+	printf("[doomrocket] warlock child materials applied (5 slots)")
+end
+
 mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, unit, start_n, inventory_configuration, item_extension_init_data)
 	-- Prune the armor bridge to nodes the OWNER actually has, BEFORE vanilla links.
 	--
@@ -265,6 +314,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				-- overlay branch above does.
 				Unit.disable_animation_state_machine(outfit_unit)
 				wearing_warlock_body = true
+				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
 				Unit.set_material(outfit_unit, 'lambert1', "     GvOtsyNy1'")
 			end
