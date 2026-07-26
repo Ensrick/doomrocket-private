@@ -421,16 +421,16 @@ AttachmentNodeLinking.doomrocket_warlock_root = {
 }
 
 -- Crunch's Warlock Bombardier body (body, fur, armor, backpack on one rig).
--- The rig was authored to FIT the gun rat's existing animation set, so the
--- 91-node bridge drives it bone-for-bone from the donor rat playing vanilla
--- ratling animations. The v0.1.18-0.1.20 stick figure was NOT the bridge: the
--- unit was missing Unit.set_animation_bone_mode("transform") +
--- Unit.set_bones_lod(0) (see hooks.lua), without which a DCC-compiled unit's
--- skin never reads linked scene-graph bone transforms.
+-- ROOT link only: v0.1.23 falsified per-bone driving for good - this
+-- DCC-compiled unit's skin follows only its OWN animation system (v0.1.22
+-- proved that path deforms correctly), never scene-graph links, even with
+-- "transform" bone mode + LOD 0 set. The gun rat animation set the rig was
+-- authored for is delivered instead by swapping the unit onto the vanilla
+-- ratling state machine and mirroring the rat's anim events (hooks.lua).
 local bombadier_curiass = {
 	unit_extension_template = "ai_outfit_unit",
     unit_name = "units/warlock_bombardier/warlock_bombardier_3p",
-	attachment_node_linking = AttachmentNodeLinking.doomrocket_armor,
+	attachment_node_linking = AttachmentNodeLinking.doomrocket_warlock_root,
     drop_reasons = {
         death = false,
     },

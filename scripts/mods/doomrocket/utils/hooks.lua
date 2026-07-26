@@ -212,25 +212,53 @@ local set_animation_state_machine = Unit.set_animation_state_machine
 local has_animation_event = Unit.has_animation_event
 local unit_get_data = Unit.get_data
 
-mod:hook(Unit, "animation_event", function(func, unit, event, ...)
-	-- disabled until animations are done
-    -- local breed = unit_get_data(unit, "breed")
-	-- if breed then
-	-- 	if breed.name == "skaven_doomrocket" then
-	-- 		local swap_tisch = alt_events[event]
-	-- 		if swap_tisch then
-	-- 			set_animation_state_machine(unit, swap_tisch.machine)
-	-- 			event = swap_tisch.event
-	-- 			if mod.anim_emitters[unit] then
-	-- 				mod.anim_emitters[unit]:update_animation(unit, event)
-	-- 			end
-	-- 		elseif not has_animation_event(unit, event) then
-	-- 			set_animation_state_machine(unit, "units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
-	-- 		end
-	-- 	end
-	-- end
+-- Doomrocket owner unit -> warlock outfit unit riding it (weak: entries die
+-- with the units). Registered when the outfit is swapped onto the ratling
+-- state machine in the _setup_configuration hook below.
+mod._warlock_outfits = mod._warlock_outfits or setmetatable({}, { __mode = "kv" })
 
-    return func(unit, event, ...)
+mod:hook(Unit, "animation_event", function(func, unit, event, ...)
+	-- Replay the donor rat's animation events on the warlock body so it plays
+	-- the same vanilla ratling clips in lockstep (the rig was authored to fit
+	-- the gun rat's animation set). Events the outfit's state machine lacks
+	-- are skipped, so this stays safe if the vocabularies ever diverge.
+	local outfit = mod._warlock_outfits[unit]
+
+	if outfit then
+		if Unit.alive(outfit) then
+			if has_animation_event(outfit, event) then
+				func(outfit, event, ...)
+			end
+		else
+			mod._warlock_outfits[unit] = nil
+		end
+	end
+
+	return func(unit, event, ...)
+end)
+
+-- Locomotion blend speeds and aim come through animation variables and
+-- constraint targets, not events. The outfit runs the IDENTICAL ratling state
+-- machine, so raw variable/constraint indices are layout-compatible; pcall
+-- guards the mirror in case the outfit fell back to its own idle machine.
+mod:hook(Unit, "animation_set_variable", function(func, unit, index, value, ...)
+	local outfit = mod._warlock_outfits[unit]
+
+	if outfit and Unit.alive(outfit) then
+		pcall(func, outfit, index, value, ...)
+	end
+
+	return func(unit, index, value, ...)
+end)
+
+mod:hook(Unit, "animation_set_constraint_target", function(func, unit, index, value, ...)
+	local outfit = mod._warlock_outfits[unit]
+
+	if outfit and Unit.alive(outfit) then
+		pcall(func, outfit, index, value, ...)
+	end
+
+	return func(unit, index, value, ...)
 end)
 
 
@@ -307,18 +335,29 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 			if outfit_unit_name == "units/beings/enemies/skaven_plague_monk/chr_skaven_plague_monk" then
 				Unit.disable_animation_state_machine(outfit_unit)
 			elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then
-				-- The rig fits the gun rat's animation set, so the 91-node bridge drives
-				-- it bone-for-bone from the donor rat playing VANILLA animations. Two
-				-- engine calls make a DCC-compiled unit's skin read the linked
-				-- scene-graph bone transforms ("transform" bone mode + bone LOD 0,
-				-- from Pusfume _pusfume_native.lua:1364-1383 - their absence, not the
-				-- bridge, was the v0.1.18-0.1.20 stick figure). The unit's own ASM is
-				-- disabled exactly as the plague-monk overlay branch above: links must
-				-- win, its baked idle exists only to compile the animated activation
-				-- group.
+				-- This DCC-compiled unit's skin follows only its OWN animation system
+				-- (v0.1.22 proved that path; v0.1.18-20 and v0.1.23 falsified
+				-- scene-graph link driving with and without "transform" bone mode).
+				-- The rig was authored to fit the gun rat's animation set, so: swap
+				-- the unit onto the VANILLA ratling state machine (name-matched
+				-- skeleton; clips resolve from the force-loaded ratling breed
+				-- package) and let the Unit.animation_event mirror below replay the
+				-- donor rat's events on it. Falls back to the unit's own baked idle
+				-- SM if the swap is rejected.
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
-				Unit.disable_animation_state_machine(outfit_unit)
+				local swapped = pcall(set_animation_state_machine, outfit_unit,
+					"units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
+				Unit.enable_animation_state_machine(outfit_unit)
+				if swapped then
+					mod._warlock_outfits[unit] = outfit_unit
+					printf("[doomrocket] warlock outfit on ratling state machine; mirroring anim events")
+				else
+					printf("[doomrocket] ratling state machine swap REJECTED; falling back to own idle")
+					if Unit.has_animation_event(outfit_unit, "idle") then
+						Unit.animation_event(outfit_unit, "idle")
+					end
+				end
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
