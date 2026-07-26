@@ -1,9 +1,8 @@
-animation_state_machine = "units/bombadier/bombadier"
+animation_state_machine = "units/warlock_bombardier/warlock_bombardier_3p"
 materials = {
     DoomRocket_Armor = "materials/warlock_bombardier/wb_armor"
     DoomRocket_Backpack = "materials/warlock_bombardier/wb_backpack"
     wb_skin = "materials/warlock_bombardier/wb_skin"
-    wb_outfit = "materials/warlock_bombardier/wb_outfit"
     wb_fur = "materials/warlock_bombardier/wb_fur"
     wb_whiskers = "materials/warlock_bombardier/wb_whiskers"
 }

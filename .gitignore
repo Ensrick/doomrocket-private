@@ -1,3 +1,5 @@
 *.mod_bundle
 bundleV2/*
 *.processed
+# game-derived splice payloads - never commit (publication boundary)
+.build/

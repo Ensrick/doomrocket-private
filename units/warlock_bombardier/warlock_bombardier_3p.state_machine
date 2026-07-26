@@ -1,0 +1,30 @@
+events = {
+    enable = {}
+    idle = {}
+}
+layers = [
+    {
+        default_state = "base/idle"
+        states = [
+            {
+                animations = [
+                    "units/warlock_bombardier/anims/warlock_idle"
+                ]
+                loop_animation = true
+                name = "base/idle"
+                randomization_type = "every_loop"
+                root_driving = "ignore"
+                speed = "1"
+                state_type = "regular"
+                transitions = [
+                ]
+                weights = [
+                    "1.0"
+                ]
+            }
+        ]
+    }
+]
+ragdolls = {}
+variables = {}
+bones = "units/warlock_bombardier/warlock_bombardier_3p"
