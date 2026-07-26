@@ -271,11 +271,11 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 		end
 	end
 
-	-- DISABLED. Crunch's set is armor + backpack ONLY: there is no body/flesh mesh in it,
-	-- so it is an overlay worn on the donor exactly like the plague-monk cuirass it
-	-- replaced. Hiding the donor removed the rat that is supposed to wear it and left
-	-- armor floating in empty space. The donor body must stay visible.
-	if false and wearing_warlock_body and Unit.alive(unit) then
+	-- Crunch's unit now ships all five meshes (body, fur, vanilla armor, warlock armor,
+	-- backpack), so the donor must not also draw. (An earlier `if false` here - staged
+	-- when the set was believed body-less, then never reverted - shipped in v0.1.13 and
+	-- resurrected the donor rat.)
+	if wearing_warlock_body and Unit.alive(unit) then
 		-- Hide the donor body's renderables only. Do NOT use Unit.set_unit_visibility on
 		-- the owner: the outfit is linked to the owner's scene-graph nodes and driven by
 		-- the owner's animation, so the base unit must keep animating even though nothing
