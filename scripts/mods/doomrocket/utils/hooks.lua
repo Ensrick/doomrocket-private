@@ -258,9 +258,12 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 			if outfit_unit_name == "units/beings/enemies/skaven_plague_monk/chr_skaven_plague_monk" then
 				Unit.disable_animation_state_machine(outfit_unit)
 			elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then
-				-- Crunch's model is a FULL BODY, not a cuirass overlay like the plague-monk
-				-- placeholder it replaced. The base ratling gunner therefore still renders
-				-- inside it, which is the vanilla black-rat/stormvermin body still showing.
+				-- Crunch's model is a FULL BODY (body + fur + armor + backpack on one rig),
+				-- so the donor rat must not also draw. The unit borrows the bombadier state
+				-- machine purely so the engine instantiates a skeleton and evaluates the
+				-- skin; links must drive the pose, so disable it exactly as the plague-monk
+				-- overlay branch above does.
+				Unit.disable_animation_state_machine(outfit_unit)
 				wearing_warlock_body = true
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
 				Unit.set_material(outfit_unit, 'lambert1', "     GvOtsyNy1'")
@@ -268,7 +271,11 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 		end
 	end
 
-	if wearing_warlock_body and Unit.alive(unit) then
+	-- DISABLED. Crunch's set is armor + backpack ONLY: there is no body/flesh mesh in it,
+	-- so it is an overlay worn on the donor exactly like the plague-monk cuirass it
+	-- replaced. Hiding the donor removed the rat that is supposed to wear it and left
+	-- armor floating in empty space. The donor body must stay visible.
+	if false and wearing_warlock_body and Unit.alive(unit) then
 		-- Hide the donor body's renderables only. Do NOT use Unit.set_unit_visibility on
 		-- the owner: the outfit is linked to the owner's scene-graph nodes and driven by
 		-- the owner's animation, so the base unit must keep animating even though nothing
