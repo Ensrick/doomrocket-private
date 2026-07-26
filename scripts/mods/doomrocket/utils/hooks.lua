@@ -152,7 +152,6 @@ mod:hook(UnitSpawner, "create_unit_extensions", function(func, self, world, unit
 		if extension_init_data.locomotion_system then
 			if extension_init_data.locomotion_system.breed then
 				if extension_init_data.locomotion_system.breed.name == "skaven_doomrocket" then
-					mod:echo(extension_init_data.locomotion_system.breed.name)
 					if Unit.alive(unit) then
 						for animaiton_event, details in pairs(new_animations) do
 							Unit.set_data(unit, animaiton_event, "timing", details.timing)

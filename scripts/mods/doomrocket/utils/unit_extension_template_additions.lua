@@ -88,7 +88,13 @@ local function normalize(unit_templates, template_name)
 			end
 		end
 
-		template_data[extension_table_name] = extension_list
+		-- Deliberately do NOT write extension_list back onto template_data. Vanilla only
+		-- stores the count here, appending in place when the list already exists. Assigning
+		-- it turned the absent self_owned_extensions_server / husk_extensions_server fields
+		-- into EMPTY tables, and get_extensions branches on
+		-- `is_server and template.self_owned_extensions_server` -- an empty table is truthy
+		-- in Lua, so the host picked that branch and built the unit with ZERO extensions.
+		-- The unit then had no ai_system and the go initializer nil-indexed on every spawn.
 		template_data["num_" .. extension_table_name] = extension_list_n
 	end
 
@@ -110,7 +116,18 @@ end
 return function (unit_templates)
 	for template_name, template_data in pairs(additions) do
 		if not unit_templates[template_name] then
-			unit_templates[template_name] = table.clone(template_data)
+			-- Deep-copy the extension arrays: table.clone is shallow, and normalize appends
+			-- the inherited base_template entries in place, which would otherwise mutate the
+			-- shared `additions` arrays and duplicate on a second merge.
+			local copy = table.clone(template_data)
+
+			for _, extension_table_name in ipairs(extension_table_names) do
+				if template_data[extension_table_name] then
+					copy[extension_table_name] = table.clone(template_data[extension_table_name])
+				end
+			end
+
+			unit_templates[template_name] = copy
 
 			normalize(unit_templates, template_name)
 		end
