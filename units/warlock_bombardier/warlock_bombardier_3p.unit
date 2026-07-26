@@ -1,0 +1,15 @@
+materials = {
+    DoomRocket_Armor = "materials/warlock_bombardier/wb_armor"
+    DoomRocket_Backpack = "materials/warlock_bombardier/wb_backpack"
+}
+renderables = {
+    SM_Skaven_WarlockBombardier_Armor = {
+        always_keep = false
+        culling = "bounding_volume"
+        generate_uv_unwrap = false
+        occluder = false
+        shadow_caster = true
+        surface_queries = false
+        viewport_visible = true
+    }
+}

@@ -389,9 +389,16 @@ local bombadier_pack_1 = {
     },
 }
 
+-- Janfon's Warlock Bombardier body (armor + backpack joined, two material slots).
+-- Was pointed at the vanilla plague monk as a stand-in and left disabled below.
+--
+-- The mesh is skinned to a 138-bone rig that matches this breed's base skeleton on
+-- 138 of 139 bones (only the non-deform `camera_attach` is absent), and every one of
+-- the 77 source nodes named in AttachmentNodeLinking.doomrocket_armor exists in it,
+-- so the existing bridge drives it unmodified.
 local bombadier_curiass = {
 	unit_extension_template = "ai_outfit_unit",
-    unit_name = "units/beings/enemies/skaven_plague_monk/chr_skaven_plague_monk",
+    unit_name = "units/warlock_bombardier/warlock_bombardier_3p",
 	attachment_node_linking = AttachmentNodeLinking.doomrocket_armor,
     drop_reasons = {
         death = false,
@@ -420,14 +427,12 @@ InventoryConfigurations['doomrocket_inventory'] = {
     enemy_hit_sound = "bullet",
 	anim_state_event = "idle",
 	items = {
-		bombadier_pack,
-        -- bombadier_armor,
-        -- bloodletter_heads,
+        -- bombadier_armor is the real body now, so the separate placeholder pack is
+        -- retired: the new mesh carries its own backpack as a second material slot.
+        bombadier_armor,
         rocket_glaives,
-        -- bloodletter_outfits,
-        
 	},
-    items_n = 3
+    items_n = 2
 }
 
 InventoryConfigurations['warlock_engineer'] = {
