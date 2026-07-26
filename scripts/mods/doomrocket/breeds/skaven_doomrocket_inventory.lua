@@ -410,7 +410,7 @@ local bombadier_pack_1 = {
     },
 }
 
--- Janfon's Warlock Bombardier body (armor + backpack joined, two material slots).
+-- Crunch's Warlock Bombardier body (armor + backpack joined, two material slots).
 -- Was pointed at the vanilla plague monk as a stand-in and left disabled below.
 --
 -- The mesh is skinned to a 138-bone rig that matches this breed's base skeleton on
