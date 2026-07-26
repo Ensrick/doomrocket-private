@@ -410,17 +410,25 @@ local bombadier_pack_1 = {
     },
 }
 
--- Crunch's Warlock Bombardier body (armor + backpack joined, two material slots).
--- Was pointed at the vanilla plague monk as a stand-in and left disabled below.
---
--- The mesh is skinned to a 138-bone rig that matches this breed's base skeleton on
--- 138 of 139 bones (only the non-deform `camera_attach` is absent), and every one of
--- the 77 source nodes named in AttachmentNodeLinking.doomrocket_armor exists in it,
--- so the existing bridge drives it unmodified.
+-- Pusfume-proven driving for a DCC-compiled custom character: ROOT link only;
+-- the unit's OWN state machine deforms it ("transform" bone mode + bones LOD 0
+-- + explicit idle event, see hooks.lua). Per-bone linking slaved Crunch's
+-- bones to the rat's rest pose, whose transforms disagree with this rig's
+-- bind matrices - the skin collapsed onto the skeleton (the v0.1.18-0.1.20
+-- "animated stick figure"). The 91-node doomrocket_armor bridge above is
+-- retired for this item but kept for reference/rollback.
+AttachmentNodeLinking.doomrocket_warlock_root = {
+    {
+        target = 0,
+        source = "root_point",
+    },
+}
+
+-- Crunch's Warlock Bombardier body (body, fur, armor, backpack on one rig).
 local bombadier_curiass = {
 	unit_extension_template = "ai_outfit_unit",
     unit_name = "units/warlock_bombardier/warlock_bombardier_3p",
-	attachment_node_linking = AttachmentNodeLinking.doomrocket_armor,
+	attachment_node_linking = AttachmentNodeLinking.doomrocket_warlock_root,
     drop_reasons = {
         death = false,
     },

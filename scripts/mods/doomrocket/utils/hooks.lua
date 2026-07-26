@@ -307,12 +307,20 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 			if outfit_unit_name == "units/beings/enemies/skaven_plague_monk/chr_skaven_plague_monk" then
 				Unit.disable_animation_state_machine(outfit_unit)
 			elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then
-				-- Crunch's model is a FULL BODY (body + fur + armor + backpack on one rig),
-				-- so the donor rat must not also draw. The unit borrows the bombadier state
-				-- machine purely so the engine instantiates a skeleton and evaluates the
-				-- skin; links must drive the pose, so disable it exactly as the plague-monk
-				-- overlay branch above does.
-				Unit.disable_animation_state_machine(outfit_unit)
+				-- Pusfume native driving contract (_pusfume_native.lua:1364-1383): a
+				-- DCC-compiled character deforms only when its OWN state machine drives
+				-- its animation bones - "transform" bone mode, bone LOD 0, ASM enabled,
+				-- idle entered EXPLICITLY (default_state alone is not sufficient).
+				-- Per-bone linking + disabled ASM (the plague-monk recipe) collapsed the
+				-- skin onto the skeleton: that recipe only works when overlay and owner
+				-- share a Fatshark rest pose. The item now root-links only.
+				Unit.set_animation_bone_mode(outfit_unit, "transform")
+				Unit.set_bones_lod(outfit_unit, 0)
+				Unit.enable_animation_state_machine(outfit_unit)
+				if Unit.has_animation_event(outfit_unit, "enable") then
+					Unit.animation_event(outfit_unit, "enable")
+				end
+				Unit.animation_event(outfit_unit, "idle")
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
