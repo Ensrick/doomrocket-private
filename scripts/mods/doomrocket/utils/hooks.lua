@@ -307,20 +307,18 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 			if outfit_unit_name == "units/beings/enemies/skaven_plague_monk/chr_skaven_plague_monk" then
 				Unit.disable_animation_state_machine(outfit_unit)
 			elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then
-				-- Pusfume native driving contract (_pusfume_native.lua:1364-1383): a
-				-- DCC-compiled character deforms only when its OWN state machine drives
-				-- its animation bones - "transform" bone mode, bone LOD 0, ASM enabled,
-				-- idle entered EXPLICITLY (default_state alone is not sufficient).
-				-- Per-bone linking + disabled ASM (the plague-monk recipe) collapsed the
-				-- skin onto the skeleton: that recipe only works when overlay and owner
-				-- share a Fatshark rest pose. The item now root-links only.
+				-- The rig fits the gun rat's animation set, so the 91-node bridge drives
+				-- it bone-for-bone from the donor rat playing VANILLA animations. Two
+				-- engine calls make a DCC-compiled unit's skin read the linked
+				-- scene-graph bone transforms ("transform" bone mode + bone LOD 0,
+				-- from Pusfume _pusfume_native.lua:1364-1383 - their absence, not the
+				-- bridge, was the v0.1.18-0.1.20 stick figure). The unit's own ASM is
+				-- disabled exactly as the plague-monk overlay branch above: links must
+				-- win, its baked idle exists only to compile the animated activation
+				-- group.
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
-				Unit.enable_animation_state_machine(outfit_unit)
-				if Unit.has_animation_event(outfit_unit, "enable") then
-					Unit.animation_event(outfit_unit, "enable")
-				end
-				Unit.animation_event(outfit_unit, "idle")
+				Unit.disable_animation_state_machine(outfit_unit)
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
