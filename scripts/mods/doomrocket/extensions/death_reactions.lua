@@ -397,7 +397,7 @@ local function trigger_player_killing_blow_ai_buffs(ai_unit, killing_blow)
 			local buff_extension = ScriptUnit.has_extension(unit, "buff_system")
 
 			if buff_extension then
-				buff_extension:trigger_procs("on_ping_target_killed", killing_blow, breed_killed)
+				buff_extension:trigger_procs("on_pingable_target_killed", killing_blow, breed_killed)
 			end
 		end
 	end

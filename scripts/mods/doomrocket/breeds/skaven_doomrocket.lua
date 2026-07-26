@@ -39,7 +39,29 @@ Breeds.skaven_doomrocket.behavior = "skaven_doomrocket"
 Breeds.skaven_doomrocket.threat_value = 7
 Breeds.skaven_doomrocket.rocket_capacity = 3
 Breeds.skaven_doomrocket.default_inventory_template = "doomrocket_inventory"
+-- Cloned from the ratling gunner, which points at unit_template "ai_unit_ratling_gunner".
+-- Without this override the game object is created with the ratling gunner's go_type, which
+-- is why the old code rewrote the shared template in place at spawn time. UnitSpawner reads
+-- unit_template_lut[breed.unit_template].go_type, and utils/unit_extension_template_additions.lua
+-- merges ai_unit_doomrocket into that table.
+Breeds.skaven_doomrocket.unit_template = "ai_unit_doomrocket"
 Breeds.skaven_doomrocket.death_reaction = "doomrocket"
+
+-- The bombardier unit carries its own state machine, which lacks the hit_reaction_*
+-- events; fall back to the ratling gunner machine so the reaction can play. Vanilla
+-- calls this from DamageUtils.add_hit_reaction, so no melee-path hook is needed.
+Breeds.skaven_doomrocket.hit_reaction_function = function (hit_unit, breed, hit_unit_dir, attack_direction, angle_difference)
+	local hit_anim = (angle_difference < -math.pi * 0.75 or angle_difference > math.pi * 0.75) and "hit_reaction_backward"
+		or angle_difference < -math.pi * 0.25 and "hit_reaction_left"
+		or angle_difference < math.pi * 0.25 and "hit_reaction_forward"
+		or "hit_reaction_right"
+
+	if not Unit.has_animation_event(hit_unit, hit_anim) then
+		Unit.set_animation_state_machine(hit_unit, "units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
+	end
+
+	return hit_anim
+end
 
 BreedActions.skaven_doomrocket = table.clone(BreedActions.skaven_ratling_gunner)
 BreedActions.skaven_doomrocket.fire_rocket = table.clone(BreedActions.skaven_doomrocket.shoot_ratling_gun)

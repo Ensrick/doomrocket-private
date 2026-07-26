@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.0-dev"
+local MOD_VERSION = "0.1.1-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -17,30 +17,16 @@ mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_interaction")
 mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_pickup")
 mod:dofile("scripts/mods/doomrocket/extensions/projectile_rocket")
 mod:dofile("scripts/mods/doomrocket/extensions/anim_emitter")
-local threat_values = {}
-
+-- Vanilla snapshots its threat_values table at boot, before this mod registers its breed,
+-- so an aggroed doomrocket used to hit `nil * amount` inside calculate_threat_value.
+--
+-- Register through vanilla's own setter rather than replacing calculate_threat_value with
+-- a private snapshot. That replacement closed over its own table, so every mutator that
+-- calls ConflictDirector.set_threat_value (elite_run, wave_of_plague_monks,
+-- chaos_warriors_trickle, wave_of_berzerkers) silently no-op'd, and any breed registered
+-- after this mod loaded still crashed.
 for breed_name, data in pairs(Breeds) do
-	threat_values[breed_name] = override_threat_value or data.threat_value or 0
-
-	if not data.threat_value then
-		ferror("missing threat in breed %s", breed_name)
-	end
-end
-ConflictDirector.calculate_threat_value = function (self)
-	local threat_value = 0
-	local i = 0
-	local activated_per_breed = Managers.state.performance:activated_per_breed()
-
-	for breed_name, amount in pairs(activated_per_breed) do
-		threat_value = threat_value + threat_values[breed_name] * amount
-		i = i + amount
-	end
-
-	self.delay_horde = self.delay_horde_threat_value < threat_value
-	self.delay_mini_patrol = self.delay_mini_patrol_threat_value < threat_value
-	self.delay_specials = self.delay_specials_threat_value < threat_value
-	self.threat_value = threat_value
-	self.num_aggroed = i
+	ConflictDirector.set_threat_value(nil, breed_name, data.threat_value or 0)
 end
 
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/generated/bt_selector_skaven_doomrocket")
@@ -176,8 +162,8 @@ for bt_name, bt_node in pairs(BreedBehaviors) do
 end
 
 local num_acitons = #NetworkLookup.bt_action_names
-NetworkLookup.bt_action_names["fire_rocket"] = num_acitons
-NetworkLookup.bt_action_names[num_acitons] = "fire_rocket"
+NetworkLookup.bt_action_names["fire_rocket"] = num_acitons + 1
+NetworkLookup.bt_action_names[num_acitons + 1] = "fire_rocket"
 
 local husk_num = #NetworkLookup.husks
 NetworkLookup.husks[husk_num + 1] = "units/rocket/SM_Rocket"
@@ -205,8 +191,11 @@ end
 
 mod:dofile("scripts/settings/breeds")
 
-
-mod:dofile("scripts/mods/doomrocket/utils/action_sweep_rewrite")
+-- utils/action_sweep_rewrite.lua (archived to _archive/) globally replaced
+-- ActionSweep._play_character_impact for every player and every melee weapon, purely to
+-- swap the bombardier's animation state machine on hit. Vanilla 6.11.3 extracted that
+-- path into DamageUtils.add_hit_reaction and added the breed.hit_reaction_function
+-- extension point, so that now lives on the breed itself. See breeds/skaven_doomrocket.lua.
 
 mod.doom = false
 mod:command("doom", "", function()

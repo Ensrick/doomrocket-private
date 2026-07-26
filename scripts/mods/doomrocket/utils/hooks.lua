@@ -91,65 +91,16 @@ for k,v in ipairs(new_breeds) do
     breeds_to_force_spawn[v] = v
 end
 
-mod:hook(ConflictDirector, "update_spawn_queue", function(func, self, t)
-	local enemy_package_loader = self.enemy_package_loader
-
-	enemy_package_loader:update_breeds_loading_status()
-
-	if self.spawn_queue_size == 0 then
-		return
+-- Vanilla 6.11.3 gates the spawn queue on EnemyPackageLoader:is_breed_loaded_on_all_peers.
+-- The old breed_loaded_on_all_peers table and update_breeds_loading_status() are both gone,
+-- so the previous full-body replacement of ConflictDirector.update_spawn_queue nil-called
+-- every spawn tick. Declaring our breeds loaded is all that replacement actually achieved.
+mod:hook("EnemyPackageLoader", "is_breed_loaded_on_all_peers", function(func, self, breed_name)
+	if breeds_to_force_spawn[breed_name] then
+		return true
 	end
 
-	local first_spawn_index = self.first_spawn_index
-	local spawn_queue = self.spawn_queue
-	local d = spawn_queue[first_spawn_index]
-	local breed = d[1]
-	local breed_name = breed.name
-
-	while not enemy_package_loader.breed_loaded_on_all_peers[breed_name] and (breed_name ~= breeds_to_force_spawn[breed_name]) do
-		first_spawn_index = first_spawn_index + 1
-
-		if first_spawn_index == self.first_spawn_index + self.spawn_queue_size then
-			return
-		end
-
-		d = spawn_queue[first_spawn_index]
-		breed = d[1]
-		breed_name = breed.name
-	end
-
-	local unit = not script_data.disable_breed_freeze_opt and self.breed_freezer:try_unfreeze_breed(breed, d)
-
-	if unit then
-		local breed = BLACKBOARDS[unit].breed
-		local go_id = Managers.state.unit_storage:go_id(unit)
-
-		self:_post_spawn_unit(unit, go_id, breed, d[2]:unbox(), d[4], d[5], d[7], d[6], d[10])
-	else
-		unit = self:_spawn_unit(d[1], d[2]:unbox(), d[3]:unbox(), d[4], d[5], d[6], d[7], d[8], d[10])
-	end
-
-	self.num_queued_spawn_by_breed[breed_name] = self.num_queued_spawn_by_breed[breed_name] - 1
-
-	local unit_data = d[9]
-
-	if unit_data then
-		unit_data[1] = unit
-	end
-
-	if first_spawn_index ~= self.first_spawn_index then
-		local swapee = self.spawn_queue[first_spawn_index]
-
-		self.spawn_queue[first_spawn_index] = self.spawn_queue[self.first_spawn_index]
-		self.spawn_queue[self.first_spawn_index] = swapee
-	end
-
-	self.spawn_queue_size = self.spawn_queue_size - 1
-	self.first_spawn_index = self.first_spawn_index + 1
-
-	if self.spawn_queue_size == 0 then
-		self.first_spawn_index = 1
-	end
+	return func(self, breed_name)
 end)
 
 
@@ -158,65 +109,32 @@ for i,breed in ipairs(new_breeds) do
     breed_to_breed_stats[breed] = "skaven_ratling_gunner"
 end
 --some reason have to hook whole stats function
-mod:hook(StatisticsDatabase,"modify_stat_by_amount", function (func, self, id, ...)
-    local stat = self.statistics[id]
-	local arg_n = select("#", ...)
+-- These two only ever existed to remap our custom breed onto the ratling gunner's
+-- stat path (there is no statistics entry for skaven_doomrocket). Vanilla 6.11.3
+-- rewrote both to go through self:_get_or_create_stat, so the old hand-rolled table
+-- walk nil-derefs on any not-yet-created path and its fallback corrupted the root
+-- stats node. Remap the arguments and let vanilla do the work.
+local function _remap_breed_args(...)
+	local n = select("#", ...)
+	local args = { ... }
 
-	for i = 1, arg_n - 1, 1 do
-		local arg_value = select(i, ...)
-        -- mod:echo(arg_value)
-        if breed_to_breed_stats[arg_value] then
-            arg_value = breed_to_breed_stats[arg_value]
-        end
-		stat = stat[arg_value]
+	for i = 1, n do
+		local mapped = breed_to_breed_stats[args[i]]
+
+		if mapped then
+			args[i] = mapped
+		end
 	end
 
+	return unpack(args, 1, n)
+end
 
-
-    if stat == nil then
-        stat = self.statistics[id]
-    end
-	local increment_value = select(arg_n, ...)
-	local old_value = stat.value or 0
-	stat.value = old_value + increment_value
-
-	if stat.persistent_value then
-		stat.dirty = increment_value ~= 0
-		stat.persistent_value = stat.persistent_value + increment_value
-	end
-
-	local event_manager = Managers.state.event
-
-	if event_manager then
-		event_manager:trigger("event_stat_modified_by", id, ...)
-	end
+mod:hook(StatisticsDatabase, "modify_stat_by_amount", function (func, self, id, ...)
+	return func(self, id, _remap_breed_args(...))
 end)
 
-mod:hook(StatisticsDatabase,"increment_stat", function (func, self, id, ...)
-    local stat = self.statistics[id]
-	local arg_n = select("#", ...)
-
-	for i = 1, arg_n, 1 do
-		local arg_value = select(i, ...)
-        -- mod:echo(arg_value)
-        if breed_to_breed_stats[arg_value] then
-            arg_value = breed_to_breed_stats[arg_value]
-        end
-		stat = stat[arg_value]
-	end
-
-	stat.value = stat.value + 1
-
-	if stat.persistent_value then
-		stat.dirty = true
-		stat.persistent_value = stat.persistent_value + 1
-	end
-
-	local event_manager = Managers.state.event
-
-	if event_manager then
-		event_manager:trigger("event_stat_incremented", id, ...)
-	end
+mod:hook(StatisticsDatabase, "increment_stat", function (func, self, id, ...)
+	return func(self, id, _remap_breed_args(...))
 end)
 
 
@@ -376,12 +294,24 @@ end)
 -- 	return
 -- end)
 
+-- Merge our two templates into the REAL vanilla table rather than swapping the whole
+-- file out for a stale copy. See utils/unit_extension_template_additions.lua.
+local apply_unit_extension_template_additions = dofile("scripts/mods/doomrocket/utils/unit_extension_template_additions")
+
 mod:hook(_G, 'require', function(func, file_name, ...)
-	if file_name == "scripts/network/unit_extension_templates" then
-		file_name = "scripts/mods/doomrocket/utils/unit_extension_templates"
+	local result = func(file_name, ...)
+
+	if file_name == "scripts/network/unit_extension_templates" and type(result) == "table" then
+		apply_unit_extension_template_additions(result)
 	end
-	return func(file_name, ...)
+
+	return result
 end)
+
+-- unit_spawner.lua and breed_freezer.lua capture this table at file scope during boot,
+-- before any mod loads, so the hook above would never reach those references. Merging
+-- once directly covers them whenever require returns a cached table. Idempotent.
+apply_unit_extension_template_additions(require("scripts/network/unit_extension_templates"))
 
 -- print(Network.config_hash('global'))
 

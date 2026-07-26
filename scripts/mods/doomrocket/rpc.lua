@@ -19,17 +19,15 @@ mod:network_register("rpc_launch_rocket", function(sender, go_id, network_veloci
 	Unit.set_mesh_visibility(ratling_gun_unit, "pRocket", false, "default")
 end)
 
-mod:hook(UnitSpawner, 'spawn_unit_from_game_object', function (func, self, go_id, owner_id, go_template)
-
-	if go_template then
-        if go_template.go_type == 'ai_unit_ratling_gunner' then
-            go_template.go_type = 'ai_unit_doomrocket'
-        end
-
-    end
-
-    return func(self, go_id, owner_id, go_template)
-end)
+-- The UnitSpawner.spawn_unit_from_game_object hook that used to live here rewrote
+-- go_template.go_type from 'ai_unit_ratling_gunner' to 'ai_unit_doomrocket' in place.
+-- That template table is shared vanilla state, so the write was permanent and converted
+-- every REAL ratling gunner in the session too (/doom adds bombardiers alongside ratling
+-- gunners, it does not replace them).
+--
+-- Breeds.skaven_doomrocket now carries unit_template = "ai_unit_doomrocket", so
+-- UnitSpawner.spawn_network_unit resolves the right go_type at creation time and no
+-- rewrite is needed. See breeds/skaven_doomrocket.lua.
 
 mod:network_register("rpc_reload_rocket", function(sender, rat_go_id)
 	print(sender)

@@ -29,8 +29,21 @@ end
 --     return func("scripts/mods/doomrocket/utils/doomrocket")
 -- end)
 
+-- Only our own go_types resolve against the mod's table; everything else falls through
+-- to vanilla. The mod's copy of game_object_templates is from 2024 and no longer has
+-- explosive_barrel_socket, dark_pact_horde_ability, or the current merged `objective`
+-- entry, so answering for every go_type nil-deref'd those objects for the whole lobby.
+local DOOMROCKET_GO_TYPES = {
+	ai_unit_doomrocket = true,
+	doomrocket_projectile = true,
+}
+
 mod:hook(GameNetworkManager, 'game_object_template',  function (old_func, self, go_type)
-    return game_object_templates[go_type]
+    if DOOMROCKET_GO_TYPES[go_type] then
+        return game_object_templates[go_type]
+    end
+
+    return old_func(self, go_type)
 end)
 
 -- Network.config_hash("scripts/mods/doomrocket/utils/doomrocket")
@@ -40,6 +53,11 @@ end)
 mod:hook(GameNetworkManager, 'game_object_created',  function (old_func, self, go_id, owner_id)
     local go_type_id = GameSession.game_object_field(self.game_session, go_id, "go_type")
 	local go_type = NetworkLookup.go_types[go_type_id]
+
+	if not DOOMROCKET_GO_TYPES[go_type] then
+		return old_func(self, go_id, owner_id)
+	end
+
 	local go_template = game_object_templates[go_type]
 	local go_created_func_name = go_template.game_object_created_func_name
 	local session_disconnect_func_name = go_template.game_session_disconnect_func_name
@@ -61,6 +79,11 @@ end)
 mod:hook(GameNetworkManager, 'game_object_destroyed',  function (old_func, self, go_id, owner_id)
     local go_type_id = GameSession.game_object_field(self.game_session, go_id, "go_type")
 	local go_type = NetworkLookup.go_types[go_type_id]
+
+	if not DOOMROCKET_GO_TYPES[go_type] then
+		return old_func(self, go_id, owner_id)
+	end
+
 	local go_template = game_object_templates[go_type]
 	local go_destroyed_func_name = go_template.game_object_destroyed_func_name
 	local go_destroyed_func = self[go_destroyed_func_name]
