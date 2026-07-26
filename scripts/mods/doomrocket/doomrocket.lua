@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.3-dev"
+local MOD_VERSION = "0.1.4-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -197,45 +197,25 @@ mod:dofile("scripts/settings/breeds")
 -- path into DamageUtils.add_hit_reaction and added the breed.hit_reaction_function
 -- extension point, so that now lives on the breed itself. See breeds/skaven_doomrocket.lua.
 
-mod.doom = false
-mod:command("doom", "", function()
-	if mod.doom then
-		for setting_name, settings in pairs(SpecialsSettings) do
-			if settings.breeds then
-				for index, breed_name in ipairs(settings.breeds) do
-					if breed_name == "skaven_doomrocket" then
-						settings.breeds[index] = nil
-					end
-				end
-			end
-			if settings.difficulty_overrides then
-				for diff, diff_settings in pairs(settings.difficulty_overrides) do
-					for index, breed_name in ipairs(diff_settings) do
-						if breed_name == "skaven_doomrocket" then
-							diff_settings.breeds[index] = nil
-						end
-					end
-				end
-			end
-		end
-		mod.doom = false
-	else
-		for setting_name, settings in pairs(SpecialsSettings) do
-			if settings.breeds then
-				settings.breeds[#settings.breeds + 1] = "skaven_doomrocket"
-			end
-			if settings.difficulty_overrides then
-				for diff, diff_settings in pairs(settings.difficulty_overrides) do
-					if diff_settings.breeds then
-						diff_settings.breeds[#diff_settings.breeds + 1] = "skaven_doomrocket"
-					end
-				end
-			end
-		end
-		mod.doom = true
+-- Bombardiers are enabled unconditionally; the old /doom chat command that toggled them
+-- is gone. The toggle-OFF path it provided was unsafe anyway: it nil'd entries out of the
+-- breeds arrays while iterating them, and specials pacing picks with
+-- breeds[Math.random(1, #breeds)], so a hole could hand it a nil breed.
+mod.doom = true
+
+for setting_name, settings in pairs(SpecialsSettings) do
+	if settings.breeds then
+		settings.breeds[#settings.breeds + 1] = "skaven_doomrocket"
 	end
-	mod:chat_broadcast("Doom:	"..tostring(mod.doom))
-end)
+
+	if settings.difficulty_overrides then
+		for diff, diff_settings in pairs(settings.difficulty_overrides) do
+			if diff_settings.breeds then
+				diff_settings.breeds[#diff_settings.breeds + 1] = "skaven_doomrocket"
+			end
+		end
+	end
+end
 
 mod:hook(ConflictDirector, 'refresh_conflict_director_patches', function (func, self)
 	local result = func(self)

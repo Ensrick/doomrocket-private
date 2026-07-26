@@ -39,12 +39,21 @@ Breeds.skaven_doomrocket.behavior = "skaven_doomrocket"
 Breeds.skaven_doomrocket.threat_value = 7
 Breeds.skaven_doomrocket.rocket_capacity = 3
 Breeds.skaven_doomrocket.default_inventory_template = "doomrocket_inventory"
--- Cloned from the ratling gunner, which points at unit_template "ai_unit_ratling_gunner".
--- Without this override the game object is created with the ratling gunner's go_type, which
--- is why the old code rewrote the shared template in place at spawn time. UnitSpawner reads
--- unit_template_lut[breed.unit_template].go_type, and utils/unit_extension_template_additions.lua
--- merges ai_unit_doomrocket into that table.
-Breeds.skaven_doomrocket.unit_template = "ai_unit_doomrocket"
+-- Deliberately NOT overriding unit_template. The clone keeps "ai_unit_ratling_gunner",
+-- whose go_type the ENGINE's compiled network config actually knows about.
+--
+-- Pointing this at "ai_unit_doomrocket" made UnitSpawner call
+-- GameSession.create_game_object with a go_type the engine has never heard of
+-- ("Unknown game object ai_unit_doomrocket"), so no game object was created, the unit
+-- got no id in unit_storage, and the first anim_event on it hard-asserted. A mod cannot
+-- add engine game object types without installing its own network config, which this mod
+-- does not do (the Network.config_hash hook is commented out).
+--
+-- Nothing is lost: vanilla's ai_unit_ratling_gunner template carries exactly the same
+-- extension set this mod's ai_unit_doomrocket entry did (AIInventoryExtension,
+-- GenericUnitAimExtension, PingTargetExtension over base ai_unit_base). The bombardier's
+-- identity comes from the breed's behavior tree, inventory and aim template, not from the
+-- extension list.
 Breeds.skaven_doomrocket.death_reaction = "doomrocket"
 
 -- The bombardier unit carries its own state machine, which lacks the hit_reaction_*
