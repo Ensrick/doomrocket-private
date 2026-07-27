@@ -153,23 +153,14 @@ mod:hook(UnitSpawner, "create_unit_extensions", function(func, self, world, unit
 			if extension_init_data.locomotion_system.breed then
 				if extension_init_data.locomotion_system.breed.name == "skaven_doomrocket" then
 					if Unit.alive(unit) then
-						-- The donor is the STORMVERMIN body, whose state machine has
-						-- no "aim_target" constraint - GenericUnitAimExtension init
-						-- asserts on Unit.animation_find_constraint_target (v0.1.32
-						-- crash). Swap onto the ratling gunner state machine BEFORE
-						-- extensions init: the constraint exists there, and the
-						-- donor plays gun-rat animations from spawn - Dalo's
-						-- composition (his alt_events code did this same
-						-- vanilla-to-vanilla swap lazily).
-						-- Fully qualified: the file's set_animation_state_machine
-						-- local is declared BELOW this hook, so the bare name here
-						-- resolves to a nil global (v0.1.33: every spawn attempt
-						-- errored, enemy_tweaker quarantined the director tick, and
-						-- the retry loop piled up bare idle-posed stormvermin).
-						Unit.set_animation_state_machine(unit,
-							"units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
-						printf("[doomrocket] donor on ratling state machine from spawn")
-
+						-- NO state-machine swap: the ratling machine's clips animate
+						-- gun bones the stormvermin skeleton lacks - binding it to
+						-- this donor is a raw native crash moments after spawn
+						-- (v0.1.34, no Error Context). Cross-skeleton SM binding is
+						-- dead in EVERY direction now: mod->vanilla (v0.1.24,
+						-- AnimationBlender assert) and vanilla->vanilla (v0.1.34).
+						-- The donor keeps its own stormvermin machine; gun-rat
+						-- clips require animations compiled against this skeleton.
 						for animaiton_event, details in pairs(new_animations) do
 							Unit.set_data(unit, animaiton_event, "timing", details.timing)
 							Unit.set_data(unit, animaiton_event, "emitted_event", details.emitted_event)
@@ -232,17 +223,17 @@ local unit_get_data = Unit.get_data
 mod._warlock_outfits = mod._warlock_outfits or setmetatable({}, { __mode = "kv" })
 
 mod:hook(Unit, "animation_event", function(func, unit, event, ...)
-	-- Dalo's alt_events design, revived: the doomrocket donor is a STORMVERMIN
-	-- body (v0.1.31) whose own state machine lacks the gun rat's event
-	-- vocabulary (attack_shoot_*, wind_up_*). When a missing event arrives,
-	-- hot-swap the donor onto the ratling gunner state machine - vanilla unit
-	-- to vanilla state machine, the swap his commented code shipped. The swap
-	-- is one-way and happens on the first gun-rat event.
+	-- The doomrocket donor is a STORMVERMIN body whose machine lacks the gun
+	-- rat's event vocabulary (attack_shoot_*, wind_up_*). DO NOT hot-swap it
+	-- onto the ratling machine: cross-skeleton state-machine binding is a raw
+	-- native crash (v0.1.34) - the clips animate bones this skeleton lacks.
+	-- Unknown events are swallowed instead; the visual for those actions stays
+	-- whatever the stormvermin machine is doing until clips compiled against
+	-- this skeleton exist.
 	local breed = unit_get_data(unit, "breed")
 
 	if breed and breed.name == "skaven_doomrocket" and not has_animation_event(unit, event) then
-		set_animation_state_machine(unit, "units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
-		printf("[doomrocket] donor swapped to ratling state machine (event %s)", tostring(event))
+		return
 	end
 
 	-- Mirror registry (self-ASM driving mode only; empty in bridge mode).
