@@ -153,6 +153,18 @@ mod:hook(UnitSpawner, "create_unit_extensions", function(func, self, world, unit
 			if extension_init_data.locomotion_system.breed then
 				if extension_init_data.locomotion_system.breed.name == "skaven_doomrocket" then
 					if Unit.alive(unit) then
+						-- The donor is the STORMVERMIN body, whose state machine has
+						-- no "aim_target" constraint - GenericUnitAimExtension init
+						-- asserts on Unit.animation_find_constraint_target (v0.1.32
+						-- crash). Swap onto the ratling gunner state machine BEFORE
+						-- extensions init: the constraint exists there, and the
+						-- donor plays gun-rat animations from spawn - Dalo's
+						-- composition (his alt_events code did this same
+						-- vanilla-to-vanilla swap lazily).
+						set_animation_state_machine(unit,
+							"units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
+						printf("[doomrocket] donor on ratling state machine from spawn")
+
 						for animaiton_event, details in pairs(new_animations) do
 							Unit.set_data(unit, animaiton_event, "timing", details.timing)
 							Unit.set_data(unit, animaiton_event, "emitted_event", details.emitted_event)
@@ -160,14 +172,11 @@ mod:hook(UnitSpawner, "create_unit_extensions", function(func, self, world, unit
 
 						mod.anim_emitters[unit] = AnimEmitter:new(unit, blackboard)
 
-						Unit.set_mesh_visibility(unit, 0, false, "default")--far tank LOD
-						Unit.set_mesh_visibility(unit, 4, false, "default") --far belt LOD
-						Unit.set_mesh_visibility(unit, 5, false, "default") -- medium tank LOD
-
-						Unit.set_mesh_visibility(unit, 9, false, "default") --medium belt LOD
-						Unit.set_mesh_visibility(unit, 11, false, "default")--close tank LOD gunner
-						Unit.set_mesh_visibility(unit, 12, false, "default")--close tank glow LOD gunner
-						Unit.set_mesh_visibility(unit, 16, false, "default")--close belt LOD gunner
+						-- The fixed-index hides that lived here targeted the RATLING
+						-- body's gun/tank/belt LOD meshes; on the stormvermin donor
+						-- those indices are arbitrary (and an out-of-range index is
+						-- an engine assert). The full donor hide runs at warlock
+						-- attach in the _setup_configuration hook below.
 					end
 				end
 			end
