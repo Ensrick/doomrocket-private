@@ -17,10 +17,11 @@ $unitDir = Join-Path $repoRoot "units\warlock_bombardier"
 foreach ($required in @(
         "warlock_bombardier_3p.fbx", "warlock_bombardier_3p.unit",
         "warlock_bombardier_3p.bones", "warlock_bombardier_3p.dcc_asset",
-        "warlock_bombardier_3p.state_machine",
-        "anims\warlock_idle.fbx", "anims\warlock_idle.animation")) {
+        "warlock_bombardier_3p.state_machine")) {
     Assert-True (Test-Path (Join-Path $unitDir $required)) "missing unit source: $required"
 }
+# Clip coverage is checked dynamically below: every animation the state
+# machine references must exist as .fbx + .animation.
 
 $unitText = Get-Content (Join-Path $unitDir "warlock_bombardier_3p.unit") -Raw
 Assert-True ($unitText -match 'animation_state_machine\s*=\s*"units/warlock_bombardier/warlock_bombardier_3p"') `
