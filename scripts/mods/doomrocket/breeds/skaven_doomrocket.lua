@@ -49,6 +49,13 @@ Breeds.skaven_doomrocket.default_inventory_template = "doomrocket_inventory"
 -- anim events arrive (hooks.lua, Dalo's alt_events design).
 Breeds.skaven_doomrocket.base_unit = "units/beings/enemies/skaven_stormvermin/chr_skaven_stormvermin"
 Breeds.skaven_doomrocket.opt_base_unit = "units/beings/enemies/skaven_stormvermin/chr_skaven_stormvermin_baked"
+-- Body-coupled breed tables name UNIT ACTORS, so they must match the
+-- stormvermin body, not the cloned ratling's (v0.1.31 crash: health-extension
+-- init failed against mismatched hit-zone actors, generic_hit_reaction then
+-- dereferenced a nil health_extension every update).
+Breeds.skaven_doomrocket.hit_zones = table.clone(Breeds.skaven_storm_vermin.hit_zones)
+Breeds.skaven_doomrocket.hitbox_ragdoll_translation = table.clone(Breeds.skaven_storm_vermin.hitbox_ragdoll_translation)
+Breeds.skaven_doomrocket.ragdoll_actor_thickness = table.clone(Breeds.skaven_storm_vermin.ragdoll_actor_thickness)
 -- Deliberately NOT overriding unit_template. The clone keeps "ai_unit_ratling_gunner",
 -- whose go_type the ENGINE's compiled network config actually knows about.
 --
