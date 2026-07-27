@@ -74,10 +74,18 @@ Assert-True ($hooks -notmatch '(?m)^\s*(?:local\s+swapped\s*=\s*)?(?:pcall\()?\s
 foreach ($call in @(
         'Unit\.set_animation_bone_mode\(outfit_unit,\s*"transform"\)',
         'Unit\.set_bones_lod\(outfit_unit,\s*0\)',
-        'Unit\.disable_animation_state_machine\(outfit_unit\)',
         'mod\._apply_warlock_child_materials\(outfit_unit\)')) {
     Assert-True ($hooks -match $call) "hooks.lua warlock branch missing required call: $call"
 }
+# Exactly one driving mode IN THE WARLOCK BRANCH (the plague monk branch also
+# calls disable, so scope the check): bridge (disable ASM, bridge linking, no
+# mirror registration) or self-ASM (enable + idle, root linking).
+$warlockBranchText = [regex]::Match($hooks, '(?s)elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then(.*?)\r?\n\s*elseif').Groups[1].Value
+Assert-True ($warlockBranchText.Length -gt 0) "could not extract the warlock branch from hooks.lua"
+$hasDisable = $warlockBranchText -match 'Unit\.disable_animation_state_machine\(outfit_unit\)'
+$hasEnable = $warlockBranchText -match 'Unit\.enable_animation_state_machine\(outfit_unit\)'
+Assert-True ($hasDisable -xor $hasEnable) `
+    "warlock branch must use exactly one driving mode (disable-ASM bridge or enable-ASM self-anim)"
 
 # v0.1.27: the unit compiles on Dalo's 97-bone skeleton; every bridge TARGET
 # must exist on the unit (missing target = uncatchable Unit.node fatal at
@@ -92,8 +100,16 @@ Assert-True ($whitelist.Count -eq $bonesList.Count) `
     "WARLOCK_UNIT_BONES count $($whitelist.Count) != .bones count $($bonesList.Count)"
 $diff = Compare-Object $whitelist $bonesList
 Assert-True (-not $diff) "WARLOCK_UNIT_BONES diverges from .bones: $(($diff | ForEach-Object InputObject) -join ', ')"
-Assert-True ($invText -match 'bombadier_curiass\.attachment_node_linking = AttachmentNodeLinking\.doomrocket_warlock_bridge') `
-    "warlock item must link through the filtered doomrocket_warlock_bridge"
+# Linking table must match the driving mode: bridge mode drives per-bone
+# through the filtered bridge; self-ASM mode must root-link only (per-bone
+# links would fight the enabled state machine).
+if ($hasDisable) {
+    Assert-True ($invText -match 'bombadier_curiass\.attachment_node_linking = AttachmentNodeLinking\.doomrocket_warlock_bridge') `
+        "bridge driving mode requires the filtered doomrocket_warlock_bridge linking"
+} else {
+    Assert-True ($invText -match 'bombadier_curiass\.attachment_node_linking = AttachmentNodeLinking\.doomrocket_warlock_root') `
+        "self-ASM driving mode requires root-only linking"
+}
 
 # v0.1.25 crash class: variable/constraint indices are only meaningful within
 # one compiled state machine; forwarding a raw index to a unit on a different

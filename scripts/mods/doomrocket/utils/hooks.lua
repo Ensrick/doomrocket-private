@@ -333,14 +333,18 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				-- Still true (v0.1.24 crash): NEVER point this unit at a vanilla
 				-- state machine - uncatchable AnimationBlender assert one frame
 				-- later.
+				-- v0.1.29 A/B: self-ASM idle on the Dalo-skeleton unit (root link
+				-- only) to isolate the v0.1.28 stretch - stretched in own idle =
+				-- compile-internal scale mismatch; correct = linking interaction.
+				-- Bridge mode for reference: set_animation_bone_mode "transform" +
+				-- set_bones_lod 0 + DISABLE ASM + NO mirror registration (v0.1.27
+				-- crash: events into a disabled ASM are engine asserts).
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
-				Unit.disable_animation_state_machine(outfit_unit)
-				-- NO mirror registration in bridge mode (v0.1.27 crash): firing an
-				-- animation event into a DISABLED state machine is an engine
-				-- assert, and vanilla _setup_configuration fires anim_state_event
-				-- "idle" on the rat during spawn. mod._warlock_outfits is only for
-				-- the enabled-own-SM driving mode.
+				Unit.enable_animation_state_machine(outfit_unit)
+				if Unit.has_animation_event(outfit_unit, "idle") then
+					Unit.animation_event(outfit_unit, "idle")
+				end
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then

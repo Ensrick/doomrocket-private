@@ -661,7 +661,12 @@ for i = 1, #AttachmentNodeLinking.doomrocket_armor do
     end
 end
 
-bombadier_curiass.attachment_node_linking = AttachmentNodeLinking.doomrocket_warlock_bridge
+-- v0.1.29 A/B: self-ASM driving on the Dalo-skeleton unit to isolate the
+-- v0.1.28 stretch. Root link only (links would fight the enabled ASM). If the
+-- model is stretched even in its own idle, the compile's mesh/skeleton scales
+-- disagree; if correct, the compile is sound and the stretch is a linking
+-- interaction. Bridge variant: doomrocket_warlock_bridge (kept current above).
+bombadier_curiass.attachment_node_linking = AttachmentNodeLinking.doomrocket_warlock_root
 -- Called from the AIInventoryExtension._setup_configuration hook before vanilla links.
 -- Runs once: Unit.node on a node the owner lacks is an uncatchable engine fatal, so any
 -- entry whose source is absent from the base skeleton is removed here instead.
