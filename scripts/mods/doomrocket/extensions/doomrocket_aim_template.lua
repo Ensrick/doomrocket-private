@@ -3,12 +3,11 @@ AimTemplates.doomrocket = {
 		init = function (unit, data)
 			local blackboard = BLACKBOARDS[unit]
 			data.blackboard = blackboard
-			-- No constraint lookup: the donor runs the STORMVERMIN state machine,
-			-- which has no "aim_target" constraint, and
-			-- Unit.animation_find_constraint_target on a machine without it is an
-			-- engine assert (v0.1.32 crash). Rocket aiming is blackboard-driven in
-			-- the BT launch action; the constraint only bent the spine visually.
-			data.constraint_target = nil
+			-- Ratling donor (v0.1.36): its machine HAS the aim_target constraint,
+			-- so the visual aim-bend is back. NEVER call
+			-- animation_find_constraint_target on a machine without the
+			-- constraint - engine assert (v0.1.32, stormvermin donor era).
+			data.constraint_target = Unit.animation_find_constraint_target(unit, "aim_target")
 		end,
 		update = function (unit, t, dt, data)
 			local unit_position = POSITION_LOOKUP[unit]
@@ -40,8 +39,8 @@ AimTemplates.doomrocket = {
 	},
 	husk = {
 		init = function (unit, data)
-			-- See owner.init: no aim constraint on the stormvermin machine.
-			data.constraint_target = nil
+			-- See owner.init: ratling machine carries the aim constraint.
+			data.constraint_target = Unit.animation_find_constraint_target(unit, "aim_target")
 		end,
 		update = function (unit, t, dt, data)
 			local game = Managers.state.network:game()

@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.35-dev"
+local MOD_VERSION = "0.1.36-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -10,9 +10,6 @@ printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 
 Managers.package:load("resource_packages/breeds/skaven_ratling_gunner", "global")
--- The donor body is the STORMVERMIN since v0.1.31 (Dalo's composition); its
--- unit + animation resources must be resident wherever a bombardier spawns.
-Managers.package:load("resource_packages/breeds/skaven_storm_vermin", "global")
 -- Managers.package:load("resource_packages/breeds/skaven_warpfire_thrower", "global")
 -- The warlock body's spliced armor/backpack/skin materials keep the Globadier
 -- donor child's auxiliary texture ids (black emissive + shared LUTs); this

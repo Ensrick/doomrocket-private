@@ -72,18 +72,38 @@ AttachmentNodeLinking.doomrocket_armor = {
         target = "j_spine",
         source = "j_spine",
     },
-    -- {
-    --     target = "j_leftupleg_scale",
-    --     source = "j_leftupleg_scale",
-    -- },
-    -- {
-    --     target = "j_rightupleg_scale",
-    --     source = "j_rightupleg_scale",
-    -- },
-    -- {
-    --     target = "j_spine_scale",
-    --     source = "j_spine_scale",
-    -- },
+    -- THE SIX SCALE BONES (v0.1.36). Stingray has no scale compensation:
+    -- vanilla sizes each skaven breed's proportions by ANIMATING dedicated
+    -- j_*_scale segments at the top of every limb/spine chain, and its own
+    -- skaven outfit table (ai_outfit_body_scale_w_tail,
+    -- attachment_node_linking.lua) links exactly these six. Dalo commented
+    -- three out and never listed the other three; unlinked scale bones hold
+    -- their spawn pose while the donor drives their parents, so every vertex
+    -- below diverges - the compounding limb stretch of v0.1.28/35.
+    {
+        target = "j_leftupleg_scale",
+        source = "j_leftupleg_scale",
+    },
+    {
+        target = "j_rightupleg_scale",
+        source = "j_rightupleg_scale",
+    },
+    {
+        target = "j_spine_scale",
+        source = "j_spine_scale",
+    },
+    {
+        target = "j_leftarm_scale",
+        source = "j_leftarm_scale",
+    },
+    {
+        target = "j_rightarm_scale",
+        source = "j_rightarm_scale",
+    },
+    {
+        target = "j_tail1_scale",
+        source = "j_tail1_scale",
+    },
     {
         target = "j_leftleg",
         source = "j_leftleg",
@@ -661,11 +681,9 @@ for i = 1, #AttachmentNodeLinking.doomrocket_armor do
     end
 end
 
--- v0.1.29 A/B: self-ASM driving on the Dalo-skeleton unit to isolate the
--- v0.1.28 stretch. Root link only (links would fight the enabled ASM). If the
--- model is stretched even in its own idle, the compile's mesh/skeleton scales
--- disagree; if correct, the compile is sound and the stretch is a linking
--- interaction. Bridge variant: doomrocket_warlock_bridge (kept current above).
+-- v0.1.36: bridge driving with the six scale-bone links active - the vanilla
+-- ai_outfit_body_scale_w_tail configuration. doomrocket_warlock_root above
+-- remains the self-ASM fallback table.
 bombadier_curiass.attachment_node_linking = AttachmentNodeLinking.doomrocket_warlock_bridge
 -- Called from the AIInventoryExtension._setup_configuration hook before vanilla links.
 -- Runs once: Unit.node on a node the owner lacks is an uncatchable engine fatal, so any
