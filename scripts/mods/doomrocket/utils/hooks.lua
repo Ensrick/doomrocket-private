@@ -322,24 +322,20 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 			if outfit_unit_name == "units/beings/enemies/skaven_plague_monk/chr_skaven_plague_monk" then
 				Unit.disable_animation_state_machine(outfit_unit)
 			elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then
-				-- This DCC-compiled unit's skin follows only its OWN animation system
-				-- (v0.1.22 proved that path; v0.1.18-20 and v0.1.23 falsified
-				-- scene-graph link driving with and without "transform" bone mode).
+				-- Since v0.1.27 the unit compiles on DALO's recovered vanilla
+				-- skeleton with vanilla asset conventions, so it is driven exactly
+				-- like the plague-monk overlay: per-bone bridge links from the
+				-- donor rat (playing vanilla ratling animations), own state machine
+				-- DISABLED so the links win. The v0.1.18-23 stick figures came from
+				-- compiling on Crunch's Blender-native armature, not from the
+				-- bridge. Bone mode + LOD set first, per the Pusfume contract.
 				--
-				-- NEVER point this unit at a vanilla state machine: the call succeeds
-				-- but the engine dies ~0.2s later in an UNCATCHABLE AnimationBlender
-				-- assert (v0.1.24 crash, Error Context "AnimationBlender Layer 0 /
-				-- LayerState 1") - vanilla compiled clips cannot bind to a
-				-- mod-compiled skeleton. Gun-rat animations must be compiled AGAINST
-				-- this skeleton as mod clips; as each lands in the unit's own state
-				-- machine under the ratling event name, the mirror hooks below start
-				-- driving it automatically.
+				-- Still true (v0.1.24 crash): NEVER point this unit at a vanilla
+				-- state machine - uncatchable AnimationBlender assert one frame
+				-- later.
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
-				Unit.enable_animation_state_machine(outfit_unit)
-				if Unit.has_animation_event(outfit_unit, "idle") then
-					Unit.animation_event(outfit_unit, "idle")
-				end
+				Unit.disable_animation_state_machine(outfit_unit)
 				mod._warlock_outfits[unit] = outfit_unit
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)

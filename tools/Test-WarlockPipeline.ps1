@@ -74,10 +74,26 @@ Assert-True ($hooks -notmatch '(?m)^\s*(?:local\s+swapped\s*=\s*)?(?:pcall\()?\s
 foreach ($call in @(
         'Unit\.set_animation_bone_mode\(outfit_unit,\s*"transform"\)',
         'Unit\.set_bones_lod\(outfit_unit,\s*0\)',
-        'Unit\.enable_animation_state_machine\(outfit_unit\)',
+        'Unit\.disable_animation_state_machine\(outfit_unit\)',
         'mod\._apply_warlock_child_materials\(outfit_unit\)')) {
     Assert-True ($hooks -match $call) "hooks.lua warlock branch missing required call: $call"
 }
+
+# v0.1.27: the unit compiles on Dalo's 97-bone skeleton; every bridge TARGET
+# must exist on the unit (missing target = uncatchable Unit.node fatal at
+# vanilla link time). The WARLOCK_UNIT_BONES whitelist in the inventory lua
+# must exactly match the shipped .bones list.
+$bonesText = Get-Content (Join-Path $unitDir "warlock_bombardier_3p.bones") -Raw
+$bonesList = [regex]::Matches($bonesText, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+$invText = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\breeds\skaven_doomrocket_inventory.lua") -Raw
+$whitelistBlock = [regex]::Match($invText, '(?s)local WARLOCK_UNIT_BONES = \{(.*?)\}').Groups[1].Value
+$whitelist = [regex]::Matches($whitelistBlock, '\["([^"]+)"\]') | ForEach-Object { $_.Groups[1].Value }
+Assert-True ($whitelist.Count -eq $bonesList.Count) `
+    "WARLOCK_UNIT_BONES count $($whitelist.Count) != .bones count $($bonesList.Count)"
+$diff = Compare-Object $whitelist $bonesList
+Assert-True (-not $diff) "WARLOCK_UNIT_BONES diverges from .bones: $(($diff | ForEach-Object InputObject) -join ', ')"
+Assert-True ($invText -match 'bombadier_curiass\.attachment_node_linking = AttachmentNodeLinking\.doomrocket_warlock_bridge') `
+    "warlock item must link through the filtered doomrocket_warlock_bridge"
 
 # v0.1.25 crash class: variable/constraint indices are only meaningful within
 # one compiled state machine; forwarding a raw index to a unit on a different

@@ -420,13 +420,14 @@ AttachmentNodeLinking.doomrocket_warlock_root = {
     },
 }
 
--- Crunch's Warlock Bombardier body (body, fur, armor, backpack on one rig).
--- ROOT link only: v0.1.23 falsified per-bone driving for good - this
--- DCC-compiled unit's skin follows only its OWN animation system (v0.1.22
--- proved that path deforms correctly), never scene-graph links, even with
--- "transform" bone mode + LOD 0 set. The gun rat animation set the rig was
--- authored for is delivered instead by swapping the unit onto the vanilla
--- ratling state machine and mirroring the rat's anim events (hooks.lua).
+-- Crunch's Warlock Bombardier body (body, fur, armor, backpack on one rig),
+-- compiled since v0.1.27 on DALO'S recovered vanilla skeleton
+-- (units/bombadier/bombadier.fbx: 97 bones, scale-100 armature, cm mesh data -
+-- the exact conventions of the vanilla units whose plague-monk precedent
+-- proves bridge-driven skinning). The v0.1.18-23 stick figures were compiled
+-- from Crunch's Blender-native armature instead; identical rest pose, but not
+-- Dalo's asset conventions. Linking is assigned below AFTER the filtered
+-- bridge is built (doomrocket_warlock_bridge).
 local bombadier_curiass = {
 	unit_extension_template = "ai_outfit_unit",
     unit_name = "units/warlock_bombardier/warlock_bombardier_3p",
@@ -544,6 +545,123 @@ for i = 1, #DOOMROCKET_EXTRA_ARMOR_NODES do
     }
 end
 
+
+-- The warlock unit now compiles on Dalo's recovered 97-bone vanilla skeleton
+-- (units/bombadier/bombadier.fbx) with Crunch's weights - the composition both
+-- authors intended. Bridge entries whose TARGET bone is absent from that unit
+-- are engine fatals at vanilla link time (the item side has no prune pass), so
+-- the item links through this filtered copy. Generated from
+-- warlock_bombardier_3p.bones - keep the two in sync (Test-WarlockPipeline).
+local WARLOCK_UNIT_BONES = {
+    ["j_hips"] = true,
+    ["j_tail1"] = true,
+    ["j_tail1_scale"] = true,
+    ["j_tail2"] = true,
+    ["j_tail3"] = true,
+    ["j_tail4"] = true,
+    ["j_tail5"] = true,
+    ["j_tail6"] = true,
+    ["j_spine"] = true,
+    ["j_spine_scale"] = true,
+    ["j_spine1"] = true,
+    ["j_rightshoulder"] = true,
+    ["j_rightarm"] = true,
+    ["j_rightarm_scale"] = true,
+    ["j_rightforearm"] = true,
+    ["j_righthand"] = true,
+    ["j_rightweaponattach"] = true,
+    ["j_rightweaponcomponent5"] = true,
+    ["j_rightinhandthumb"] = true,
+    ["j_righthandthumb1"] = true,
+    ["j_righthandthumb2"] = true,
+    ["j_righthandring1"] = true,
+    ["j_righthandring2"] = true,
+    ["j_righthandring3"] = true,
+    ["j_righthandpinky1"] = true,
+    ["j_righthandpinky2"] = true,
+    ["j_righthandpinky3"] = true,
+    ["j_righthandmiddle1"] = true,
+    ["j_righthandmiddle2"] = true,
+    ["j_righthandmiddle3"] = true,
+    ["j_righthandindex1"] = true,
+    ["j_righthandindex2"] = true,
+    ["j_righthandindex3"] = true,
+    ["j_rightforearmroll"] = true,
+    ["j_neck"] = true,
+    ["j_neck_1"] = true,
+    ["j_head"] = true,
+    ["j_righteyelidtop"] = true,
+    ["j_righteyelidbottom"] = true,
+    ["j_righteyebrow3"] = true,
+    ["j_righteyebrow2"] = true,
+    ["j_righteyebrow1"] = true,
+    ["j_rightear"] = true,
+    ["j_nose"] = true,
+    ["j_lip_upright"] = true,
+    ["j_lip_upleft"] = true,
+    ["j_lip_right"] = true,
+    ["j_lip_left"] = true,
+    ["j_lefteyelidtop"] = true,
+    ["j_lefteyelidbottom"] = true,
+    ["j_lefteyebrow3"] = true,
+    ["j_lefteyebrow2"] = true,
+    ["j_lefteyebrow1"] = true,
+    ["j_lefteye"] = true,
+    ["j_leftear"] = true,
+    ["3948aec9"] = true,
+    ["j_jaw"] = true,
+    ["j_lip_downright"] = true,
+    ["j_lip_downleft"] = true,
+    ["j_leftshoulder"] = true,
+    ["j_leftarm"] = true,
+    ["j_leftarm_scale"] = true,
+    ["j_leftforearm"] = true,
+    ["j_lefthand"] = true,
+    ["j_leftweaponattach"] = true,
+    ["65b081d2"] = true,
+    ["j_leftinhandthumb"] = true,
+    ["j_lefthandthumb1"] = true,
+    ["j_lefthandthumb2"] = true,
+    ["j_lefthandring1"] = true,
+    ["j_lefthandring2"] = true,
+    ["j_lefthandring3"] = true,
+    ["j_lefthandpinky1"] = true,
+    ["j_lefthandpinky2"] = true,
+    ["j_lefthandpinky3"] = true,
+    ["j_lefthandmiddle1"] = true,
+    ["j_lefthandmiddle2"] = true,
+    ["j_lefthandmiddle3"] = true,
+    ["j_lefthandindex1"] = true,
+    ["j_lefthandindex2"] = true,
+    ["j_lefthandindex3"] = true,
+    ["j_leftforearmroll"] = true,
+    ["j_backpack_parent"] = true,
+    ["0d7d6b49"] = true,
+    ["j_backpack"] = true,
+    ["j_rightupleg"] = true,
+    ["j_rightupleg_scale"] = true,
+    ["j_rightleg"] = true,
+    ["j_rightfoot"] = true,
+    ["j_righttoebase"] = true,
+    ["j_rightinfootindex"] = true,
+    ["j_leftupleg"] = true,
+    ["j_leftupleg_scale"] = true,
+    ["j_leftleg"] = true,
+    ["j_leftfoot"] = true,
+    ["j_lefttoebase"] = true,
+    ["j_leftinfootindex"] = true,
+}
+
+AttachmentNodeLinking.doomrocket_warlock_bridge = {}
+for i = 1, #AttachmentNodeLinking.doomrocket_armor do
+    local entry = AttachmentNodeLinking.doomrocket_armor[i]
+    if entry.target == 0 or WARLOCK_UNIT_BONES[entry.target] then
+        local bridge = AttachmentNodeLinking.doomrocket_warlock_bridge
+        bridge[#bridge + 1] = entry
+    end
+end
+
+bombadier_curiass.attachment_node_linking = AttachmentNodeLinking.doomrocket_warlock_bridge
 -- Called from the AIInventoryExtension._setup_configuration hook before vanilla links.
 -- Runs once: Unit.node on a node the owner lacks is an uncatchable engine fatal, so any
 -- entry whose source is absent from the base skeleton is removed here instead.
@@ -554,7 +672,7 @@ function mod._prune_armor_bridge(owner_unit)
         return
     end
 
-    local bridge = AttachmentNodeLinking.doomrocket_armor
+    local bridge = AttachmentNodeLinking.doomrocket_warlock_bridge
     local kept, dropped = {}, {}
 
     for i = 1, #bridge do
