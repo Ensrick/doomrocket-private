@@ -336,7 +336,11 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
 				Unit.disable_animation_state_machine(outfit_unit)
-				mod._warlock_outfits[unit] = outfit_unit
+				-- NO mirror registration in bridge mode (v0.1.27 crash): firing an
+				-- animation event into a DISABLED state machine is an engine
+				-- assert, and vanilla _setup_configuration fires anim_state_event
+				-- "idle" on the rat during spawn. mod._warlock_outfits is only for
+				-- the enabled-own-SM driving mode.
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
