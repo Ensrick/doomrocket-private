@@ -81,6 +81,23 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 - `Unit.node()` on a missing node (why the old bridge pruned via
   `Unit.has_node`).
 
+## MILESTONE - v0.1.39 USER-CONFIRMED IN-GAME (2026-07-27)
+
+"This seems to work... it works." Crunch's model, gun-rat animation set,
+self-animated on its own skeleton, driven by mirrored AI events. The full
+recipe: extract compiled clips -> Bitsquid PARSER only -> custom
+parent-relative applier (basis = rest_local^-1 @ engine_local) -> strip
+scale/helper/weapon-bone curves, keep root_point -> bake to Crunch's rig ->
+render-verify -> export via the proven FBX pipeline -> state machine over the
+ratling event vocabulary -> event mirror at runtime.
+
+Remaining from that test: no ragdoll on death (SM freezes on the death clip's
+last frame; vanilla ragdolls need actor setup our unit lacks - options are
+ragdoll actors in the .unit/SM or hiding the outfit at death and letting the
+donor's corpse ragdoll), and the texture pass (Crunch's full material masters
+- 4 sets of BC/NR/MASE/E incl. warpstone emissive - arrived 2026-07-26;
+current spliced setup predates them).
+
 ## Open work
 
 - **Gun-rat animation set as mod clips** - the blocking asset. The idle
