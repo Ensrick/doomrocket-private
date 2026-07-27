@@ -87,6 +87,13 @@ $hasEnable = $warlockBranchText -match 'Unit\.enable_animation_state_machine\(ou
 Assert-True ($hasDisable -xor $hasEnable) `
     "warlock branch must use exactly one driving mode (disable-ASM bridge or enable-ASM self-anim)"
 
+# v0.1.27 crash class: firing an animation event into a DISABLED state machine
+# is an engine assert - bridge mode must not register for event mirroring.
+if ($hasDisable) {
+    Assert-True ($warlockBranchText -notmatch '_warlock_outfits\[unit\]\s*=') `
+        "bridge mode (disabled ASM) must not register the outfit in mod._warlock_outfits (v0.1.27 crash class)"
+}
+
 # v0.1.27: the unit compiles on Dalo's 97-bone skeleton; every bridge TARGET
 # must exist on the unit (missing target = uncatchable Unit.node fatal at
 # vanilla link time). The WARLOCK_UNIT_BONES whitelist in the inventory lua
@@ -120,14 +127,8 @@ Assert-True ($hooks -notmatch 'mod:hook\(Unit,\s*"animation_set_variable"') `
 Assert-True ($hooks -notmatch 'mod:hook\(Unit,\s*"animation_set_constraint_target"') `
     "hooks.lua must not mirror animation_set_constraint_target by raw index (v0.1.25 crash class)"
 
-# v0.1.27 crash class: firing an animation event into a DISABLED state machine
-# is an engine assert. Bridge mode disables the outfit ASM, so the warlock
-# branch must NOT register the outfit for event mirroring.
-if ($hooks -match 'Unit\.disable_animation_state_machine\(outfit_unit\)') {
-    $warlockBranch = [regex]::Match($hooks, '(?s)elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then(.*?)elseif').Groups[1].Value
-    Assert-True ($warlockBranch -notmatch '_warlock_outfits\[unit\]\s*=') `
-        "bridge mode (disabled ASM) must not register the outfit in mod._warlock_outfits (v0.1.27 crash class)"
-}
+# v0.1.27 crash class check moved below the driving-mode extraction: bridge
+# mode (warlock branch disables its ASM) must not register for mirroring.
 
 $doomrocketLua = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\doomrocket.lua") -Raw
 Assert-True ($doomrocketLua -match 'chr_third_person_mesh') `

@@ -348,15 +348,21 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				-- Still true (v0.1.24 crash): NEVER point this unit at a vanilla
 				-- state machine - uncatchable AnimationBlender assert one frame
 				-- later.
-				-- Bridge driving from the STORMVERMIN donor (v0.1.31): Crunch's
-				-- rig is stormvermin-family, so a rest-matched donor is what the
-				-- bridge always needed - the v0.1.28 limb stretch was the
-				-- differently-proportioned RATLING skeleton driving it. ASM
-				-- disabled so links win; NO mirror registration (v0.1.27 crash:
-				-- events into a disabled ASM are engine asserts).
+				-- SELF-ANIMATION (v0.1.37, the only configuration ever confirmed
+				-- correct in-game - v0.1.22). Bridge driving is CLOSED: two
+				-- compiles x two donors x scale-links on/off all deformed
+				-- (v0.1.23/28/35/36); the engine's linked-skinning bind space is
+				-- not producible from Blender FBX export. Gun-rat clips arrive by
+				-- importing the ratling's compiled animations onto this rig via
+				-- the Bitsquid tools (the path that produced the working idle)
+				-- and compiling them against THIS skeleton.
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
-				Unit.disable_animation_state_machine(outfit_unit)
+				Unit.enable_animation_state_machine(outfit_unit)
+				if Unit.has_animation_event(outfit_unit, "idle") then
+					Unit.animation_event(outfit_unit, "idle")
+				end
+				mod._warlock_outfits[unit] = outfit_unit
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
