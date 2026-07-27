@@ -39,6 +39,16 @@ Breeds.skaven_doomrocket.behavior = "skaven_doomrocket"
 Breeds.skaven_doomrocket.threat_value = 7
 Breeds.skaven_doomrocket.rocket_capacity = 3
 Breeds.skaven_doomrocket.default_inventory_template = "doomrocket_inventory"
+-- Dalo's composition (user-relayed): the STORMVERMIN body carries the gun rat's
+-- behavior/animations. Crunch's rig is stormvermin-family (bone-identical to
+-- Dalo's bombadier skeleton), so the bridge must slave it to a STORMVERMIN
+-- donor - driving it from the ratling body's differently-proportioned skeleton
+-- is exactly the compounding limb stretch seen in v0.1.28. The donor is hidden
+-- at runtime, so the armored vanilla mesh is irrelevant; only the skeleton
+-- drives. The ratling state machine is hot-swapped onto this unit when gun-rat
+-- anim events arrive (hooks.lua, Dalo's alt_events design).
+Breeds.skaven_doomrocket.base_unit = "units/beings/enemies/skaven_stormvermin/chr_skaven_stormvermin"
+Breeds.skaven_doomrocket.opt_base_unit = "units/beings/enemies/skaven_stormvermin/chr_skaven_stormvermin_baked"
 -- Deliberately NOT overriding unit_template. The clone keeps "ai_unit_ratling_gunner",
 -- whose go_type the ENGINE's compiled network config actually knows about.
 --

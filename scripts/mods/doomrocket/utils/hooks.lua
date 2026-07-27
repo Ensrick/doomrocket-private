@@ -218,10 +218,20 @@ local unit_get_data = Unit.get_data
 mod._warlock_outfits = mod._warlock_outfits or setmetatable({}, { __mode = "kv" })
 
 mod:hook(Unit, "animation_event", function(func, unit, event, ...)
-	-- Replay the donor rat's animation events on the warlock body so it plays
-	-- the same vanilla ratling clips in lockstep (the rig was authored to fit
-	-- the gun rat's animation set). Events the outfit's state machine lacks
-	-- are skipped, so this stays safe if the vocabularies ever diverge.
+	-- Dalo's alt_events design, revived: the doomrocket donor is a STORMVERMIN
+	-- body (v0.1.31) whose own state machine lacks the gun rat's event
+	-- vocabulary (attack_shoot_*, wind_up_*). When a missing event arrives,
+	-- hot-swap the donor onto the ratling gunner state machine - vanilla unit
+	-- to vanilla state machine, the swap his commented code shipped. The swap
+	-- is one-way and happens on the first gun-rat event.
+	local breed = unit_get_data(unit, "breed")
+
+	if breed and breed.name == "skaven_doomrocket" and not has_animation_event(unit, event) then
+		set_animation_state_machine(unit, "units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
+		printf("[doomrocket] donor swapped to ratling state machine (event %s)", tostring(event))
+	end
+
+	-- Mirror registry (self-ASM driving mode only; empty in bridge mode).
 	local outfit = mod._warlock_outfits[unit]
 
 	if outfit then
@@ -333,18 +343,15 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				-- Still true (v0.1.24 crash): NEVER point this unit at a vanilla
 				-- state machine - uncatchable AnimationBlender assert one frame
 				-- later.
-				-- v0.1.29 A/B: self-ASM idle on the Dalo-skeleton unit (root link
-				-- only) to isolate the v0.1.28 stretch - stretched in own idle =
-				-- compile-internal scale mismatch; correct = linking interaction.
-				-- Bridge mode for reference: set_animation_bone_mode "transform" +
-				-- set_bones_lod 0 + DISABLE ASM + NO mirror registration (v0.1.27
-				-- crash: events into a disabled ASM are engine asserts).
+				-- Bridge driving from the STORMVERMIN donor (v0.1.31): Crunch's
+				-- rig is stormvermin-family, so a rest-matched donor is what the
+				-- bridge always needed - the v0.1.28 limb stretch was the
+				-- differently-proportioned RATLING skeleton driving it. ASM
+				-- disabled so links win; NO mirror registration (v0.1.27 crash:
+				-- events into a disabled ASM are engine asserts).
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
-				Unit.enable_animation_state_machine(outfit_unit)
-				if Unit.has_animation_event(outfit_unit, "idle") then
-					Unit.animation_event(outfit_unit, "idle")
-				end
+				Unit.disable_animation_state_machine(outfit_unit)
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
