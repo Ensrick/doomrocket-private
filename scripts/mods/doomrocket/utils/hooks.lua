@@ -161,7 +161,12 @@ mod:hook(UnitSpawner, "create_unit_extensions", function(func, self, world, unit
 						-- donor plays gun-rat animations from spawn - Dalo's
 						-- composition (his alt_events code did this same
 						-- vanilla-to-vanilla swap lazily).
-						set_animation_state_machine(unit,
+						-- Fully qualified: the file's set_animation_state_machine
+						-- local is declared BELOW this hook, so the bare name here
+						-- resolves to a nil global (v0.1.33: every spawn attempt
+						-- errored, enemy_tweaker quarantined the director tick, and
+						-- the retry loop piled up bare idle-posed stormvermin).
+						Unit.set_animation_state_machine(unit,
 							"units/beings/enemies/skaven_ratlinggunner/chr_skaven_ratlinggunner")
 						printf("[doomrocket] donor on ratling state machine from spawn")
 
