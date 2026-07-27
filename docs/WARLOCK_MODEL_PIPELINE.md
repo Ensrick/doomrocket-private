@@ -67,6 +67,8 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 | v0.1.32 | CRASH at spawn in GenericUnitAimExtension init | `Unit.animation_find_constraint_target(unit, "aim_target")` asserts on the stormvermin machine (no aim constraint - stormvermin never aim) | Aim template must not touch constraints unless the machine has them |
 | v0.1.33 | Pile of bare idle-posed stormvermin ("million copies") | `hooks.lua:164` called a file-local declared BELOW the hook -> nil global -> every spawn attempt errored, et quarantined the tick, director retried forever | Fully qualify engine calls or declare locals above every use (late-local lint class) |
 | v0.1.34 | Raw NATIVE crash (no Error Context, no Lua stack) moments after spawn | Ratling state machine bound to the stormvermin skeleton - clips animate gun bones the skeleton lacks | Cross-skeleton SM binding is fatal in EVERY direction (v0.1.24 mod->vanilla, v0.1.34 vanilla->vanilla). Machines only ever run on the skeleton they were compiled against |
+| v0.1.35 | Deformed abomination (stormvermin donor, own SM) | cm-convention compile under bridge driving | (see v0.1.36 close-out) |
+| v0.1.36 | STILL deformed with all six scale bones linked + ratling donor | Ran on the cm compile (v0.1.29-proven internally inconsistent); but this completes the matrix: 2 compiles x 2 donors x scale-links on/off - every cell deformed | **BRIDGE LANE CLOSED.** The engine's linked-skinning bind space is not producible from Blender FBX export. Self-anim (v0.1.22, the only user-confirmed-correct config) is the architecture; gun-rat clips arrive via the Bitsquid compiled-animation importer onto OUR skeleton |
 
 ## Uncatchable crash classes (pcall is useless)
 
