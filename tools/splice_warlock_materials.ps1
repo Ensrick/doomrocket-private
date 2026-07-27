@@ -69,15 +69,19 @@ $furPayload = Join-Path $buildDir "fur\units_beings_enemies_mtr_fur_1bit_climate
 
 # --- 2. Build patched payloads ---------------------------------------------
 # Texture ids = murmur64 of extensionless resource paths.
-# Globadier channels: texture_map_02af90f8=diffuse, 27b67fd2=emissive (donor's
-# black map kept - its residency comes from the chr_third_person_mesh package
-# loaded in doomrocket.lua), 8bf37d8e=normal+gloss-in-alpha. Variable C985395A
-# is the donor's warpstone emissive_color [14.2, 25.3, 2] - forced to zero.
+# Globadier channels: texture_map_02af90f8=diffuse, 27b67fd2=emissive,
+# 8bf37d8e=normal+gloss-in-alpha. Variable C985395A is the donor's warpstone
+# emissive_color [14.2, 25.3, 2].
+# v0.1.41 texture pass (Crunch's masters, blend-verified wiring): armor has NO
+# emissive (E_01 is pure black - donor black kept, variable zeroed); the
+# BACKPACK is the emissive slot (E_02 warpstone glow -> wb_backpack_e, variable
+# restored); skin now ships the vanilla body normal (gloss = skin MASE.A)
+# instead of the flat stub.
 
 $opaque = @(
-    @{ Name = "wb_armor";    Df = "300FD46C61FB7091"; Nm = "DD7D6050A52FBF6D" },
-    @{ Name = "wb_backpack"; Df = "C4D517C71806AE3B"; Nm = "38DFFF0C6905532F" },
-    @{ Name = "wb_skin";     Df = "B42E3663823A42B7"; Nm = "643B3C4BBA851928" }  # flat nm
+    @{ Name = "wb_armor";    Df = "300FD46C61FB7091"; Nm = "DD7D6050A52FBF6D"; Em = "45FFAEEF53695A86"; EmVar = "0,0,0" },
+    @{ Name = "wb_backpack"; Df = "C4D517C71806AE3B"; Nm = "38DFFF0C6905532F"; Em = "4F71D9C786EFF4D3"; EmVar = "8,8,8" },
+    @{ Name = "wb_skin";     Df = "B42E3663823A42B7"; Nm = "DF22A46A364470F8"; Em = "45FFAEEF53695A86"; EmVar = "0,0,0" }
 )
 foreach ($mat in $opaque) {
     Write-Host "[splice] payload $($mat.Name)_child (globadier opaque donor)"
@@ -87,9 +91,10 @@ foreach ($mat in $opaque) {
         "--expect-size", "768", "--expect-parent", "3D25339231384C80",
         "--map", "DD74D8319F514D96=$($mat.Df)",
         "--map", "E334A8CB6BCB5E6D=$($mat.Nm)",
-        "--set-variable", "C985395A=0,0,0",
+        "--map", "45FFAEEF53695A86=$($mat.Em)",
+        "--set-variable", "C985395A=$($mat.EmVar)",
         "--expect-texture", "texture_map_02af90f8=$($mat.Df)",
-        "--expect-texture", "texture_map_27b67fd2=45FFAEEF53695A86",
+        "--expect-texture", "texture_map_27b67fd2=$($mat.Em)",
         "--expect-texture", "texture_map_8bf37d8e=$($mat.Nm)",
         "--out", (Join-Path $buildDir "$($mat.Name)_child.payload"))
 }

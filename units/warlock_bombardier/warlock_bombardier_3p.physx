@@ -16,12 +16,12 @@
     <CMassLocalPose>0 0.001276 -0.001276 0.999998 0.059814 -0.000153 -0.000153</CMassLocalPose>
     <Mass>8</Mass>
     <MassSpaceInertiaTensor>0.123964 0.071523 0.071523</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -54,12 +54,12 @@
     <CMassLocalPose>0 0.001269 -0.001269 0.999998 0.06012 -0.000153 -0.000153</CMassLocalPose>
     <Mass>6</Mass>
     <MassSpaceInertiaTensor>0.106342 0.0604 0.0604</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -92,12 +92,12 @@
     <CMassLocalPose>0 0.000505 -0.003033 0.999995 0.150909 -0.000916 -0.000153</CMassLocalPose>
     <Mass>6</Mass>
     <MassSpaceInertiaTensor>0.106342 0.09872 0.09872</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -129,13 +129,13 @@
     <GlobalPose>-0.524605 -0.562911 0.016849 0.638465 -0.115963 -0.145143 1.294419</GlobalPose>
     <CMassLocalPose>0 0.001588 -0.001587 0.999997 0.048065 -0.000153 -0.000153</CMassLocalPose>
     <Mass>1.2</Mass>
-    <MassSpaceInertiaTensor>0.00294 0.002394 0.002394</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -167,13 +167,13 @@
     <GlobalPose>-0.51109 -0.543781 0.137279 0.65134 -0.080757 -0.086635 1.362085</GlobalPose>
     <CMassLocalPose>0 0.001672 -0.001672 0.999997 0.045624 -0.000153 -0.000153</CMassLocalPose>
     <Mass>1.2</Mass>
-    <MassSpaceInertiaTensor>0.00294 0.002303 0.002303</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -206,12 +206,12 @@
     <CMassLocalPose>0 0.213408 0.42722 0.878601 0.029913 0.041289 -0.020625</CMassLocalPose>
     <Mass>3</Mass>
     <MassSpaceInertiaTensor>0.01815 0.0121 0.0121</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -242,13 +242,13 @@
     <GlobalPose>0.519938 0.82937 0.156432 0.131676 -0.166149 -0.170699 1.226348</GlobalPose>
     <CMassLocalPose>0 0.000569 -0.000569 1 0.134125 -0.000153 -0.000153</CMassLocalPose>
     <Mass>1.5</Mass>
-    <MassSpaceInertiaTensor>0.009984 0.013987 0.013987</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.013987 0.013987</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -280,13 +280,13 @@
     <GlobalPose>-0.733809 0.081296 0.645919 0.194172 -0.280429 0.071539 1.211553</GlobalPose>
     <CMassLocalPose>0 0.000499 -0.000493 1 0.155487 -0.000153 -0.000155</CMassLocalPose>
     <Mass>2.2</Mass>
-    <MassSpaceInertiaTensor>0.005996 0.020727 0.020727</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.020727 0.020727</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -318,13 +318,13 @@
     <GlobalPose>-0.773722 -0.143494 0.428159 0.444345 -0.232651 0.112599 0.907026</GlobalPose>
     <CMassLocalPose>0 0.000413 -0.000413 1 0.184784 -0.000153 -0.000153</CMassLocalPose>
     <Mass>1.6</Mass>
-    <MassSpaceInertiaTensor>0.002335 0.019378 0.019378</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.019378 0.019378</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -355,14 +355,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>0.968586 0.235684 -0.025071 0.07527 -0.013512 0.335282 0.709616</GlobalPose>
     <CMassLocalPose>0 -0.221147 -0.170479 0.960225 0.02866 -0.011117 0.014421</CMassLocalPose>
-    <Mass>0.8</Mass>
-    <MassSpaceInertiaTensor>0.001845 0.00123 0.00123</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.9</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -394,13 +394,13 @@
     <GlobalPose>0.134121 -0.074442 -0.399069 0.903999 -0.166149 -0.170699 1.226348</GlobalPose>
     <CMassLocalPose>0 0.000568 -0.000569 1 0.134125 -0.000153 -0.000152</CMassLocalPose>
     <Mass>1.5</Mass>
-    <MassSpaceInertiaTensor>0.009546 0.013768 0.013768</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.013768 0.013768</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -432,13 +432,13 @@
     <GlobalPose>0.761307 -0.383764 -0.494043 0.170466 0.013547 -0.369743 1.233354</GlobalPose>
     <CMassLocalPose>0 0.000481 -0.000491 1 0.155487 -0.000153 -0.00015</CMassLocalPose>
     <Mass>2.2</Mass>
-    <MassSpaceInertiaTensor>0.006238 0.020848 0.020848</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.020848 0.020848</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -470,13 +470,13 @@
     <GlobalPose>-0.75945 -0.388845 0.427024 0.299478 0.081511 -0.60367 1.040055</GlobalPose>
     <CMassLocalPose>0 0.000413 -0.000413 1 0.184784 -0.000153 -0.000153</CMassLocalPose>
     <Mass>1.6</Mass>
-    <MassSpaceInertiaTensor>0.002262 0.019342 0.019342</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.019342 0.019342</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -507,14 +507,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.854715 -0.394885 0.297678 0.157849 0.204708 -0.290752 0.886804</GlobalPose>
     <CMassLocalPose>0 -0.069709 -0.069021 0.995177 0.032838 -0.0046 0.004646</CMassLocalPose>
-    <Mass>0.8</Mass>
-    <MassSpaceInertiaTensor>0.001788 0.001193 0.001193</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.9</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -547,12 +547,12 @@
     <CMassLocalPose>0 0.00037 -0.00037 1 0.206146 -0.000152 -0.000153</CMassLocalPose>
     <Mass>4.5</Mass>
     <MassSpaceInertiaTensor>0.032912 0.0802 0.0802</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -584,13 +584,13 @@
     <GlobalPose>0.508061 -0.194682 -0.837472 0.051123 -0.077363 0.338734 0.451641</GlobalPose>
     <CMassLocalPose>0 0.000515 -0.000515 1 0.148163 -0.000153 -0.000153</CMassLocalPose>
     <Mass>2.8</Mass>
-    <MassSpaceInertiaTensor>0.006617 0.023797 0.023797</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.023797 0.023797</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -621,14 +621,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.561747 -0.171615 0.738685 0.330655 -0.218861 0.254938 0.205135</GlobalPose>
     <CMassLocalPose>0 0.000678 -0.000678 1 0.112457 -0.000153 -0.000153</CMassLocalPose>
-    <Mass>1</Mass>
-    <MassSpaceInertiaTensor>0.001507 0.004969 0.004969</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>1.2</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -659,14 +659,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.525299 -0.503357 0.537691 0.426122 -0.252269 0.408358 0.044098</GlobalPose>
     <CMassLocalPose>0 -0.066578 0.322408 0.944257 0.037662 0.029277 0.006046</CMassLocalPose>
-    <Mass>0.5</Mass>
-    <MassSpaceInertiaTensor>0.002312 0.001541 0.001541</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.7</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -699,12 +699,12 @@
     <CMassLocalPose>0 0.00037 -0.00037 1 0.206146 -0.000152 -0.000152</CMassLocalPose>
     <Mass>4.5</Mass>
     <MassSpaceInertiaTensor>0.032912 0.080201 0.080201</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -736,13 +736,13 @@
     <GlobalPose>-0.397744 0.712025 0.419071 0.398998 0.26094 -0.284303 0.475251</GlobalPose>
     <CMassLocalPose>0 0.000515 -0.000515 1 0.148163 -0.000153 -0.000153</CMassLocalPose>
     <Mass>2.8</Mass>
-    <MassSpaceInertiaTensor>0.006617 0.023797 0.023797</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <MassSpaceInertiaTensor>0.01 0.023797 0.023797</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -773,14 +773,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.57013 0.485765 0.149994 0.645357 0.152925 -0.353429 0.208112</GlobalPose>
     <CMassLocalPose>0 0.000678 -0.000678 1 0.112457 -0.000153 -0.000153</CMassLocalPose>
-    <Mass>1</Mass>
-    <MassSpaceInertiaTensor>0.001507 0.004969 0.004969</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>1.2</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -811,14 +811,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.673477 0.104206 -0.009744 0.731761 0.261663 -0.434827 0.028844</GlobalPose>
     <CMassLocalPose>0 0.183653 0.382503 0.905518 0.030771 0.033309 -0.015993</CMassLocalPose>
-    <Mass>0.5</Mass>
-    <MassSpaceInertiaTensor>0.002312 0.001541 0.001541</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.7</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -849,14 +849,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.392357 0.368232 0.842805 0.011888 -0.19093 -0.079183 0.644273</GlobalPose>
     <CMassLocalPose>0 0.000764 -0.000764 0.999999 0.099792 -0.000152 -0.000153</CMassLocalPose>
-    <Mass>0.4</Mass>
-    <MassSpaceInertiaTensor>0.000796 0.001726 0.001726</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.8</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -887,14 +887,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>0.352079 -0.525475 -0.773642 0.037332 -0.328715 -0.132825 0.510213</GlobalPose>
     <CMassLocalPose>0 0.000765 -0.000765 0.999999 0.099792 -0.000153 -0.000153</CMassLocalPose>
-    <Mass>0.4</Mass>
-    <MassSpaceInertiaTensor>0.000458 0.001557 0.001557</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.8</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -925,14 +925,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.289959 0.658144 0.694199 0.029308 -0.477989 -0.218308 0.409</GlobalPose>
     <CMassLocalPose>0 0.000765 -0.000765 0.999999 0.099792 -0.000153 -0.000153</CMassLocalPose>
-    <Mass>0.4</Mass>
-    <MassSpaceInertiaTensor>0.000377 0.001516 0.001516</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.8</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -963,14 +963,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.265167 0.555675 0.785981 0.05609 -0.643431 -0.286606 0.320688</GlobalPose>
     <CMassLocalPose>0 0.000764 -0.000765 0.999999 0.099792 -0.000153 -0.000153</CMassLocalPose>
-    <Mass>0.4</Mass>
-    <MassSpaceInertiaTensor>0.000257 0.001456 0.001456</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.8</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -1001,14 +1001,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>-0.13671 0.616869 0.774901 0.017664 -0.813468 -0.327986 0.224722</GlobalPose>
     <CMassLocalPose>0 0.000764 -0.000765 0.999999 0.099793 -0.000153 -0.000153</CMassLocalPose>
-    <Mass>0.4</Mass>
-    <MassSpaceInertiaTensor>0.000151 0.001403 0.001403</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.8</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -1039,14 +1039,14 @@
     <RigidBodyFlags>eKINEMATIC</RigidBodyFlags>
     <GlobalPose>0.282756 -0.709001 -0.523043 0.3792 -1.00535 -0.356405 0.177734</GlobalPose>
     <CMassLocalPose>0 -0.429375 -0.147419 0.891013 0.043473 -0.019429 0.056589</CMassLocalPose>
-    <Mass>0.4</Mass>
-    <MassSpaceInertiaTensor>0.00008 0.000769 0.000769</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <Mass>0.8</Mass>
+    <MassSpaceInertiaTensor>0.01 0.01 0.01</MassSpaceInertiaTensor>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -1079,12 +1079,12 @@
     <CMassLocalPose>0 -0.196897 -0.103724 0.974922 0.213372 -0.047898 0.090924</CMassLocalPose>
     <Mass>6</Mass>
     <MassSpaceInertiaTensor>0.227855 0.226106 0.226106</MassSpaceInertiaTensor>
-    <LinearDamping>0.1</LinearDamping>
-    <AngularDamping>1</AngularDamping>
-    <MaxAngularVelocity>20</MaxAngularVelocity>
+    <LinearDamping>0.15</LinearDamping>
+    <AngularDamping>1.5</AngularDamping>
+    <MaxAngularVelocity>10</MaxAngularVelocity>
     <SolverIterationCounts>
-      <minPositionIters>8</minPositionIters>
-      <minVelocityIters>2</minVelocityIters>
+      <minPositionIters>16</minPositionIters>
+      <minVelocityIters>4</minVelocityIters>
     </SolverIterationCounts>
     <Shapes>
       <PxShape>
@@ -1119,6 +1119,9 @@
       <eACTOR0>0.159606 0.051258 -0.002513 0.985846 0.119629 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.001269 -0.001269 0.999998 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1151,6 +1154,9 @@
       <eACTOR0>0.042303 0.026991 0.188942 0.980705 0.120239 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000505 -0.003033 0.999995 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1183,6 +1189,9 @@
       <eACTOR0>0.062676 -0.17717 0.373659 0.908329 0.301819 -0.001831 -0.000305</eACTOR0>
       <eACTOR1>0 0.001588 -0.001587 0.999997 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1215,6 +1224,9 @@
       <eACTOR0>0.083437 -0.042146 0.077582 0.992594 0.09613 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.001672 -0.001672 0.999997 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1247,6 +1259,9 @@
       <eACTOR0>0.337793 0.001009 -0.002139 0.941217 0.091248 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.213408 0.42722 0.878601 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1279,6 +1294,9 @@
       <eACTOR0>-0.179692 -0.755322 -0.095671 0.622934 0.234375 -0.058899 -0.000305</eACTOR0>
       <eACTOR1>0 0.000569 -0.000569 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1311,6 +1329,9 @@
       <eACTOR0>0.720422 -0.299845 0.596458 0.187944 0.26825 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000499 -0.000493 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1343,6 +1364,9 @@
       <eACTOR0>0.048439 0.121988 -0.372432 0.918731 0.310974 -0.000306 -0.00031</eACTOR0>
       <eACTOR1>0 0.000413 -0.000413 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1375,6 +1399,9 @@
       <eACTOR0>-0.610329 0.000579 -0.000075 0.792148 0.369568 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 -0.221147 -0.170479 0.960225 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1407,6 +1434,9 @@
       <eACTOR0>0.154923 0.659685 -0.044275 0.734067 0.234375 -0.058899 -0.000305</eACTOR0>
       <eACTOR1>0 0.000568 -0.000569 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1439,6 +1469,9 @@
       <eACTOR0>0.78196 -0.096064 -0.383649 0.481791 0.26825 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000481 -0.000491 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1471,6 +1504,9 @@
       <eACTOR0>0.001807 0.001705 -0.80847 0.588532 0.310975 -0.000306 -0.000299</eACTOR0>
       <eACTOR1>0 0.000413 -0.000413 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1503,6 +1539,9 @@
       <eACTOR0>-0.189937 0.000484 -0.000327 0.981796 0.369568 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 -0.069709 -0.069021 0.995177 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1535,6 +1574,9 @@
       <eACTOR0>0.329377 -0.314804 0.889138 0.042926 -0.027771 -0.036316 0.120239</eACTOR0>
       <eACTOR1>0 0.00037 -0.00037 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1567,6 +1609,9 @@
       <eACTOR0>-0.072048 -0.031838 0.557644 0.826335 0.412292 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000515 -0.000515 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1599,6 +1644,9 @@
       <eACTOR0>-0.0905 0.040068 -0.511871 0.853342 0.296326 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000678 -0.000678 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1631,6 +1679,9 @@
       <eACTOR0>-0.22625 0.000814 -0.000507 0.974069 0.224915 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 -0.066578 0.322408 0.944257 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1663,6 +1714,9 @@
       <eACTOR0>-0.225926 -0.023432 0.943301 0.242056 -0.027771 -0.036316 -0.121155</eACTOR0>
       <eACTOR1>0 0.00037 -0.00037 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1695,6 +1749,9 @@
       <eACTOR0>0.080244 0.042937 0.582634 0.807623 0.412293 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000515 -0.000515 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1727,6 +1784,9 @@
       <eACTOR0>0.126322 -0.085734 -0.42386 0.892768 0.296326 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000678 -0.000678 1 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1759,6 +1819,9 @@
       <eACTOR0>0.003659 0.000676 -0.000681 0.999993 0.224915 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.183653 0.382503 0.905518 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1791,6 +1854,9 @@
       <eACTOR0>-0.100748 0.327012 -0.754373 0.560209 -0.07019 -0.177612 -0.000305</eACTOR0>
       <eACTOR1>0 0.000764 -0.000764 0.999999 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1823,6 +1889,9 @@
       <eACTOR0>0.13906 0.014042 0.116543 0.983302 0.199585 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000765 -0.000765 0.999999 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1855,6 +1924,9 @@
       <eACTOR0>0.16555 -0.05918 0.030136 0.983963 0.199585 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000765 -0.000765 0.999999 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1887,6 +1959,9 @@
       <eACTOR0>-0.122975 -0.06379 -0.030148 0.989899 0.199585 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000764 -0.000765 0.999999 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1919,6 +1994,9 @@
       <eACTOR0>0.051236 -0.072447 0.11647 0.989222 0.199585 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 0.000764 -0.000765 0.999999 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1951,6 +2029,9 @@
       <eACTOR0>0.190175 0.000605 -0.000896 0.98175 0.199585 -0.000305 -0.000305</eACTOR0>
       <eACTOR1>0 -0.429375 -0.147419 0.891013 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>
@@ -1983,6 +2064,9 @@
       <eACTOR0>-0.563558 0.450361 -0.532882 0.442282 0.006292 -0.233141 0.048164</eACTOR0>
       <eACTOR1>0 -0.196897 -0.103724 0.974922 0 0 0</eACTOR1>
     </LocalPose>
+    <ConstraintFlags>ePROJECTION</ConstraintFlags>
+    <ProjectionLinearTolerance>0.05</ProjectionLinearTolerance>
+    <ProjectionAngularTolerance>0.5</ProjectionAngularTolerance>
     <Motion>
       <eX>eLOCKED</eX>
       <eY>eLOCKED</eY>

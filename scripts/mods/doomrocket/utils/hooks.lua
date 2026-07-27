@@ -284,6 +284,39 @@ local WARLOCK_SLOT_MATERIALS = {
 }
 local warlock_child_package_requested = false
 
+-- The 29 ragdoll rigid bodies authored in warlock_bombardier_3p.physx
+-- (v0.1.40). While the rat is alive they MUST be kinematic - a dynamic actor
+-- at spawn fights the animation every frame (solver explosion, wild
+-- stretching). The SM's ragdoll state flips them dynamic at death.
+local WARLOCK_RAGDOLL_ACTORS = {
+	"j_hips", "j_spine", "j_spine1", "j_neck", "j_neck_1", "j_head",
+	"j_leftshoulder", "j_leftarm", "j_leftforearm", "j_lefthand",
+	"j_rightshoulder", "j_rightarm", "j_rightforearm", "j_righthand",
+	"j_leftupleg", "j_leftleg", "j_leftfoot", "j_lefttoebase",
+	"j_rightupleg", "j_rightleg", "j_rightfoot", "j_righttoebase",
+	"j_tail1", "j_tail2", "j_tail3", "j_tail4", "j_tail5", "j_tail6",
+	"j_backpack",
+}
+
+-- Dev diagnostic + spawn-mode safety: report the physx scene actors' state
+-- and force every created one kinematic while the rat is alive.
+local function _warlock_audit_ragdoll_actors(outfit_unit)
+	local found, created, forced = 0, 0, 0
+	for _, actor_name in ipairs(WARLOCK_RAGDOLL_ACTORS) do
+		if Unit.find_actor(outfit_unit, actor_name) then
+			found = found + 1
+			local actor = Unit.actor(outfit_unit, actor_name)
+			if actor then
+				created = created + 1
+				Actor.set_kinematic(actor, true)
+				forced = forced + 1
+			end
+		end
+	end
+	printf("[doomrocket:RAGDOLL] spawn audit: found=%d created=%d forced_kinematic=%d (of %d authored)",
+		found, created, forced, #WARLOCK_RAGDOLL_ACTORS)
+end
+
 mod._apply_warlock_child_materials = function(outfit_unit)
 	if not Managers.package:has_loaded(WARLOCK_DONOR_PACKAGE, "global") then
 		printf("[doomrocket] warlock materials skipped: globadier donor package not resident yet")
@@ -365,6 +398,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				mod._warlock_outfits[unit] = outfit_unit
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
+				_warlock_audit_ragdoll_actors(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
 				Unit.set_material(outfit_unit, 'lambert1', "     GvOtsyNy1'")
 			end
