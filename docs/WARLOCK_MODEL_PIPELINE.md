@@ -91,12 +91,53 @@ scale/helper/weapon-bone curves, keep root_point -> bake to Crunch's rig ->
 render-verify -> export via the proven FBX pipeline -> state machine over the
 ratling event vocabulary -> event mirror at runtime.
 
-Remaining from that test: no ragdoll on death (SM freezes on the death clip's
-last frame; vanilla ragdolls need actor setup our unit lacks - options are
-ragdoll actors in the .unit/SM or hiding the outfit at death and letting the
-donor's corpse ragdoll), and the texture pass (Crunch's full material masters
-- 4 sets of BC/NR/MASE/E incl. warpstone emissive - arrived 2026-07-26;
-current spliced setup predates them).
+Remaining from that test: no ragdoll on death (shipped v0.1.40, below,
+[untested]), and the texture pass (Crunch's full material masters - 4 sets of
+BC/NR/MASE/E incl. warpstone emissive - arrived 2026-07-26; current spliced
+setup predates them).
+
+## Ragdoll (v0.1.40-dev, [untested]) - authored PhysX scene, no Maya
+
+Vanilla character ragdolls are NOT unit-editor actors: the ratling's 32
+ActorResource entries are c_* hit capsules (template keyframed_no_collision);
+the ragdoll bodies are j_*-named rigid dynamics inside the unit's
+`physics_scene_data` (cooked PhysX 4.1.1 SEBD binary, 125 KB), which the SDK
+docs say comes from a Maya-exported PhysX XML renamed `<unit>.physx` next to
+the .unit. The SM references those actors by bone name in a `ragdolls` block;
+ragdoll states live on their own layer.
+
+What shipped (all offline-verified against the compiled bundle):
+
+1. `warlock_bombardier_3p.physx` - GENERATED RepX XML
+   (scratchpad gen_physx.py): 29 kinematic PxRigidDynamic named j_hips ...
+   j_backpack (capsules along +X = the Stingray bone axis, radii transferred
+   from the ratling's same-suffix hit capsules, lengths from OUR bind pose,
+   bind poses in world METERS from the compiled unit's scene graph -
+   decompose rotation+translation ONLY, the cm-convention compile bakes
+   scale=100 into every node matrix) + 28 PxD6Joints (linear locked,
+   twist/swing eLIMITED per joint category, joint X = child bone axis).
+   The mod SDK compiler cooks it automatically when the file sits next to
+   the .unit (RepXCompiler + core/physx_metadata, PhysX 4.1.1): compiled
+   unit gained a 57 KB SEBD physics_scene_data.
+2. `.state_machine` additions - SOURCE SYNTAX (discovered empirically, the
+   compiler silently ignores wrong keys):
+   `ragdolls = { ragdoll = { actors = [ "j_hips" ... ] keyframed = [] } }`
+   ("actors" is the dynamic list key - "dynamic" is silently dropped), plus
+   a second layer: default `ragdolls/empty` (state_type "empty", transition
+   on event "ragdoll") -> `ragdolls/ragdoll` (state_type "ragdoll",
+   `ragdoll = "ragdoll"` config ref, no animations). Compiled verification:
+   ragdoll config [0] dynamic_actors == the 29 bone hashes; layer 1 has
+   EMPTY_STATE + RAGDOLL_STATE(ragdoll=0). Mirrors the vanilla ratling
+   layout exactly (its ragdoll layer: reset_scale / ragdoll(cfg 0) /
+   ragdoll_torso(cfg 7) / empty).
+3. Runtime: no new code - the existing name-gated event mirror already
+   forwards the AI's "ragdoll" event; the base layer still plays death_shot
+   while the ragdoll layer flips the 29 actors dynamic.
+
+Verification tooling: scratchpad extract_bundle_payload.py (pull any
+resource out of a built bundle) + verify_ragdoll_build.py (parse compiled
+unit/SM via the Bitsquid tools). Test gate now cross-checks .physx actor
+names == SM ragdolls block == .bones entries and joints == actors-1.
 
 ## Open work
 
@@ -113,6 +154,11 @@ current spliced setup predates them).
   them with zero new runtime code.
 - Armor/backpack texture mapping partly wrong + map set incomplete (user
   observation, deferred until animations are done): NR/MASE channel packing
-  vs VT2 `_nm`/`_s` conventions, wb_skin still on a flat normal.
+  vs VT2 `_nm`/`_s` conventions, wb_skin still on a flat normal. Crunch's
+  full masters are in Downloads\zxnu2hjyuovl4rhx.zip (4 sets of BC/NR/MASE/E
+  at 2048/1024/512 + warpstone emissive) - NEXT UP.
+- Ragdoll tuning once v0.1.40 is user-verified: joint limits are first-pass
+  guesses; collision filter words are 0 (engine may override via shape
+  templates - watch for corpse blocking players or falling through floors).
 - Launcher/rocket/tube props still placeholders (exports staged in
   `_warlock_bombardier_art/`).

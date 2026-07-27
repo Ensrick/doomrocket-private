@@ -44,6 +44,36 @@ foreach ($recipe in (Get-ChildItem (Join-Path $unitDir "anims") -Filter *.animat
         "$($recipe.Name): bones key must be the unit's own path"
 }
 
+# --- Ragdoll invariants (v0.1.40) -------------------------------------------
+# The unit ships a PhysX RepX scene (.physx) with one kinematic rigid body per
+# ragdoll bone + D6 joints; the state machine's ragdolls block must list the
+# same actor names, every one of which must be a real bone.
+
+$physxPath = Join-Path $unitDir "warlock_bombardier_3p.physx"
+Assert-True (Test-Path $physxPath) "missing warlock_bombardier_3p.physx (ragdoll scene)"
+if (Test-Path $physxPath) {
+    $physxText = Get-Content $physxPath -Raw
+    $physxActors = [regex]::Matches($physxText, '(?s)<PxRigidDynamic>.*?<Name>([^<]+)</Name>') |
+        ForEach-Object { $_.Groups[1].Value }
+    $physxJoints = [regex]::Matches($physxText, '<PxD6Joint>').Count
+    Assert-True ($physxActors.Count -ge 20) ".physx has only $($physxActors.Count) rigid bodies"
+    Assert-True ($physxJoints -eq $physxActors.Count - 1) `
+        ".physx joints ($physxJoints) must be actors-1 ($($physxActors.Count - 1)) - every non-root actor jointed to its parent"
+    $ragdollBlock = [regex]::Match($smText, '(?s)ragdolls = \{(.*?)\n\}').Groups[1].Value
+    Assert-True ($ragdollBlock.Length -gt 0) ".state_machine missing ragdolls block"
+    $smActors = [regex]::Matches($ragdollBlock, '"(j_[a-z_0-9]+)"') | ForEach-Object { $_.Groups[1].Value }
+    $actorDiff = Compare-Object ($smActors | Sort-Object) ($physxActors | Sort-Object)
+    Assert-True (-not $actorDiff) `
+        "SM ragdolls block diverges from .physx rigid bodies: $(($actorDiff | ForEach-Object InputObject) -join ', ')"
+    Assert-True ($smText -match 'state_type = "ragdoll"') ".state_machine has no ragdoll-type state"
+    Assert-True ($smText -match 'ragdoll = "ragdoll"') "ragdoll state does not reference the ragdoll config"
+    $bonesTextForRagdoll = Get-Content (Join-Path $unitDir "warlock_bombardier_3p.bones") -Raw
+    foreach ($actor in $physxActors) {
+        Assert-True ($bonesTextForRagdoll -match [regex]::Escape("`"$actor`"")) `
+            ".physx actor '$actor' is not a bone in .bones"
+    }
+}
+
 # --- Package layout invariants (v0.1.16 boot-crash class) -------------------
 
 $modFile = Get-Content (Join-Path $repoRoot "doomrocket.mod") -Raw
