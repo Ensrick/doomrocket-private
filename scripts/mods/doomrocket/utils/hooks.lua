@@ -276,45 +276,116 @@ end)
 local WARLOCK_DONOR_PACKAGE = "units/beings/player/dark_pact_skins/skaven_wind_globadier/skin_1001/third_person/chr_third_person_mesh"
 local WARLOCK_CHILD_PACKAGE = "resource_packages/doomrocket/warlock_child"
 local WARLOCK_SLOT_MATERIALS = {
-	DoomRocket_Armor = "child_materials/warlock_bombardier/wb_armor_child",
-	DoomRocket_Backpack = "child_materials/warlock_bombardier/wb_backpack_child",
-	wb_skin = "child_materials/warlock_bombardier/wb_skin_child",
-	wb_fur = "child_materials/warlock_bombardier/wb_fur_child",
-	wb_whiskers = "child_materials/warlock_bombardier/wb_whiskers_child",
+	{ "DoomRocket_Armor", "child_materials/warlock_bombardier/wb_armor_child" },
+	{ "DoomRocket_Backpack", "child_materials/warlock_bombardier/wb_backpack_child" },
+	{ "wb_skin", "child_materials/warlock_bombardier/wb_skin_child" },
+	{ "wb_fur", "child_materials/warlock_bombardier/wb_fur_child" },
+	{ "wb_whiskers", "child_materials/warlock_bombardier/wb_whiskers_child" },
+}
+local WARLOCK_CUSTOM_TEXTURES = {
+	"textures/warlock_bombardier/wb_armor_df",
+	"textures/warlock_bombardier/wb_armor_nm",
+	"textures/warlock_bombardier/wb_backpack_df",
+	"textures/warlock_bombardier/wb_backpack_e",
+	"textures/warlock_bombardier/wb_backpack_nm",
+	"textures/warlock_bombardier/wb_skin_df",
+	"textures/warlock_bombardier/wb_skin_nm",
+	"textures/warlock_bombardier/wb_whiskers_df",
 }
 local warlock_child_package_requested = false
 
--- The 29 ragdoll rigid bodies authored in warlock_bombardier_3p.physx
--- (v0.1.40). While the rat is alive they MUST be kinematic - a dynamic actor
--- at spawn fights the animation every frame (solver explosion, wild
--- stretching). The SM's ragdoll state flips them dynamic at death.
-local WARLOCK_RAGDOLL_ACTORS = {
-	"j_hips", "j_spine", "j_spine1", "j_neck", "j_neck_1", "j_head",
-	"j_leftshoulder", "j_leftarm", "j_leftforearm", "j_lefthand",
-	"j_rightshoulder", "j_rightarm", "j_rightforearm", "j_righthand",
-	"j_leftupleg", "j_leftleg", "j_leftfoot", "j_lefttoebase",
-	"j_rightupleg", "j_rightleg", "j_rightfoot", "j_righttoebase",
-	"j_tail1", "j_tail2", "j_tail3", "j_tail4", "j_tail5", "j_tail6",
-	"j_backpack",
-}
+-- v0.1.43 proved that "keep the custom actors kinematic" was insufficient.
+-- The owner's death event was mirrored into the outfit before the delayed
+-- handoff; the outfit's ragdoll state then made its actors dynamic internally,
+-- stalling physics for 1-1.6 s and corrupting the skeleton before Lua ran
+-- again. v0.1.44 removes the custom PhysX scene and ragdoll layer altogether.
+--
+-- v0.1.44 then proved that a native carrier alone is not enough: linking 97
+-- target bones independently with World.link_unit destroys this Blender-built
+-- mesh's local scene-graph hierarchy and recreates the old "stick figure".
+--
+-- Keep the existing root-only attachment. This function is called BEFORE
+-- ai_extension:die sends the owner's death event; it disables the outfit ASM
+-- and builds an index-pair driver. The death reaction copies each vanilla
+-- carrier LOCAL pose into the equivalent node of the intact outfit hierarchy
+-- every frame. This is the runtime analogue of the parent-relative retarget
+-- that made the living v0.1.39 animation set work.
+mod._prepare_warlock_death = function(owner_unit, source)
+	local outfit_unit = mod._warlock_outfits[owner_unit]
 
--- Dev diagnostic + spawn-mode safety: report the physx scene actors' state
--- and force every created one kinematic while the rat is alive.
-local function _warlock_audit_ragdoll_actors(outfit_unit)
-	local found, created, forced = 0, 0, 0
-	for _, actor_name in ipairs(WARLOCK_RAGDOLL_ACTORS) do
-		if Unit.find_actor(outfit_unit, actor_name) then
-			found = found + 1
-			local actor = Unit.actor(outfit_unit, actor_name)
-			if actor then
-				created = created + 1
-				Actor.set_kinematic(actor, true)
-				forced = forced + 1
-			end
+	if not outfit_unit or not Unit.alive(outfit_unit) then
+		printf("[doomrocket:RAGDOLL] %s death: no live warlock outfit to hand off",
+			tostring(source))
+		return
+	end
+
+	-- Remove the mirror entry before disabling the outfit machine. Sending an
+	-- animation event to a disabled ASM is an engine-level fatal.
+	mod._warlock_outfits[owner_unit] = nil
+	Unit.disable_animation_state_machine(outfit_unit)
+
+	local bridge = AttachmentNodeLinking.doomrocket_warlock_bridge
+	local node_pairs = {}
+	for i = 1, #bridge do
+		local entry = bridge[i]
+		local target_node = entry.target
+		local source_node = entry.source
+
+		-- Target 0 is already root-linked by the inventory attachment. Preserve
+		-- that one link and copy only child-node local transforms.
+		if target_node ~= 0 then
+			local target_index = type(target_node) == "string" and
+				Unit.node(outfit_unit, target_node) or target_node
+			local source_index = type(source_node) == "string" and
+				Unit.node(owner_unit, source_node) or source_node
+
+			node_pairs[#node_pairs + 1] = {
+				target = target_index,
+				source = source_index,
+			}
 		end
 	end
-	printf("[doomrocket:RAGDOLL] spawn audit: found=%d created=%d forced_kinematic=%d (of %d authored)",
-		found, created, forced, #WARLOCK_RAGDOLL_ACTORS)
+
+	local driver = {
+		owner = owner_unit,
+		outfit = outfit_unit,
+		node_pairs = node_pairs,
+	}
+
+	for i = 1, #node_pairs do
+		local pair = node_pairs[i]
+		Unit.set_local_pose(outfit_unit, pair.target,
+			Unit.local_pose(owner_unit, pair.source))
+	end
+
+	printf("[doomrocket:RAGDOLL] %s pre-event local-pose carrier active: nodes=%d custom_physics=absent",
+		tostring(source), #node_pairs)
+
+	return driver
+end
+
+mod._update_warlock_death_pose = function(data)
+	local driver = data.warlock_pose_driver
+
+	if not driver then
+		return
+	end
+
+	local owner_unit = driver.owner
+	local outfit_unit = driver.outfit
+
+	if not owner_unit or not Unit.alive(owner_unit) or
+			not outfit_unit or not Unit.alive(outfit_unit) then
+		data.warlock_pose_driver = nil
+		return
+	end
+
+	local node_pairs = driver.node_pairs
+	for i = 1, #node_pairs do
+		local pair = node_pairs[i]
+		Unit.set_local_pose(outfit_unit, pair.target,
+			Unit.local_pose(owner_unit, pair.source))
+	end
 end
 
 mod._apply_warlock_child_materials = function(outfit_unit)
@@ -339,11 +410,30 @@ mod._apply_warlock_child_materials = function(outfit_unit)
 		return
 	end
 
-	for slot_name, material_path in pairs(WARLOCK_SLOT_MATERIALS) do
-		Unit.set_material(outfit_unit, slot_name, material_path)
+	local missing_textures = 0
+	for _, texture_path in ipairs(WARLOCK_CUSTOM_TEXTURES) do
+		if not Application.can_get("texture", texture_path) then
+			missing_textures = missing_textures + 1
+			printf("[doomrocket:MATERIAL] texture NOT resident: %s", texture_path)
+		end
 	end
 
-	printf("[doomrocket] warlock child materials applied (5 slots)")
+	local applied = 0
+	for _, binding in ipairs(WARLOCK_SLOT_MATERIALS) do
+		local slot_name, material_path = binding[1], binding[2]
+		if Application.can_get("material", material_path) then
+			Unit.set_material(outfit_unit, slot_name, material_path)
+			applied = applied + 1
+			printf("[doomrocket:MATERIAL] slot %s <- %s", slot_name, material_path)
+		else
+			printf("[doomrocket:MATERIAL] material NOT resident for slot %s: %s",
+				slot_name, material_path)
+		end
+	end
+
+	printf("[doomrocket:MATERIAL] assignment summary: slots=%d/%d custom_textures=%d/%d resident",
+		applied, #WARLOCK_SLOT_MATERIALS,
+		#WARLOCK_CUSTOM_TEXTURES - missing_textures, #WARLOCK_CUSTOM_TEXTURES)
 end
 
 mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, unit, start_n, inventory_configuration, item_extension_init_data)
@@ -398,7 +488,6 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				mod._warlock_outfits[unit] = outfit_unit
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
-				_warlock_audit_ragdoll_actors(outfit_unit)
 			elseif (outfit_unit_name == "units/bombadier/Backpack") and is_mat_aval then
 				Unit.set_material(outfit_unit, 'lambert1', "     GvOtsyNy1'")
 			end

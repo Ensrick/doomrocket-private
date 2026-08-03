@@ -617,7 +617,9 @@ DeathReactions.templates.doomrocket = {
             ai_default_unit_pre_start(unit, context, t, killing_blow)
         end,
         start = function (unit, context, t, killing_blow, is_server)
+            local warlock_pose_driver = mod._prepare_warlock_death(unit, "unit")
             local data, result = ai_default_unit_start(unit, context, t, killing_blow, is_server)
+            data.warlock_pose_driver = warlock_pose_driver
 
             trigger_unit_dialogue_death_event(unit, killing_blow[DamageDataIndex.ATTACKER], killing_blow[DamageDataIndex.HIT_ZONE], killing_blow[DamageDataIndex.DAMAGE_TYPE])
             trigger_player_killing_blow_ai_buffs(unit, killing_blow)
@@ -654,6 +656,7 @@ DeathReactions.templates.doomrocket = {
             return data, result
         end,
         update = function (unit, dt, context, t, data)
+            mod._update_warlock_death_pose(data)
             local result = ai_default_unit_update(unit, dt, context, t, data)
 
             return result
@@ -664,7 +667,9 @@ DeathReactions.templates.doomrocket = {
             ai_default_husk_pre_start(unit, context, t, killing_blow)
         end,
         start = function (unit, context, t, killing_blow, is_server)
+            local warlock_pose_driver = mod._prepare_warlock_death(unit, "husk")
             local data, result = ai_default_husk_start(unit, context, t, killing_blow, is_server)
+            data.warlock_pose_driver = warlock_pose_driver
 
             if not is_hot_join_sync(killing_blow) then
                 trigger_player_killing_blow_ai_buffs(unit, killing_blow)
@@ -679,6 +684,7 @@ DeathReactions.templates.doomrocket = {
             return data, result
         end,
         update = function (unit, dt, context, t, data)
+            mod._update_warlock_death_pose(data)
             local result = ai_default_husk_update(unit, dt, context, t, data)
 
             return result

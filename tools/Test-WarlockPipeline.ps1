@@ -44,35 +44,18 @@ foreach ($recipe in (Get-ChildItem (Join-Path $unitDir "anims") -Filter *.animat
         "$($recipe.Name): bones key must be the unit's own path"
 }
 
-# --- Ragdoll invariants (v0.1.40) -------------------------------------------
-# The unit ships a PhysX RepX scene (.physx) with one kinematic rigid body per
-# ragdoll bone + D6 joints; the state machine's ragdolls block must list the
-# same actor names, every one of which must be a real bone.
-
+# --- Ragdoll invariants (v0.1.44) -------------------------------------------
+# v0.1.40-43 proved the custom PhysX scene can be activated internally by the
+# outfit state machine before Lua can reassert kinematic mode. It must not be
+# compiled at all. The visible outfit follows the hidden vanilla owner's
+# authored death/ragdoll through the pre-event bone bridge.
 $physxPath = Join-Path $unitDir "warlock_bombardier_3p.physx"
-Assert-True (Test-Path $physxPath) "missing warlock_bombardier_3p.physx (ragdoll scene)"
-if (Test-Path $physxPath) {
-    $physxText = Get-Content $physxPath -Raw
-    $physxActors = [regex]::Matches($physxText, '(?s)<PxRigidDynamic>.*?<Name>([^<]+)</Name>') |
-        ForEach-Object { $_.Groups[1].Value }
-    $physxJoints = [regex]::Matches($physxText, '<PxD6Joint>').Count
-    Assert-True ($physxActors.Count -ge 20) ".physx has only $($physxActors.Count) rigid bodies"
-    Assert-True ($physxJoints -eq $physxActors.Count - 1) `
-        ".physx joints ($physxJoints) must be actors-1 ($($physxActors.Count - 1)) - every non-root actor jointed to its parent"
-    $ragdollBlock = [regex]::Match($smText, '(?s)ragdolls = \{(.*?)\n\}').Groups[1].Value
-    Assert-True ($ragdollBlock.Length -gt 0) ".state_machine missing ragdolls block"
-    $smActors = [regex]::Matches($ragdollBlock, '"(j_[a-z_0-9]+)"') | ForEach-Object { $_.Groups[1].Value }
-    $actorDiff = Compare-Object ($smActors | Sort-Object) ($physxActors | Sort-Object)
-    Assert-True (-not $actorDiff) `
-        "SM ragdolls block diverges from .physx rigid bodies: $(($actorDiff | ForEach-Object InputObject) -join ', ')"
-    Assert-True ($smText -match 'state_type = "ragdoll"') ".state_machine has no ragdoll-type state"
-    Assert-True ($smText -match 'ragdoll = "ragdoll"') "ragdoll state does not reference the ragdoll config"
-    $bonesTextForRagdoll = Get-Content (Join-Path $unitDir "warlock_bombardier_3p.bones") -Raw
-    foreach ($actor in $physxActors) {
-        Assert-True ($bonesTextForRagdoll -match [regex]::Escape("`"$actor`"")) `
-            ".physx actor '$actor' is not a bone in .bones"
-    }
-}
+Assert-True (-not (Test-Path $physxPath)) `
+    "custom .physx must stay absent (v0.1.40-43 world-physics explosion class)"
+Assert-True ($smText -notmatch '(?m)^ragdolls\s*=') `
+    ".state_machine must not declare a custom ragdolls block"
+Assert-True ($smText -notmatch 'state_type\s*=\s*"ragdoll"') `
+    ".state_machine must not contain a custom ragdoll state"
 
 # --- Package layout invariants (v0.1.16 boot-crash class) -------------------
 
@@ -108,6 +91,35 @@ foreach ($call in @(
         'mod\._apply_warlock_child_materials\(outfit_unit\)')) {
     Assert-True ($hooks -match $call) "hooks.lua warlock branch missing required call: $call"
 }
+Assert-True ($hooks -match 'Application\.can_get\("material",\s*material_path\)') `
+    "runtime material swap must verify each spliced child material is resident"
+Assert-True ($hooks -match 'Application\.can_get\("texture",\s*texture_path\)') `
+    "runtime material diagnostics must verify custom texture residency"
+Assert-True ($hooks -notmatch 'Actor\.set_kinematic\(actor,\s*false\)') `
+    "custom warlock actors must never be released (v0.1.42 solver-explosion class)"
+Assert-True ($hooks -notmatch 'Unit\.(?:find_actor|actor)\(outfit_unit') `
+    "custom outfit must not participate in actor physics at all"
+Assert-True ($hooks -match 'AttachmentNodeLinking\.doomrocket_warlock_bridge') `
+    "death handoff must use the pruned vanilla Skaven bone bridge"
+Assert-True ($hooks -notmatch 'World\.unlink_unit\(world,\s*outfit_unit\)') `
+    "death handoff must preserve the living root-only attachment"
+Assert-True ($hooks -notmatch 'World\.link_unit\(world,\s*outfit_unit,\s*target_index,\s*owner_unit,\s*source_index\)') `
+    "death handoff must not independently link outfit bones (v0.1.44 stick-figure class)"
+Assert-True ($hooks -match 'Unit\.set_local_pose\(outfit_unit,\s*pair\.target') `
+    "death driver must write carrier poses into the intact outfit hierarchy"
+Assert-True ($hooks -match 'Unit\.local_pose\(owner_unit,\s*pair\.source\)') `
+    "death driver must read local poses from the vanilla carrier"
+
+$deathReactions = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\extensions\death_reactions.lua") -Raw
+Assert-True ([regex]::Matches($deathReactions, 'mod\._prepare_warlock_death\(').Count -eq 2) `
+    "doomrocket death reaction must prepare the vanilla carrier for both unit and husk"
+Assert-True ([regex]::Matches($deathReactions,
+        '(?s)start = function \([^)]+\)\s*local warlock_pose_driver = mod\._prepare_warlock_death\([^)]+\)\s*local data, result = ai_default_(?:unit|husk)_start').Count -eq 2) `
+    "vanilla carrier handoff must happen before ai_default_*_start emits the owner death event"
+Assert-True ([regex]::Matches($deathReactions, 'mod\._update_warlock_death_pose\(data\)').Count -eq 2) `
+    "server and husk corpse updates must continuously copy the carrier pose"
+Assert-True ($deathReactions -notmatch 'mod\._(?:schedule|update)_warlock_ragdoll') `
+    "delayed custom-ragdoll handoff must not return"
 # Exactly one driving mode IN THE WARLOCK BRANCH (the plague monk branch also
 # calls disable, so scope the check): bridge (disable ASM, bridge linking, no
 # mirror registration) or self-ASM (enable + idle, root linking).
@@ -168,7 +180,7 @@ Assert-True ($doomrocketLua -match 'chr_third_person_mesh') `
 # Slot names in the runtime swap table must exactly match the .unit materials block.
 $slotNames = [regex]::Matches($unitText, '(?m)^\s*(\w+)\s*=\s*"materials/warlock_bombardier/') | ForEach-Object { $_.Groups[1].Value }
 foreach ($slot in $slotNames) {
-    Assert-True ($hooks -match "$slot\s*=\s*`"child_materials/warlock_bombardier/") `
+    Assert-True ($hooks -match "`"$slot`"\s*,\s*`"child_materials/warlock_bombardier/") `
         "hooks.lua WARLOCK_SLOT_MATERIALS missing slot '$slot' from the .unit materials block"
 }
 Assert-True ($slotNames.Count -eq 5) "expected 5 material slots in .unit, found $($slotNames.Count)"

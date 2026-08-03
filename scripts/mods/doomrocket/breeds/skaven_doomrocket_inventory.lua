@@ -736,6 +736,15 @@ function mod._prune_armor_bridge(owner_unit)
         return
     end
 
+    -- AIInventoryExtension runs this hook for every enemy. Do not let whichever
+    -- breed happens to equip an outfit first prune the shared Warlock bridge
+    -- against its unrelated skeleton (the latest log caught a Bestigor doing
+    -- exactly that). The bridge is authored only for the Doomrocket donor.
+    local owner_breed = Unit.get_data(owner_unit, "breed")
+    if not owner_breed or owner_breed.name ~= "skaven_doomrocket" then
+        return
+    end
+
     local bridge = AttachmentNodeLinking.doomrocket_warlock_bridge
     local kept, dropped = {}, {}
 

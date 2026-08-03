@@ -72,10 +72,16 @@ $furPayload = Join-Path $buildDir "fur\units_beings_enemies_mtr_fur_1bit_climate
 # Globadier channels: texture_map_02af90f8=diffuse, 27b67fd2=emissive,
 # 8bf37d8e=normal+gloss-in-alpha. Variable C985395A is the donor's warpstone
 # emissive_color [14.2, 25.3, 2].
-# v0.1.41 texture pass (Crunch's masters, blend-verified wiring): armor has NO
+# v0.1.43 texture correction (Crunch's source .blend, node-link verified):
+# NR.rgb is tangent normal and NR.a is ROUGHNESS, passed through directly.
+# v0.1.41 inverted it as gloss, which reversed the material response in-game.
+# The separate MASE maps cannot be bound by this native three-texture character
+# parent; the committed _s resources are retained for a future compatible
+# parent, but are intentionally absent from runtime residency diagnostics.
+# Armor has NO
 # emissive (E_01 is pure black - donor black kept, variable zeroed); the
 # BACKPACK is the emissive slot (E_02 warpstone glow -> wb_backpack_e, variable
-# restored); skin now ships the vanilla body normal (gloss = skin MASE.A)
+# restored); skin ships the vanilla body normal (roughness in normal alpha)
 # instead of the flat stub.
 
 $opaque = @(
@@ -131,8 +137,18 @@ foreach ($mat in $materials) {
     $resource = "child_materials/warlock_bombardier/${mat}_child"
     $splicedInto = @()
     foreach ($bundleFile in (Get-ChildItem -LiteralPath $bundleRoot -Filter *.mod_bundle -File)) {
+        # A miss is expected for every bundle except the package that owns this
+        # resource. Windows PowerShell promotes a native program's stderr to an
+        # ErrorRecord; with our global Stop preference that used to abort the
+        # scan on the first ordinary miss. Probe under Continue, preserve the
+        # native exit code, then restore fail-fast behavior for real work.
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
         & py -3 $spliceTool $bundleFile.FullName --type material --name $resource --payload $payload --dry-run *> $null
-        if ($LASTEXITCODE -eq 0) {
+        $probeExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $previousErrorActionPreference
+
+        if ($probeExitCode -eq 0) {
             Invoke-Py @($spliceTool, $bundleFile.FullName,
                 "--type", "material", "--name", $resource, "--payload", $payload)
             $splicedInto += $bundleFile.Name
