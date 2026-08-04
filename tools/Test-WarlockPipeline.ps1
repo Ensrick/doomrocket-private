@@ -105,10 +105,20 @@ Assert-True ($hooks -notmatch 'World\.unlink_unit\(world,\s*outfit_unit\)') `
     "death handoff must preserve the living root-only attachment"
 Assert-True ($hooks -notmatch 'World\.link_unit\(world,\s*outfit_unit,\s*target_index,\s*owner_unit,\s*source_index\)') `
     "death handoff must not independently link outfit bones (v0.1.44 stick-figure class)"
-Assert-True ($hooks -match 'Unit\.set_local_pose\(outfit_unit,\s*pair\.target') `
-    "death driver must write carrier poses into the intact outfit hierarchy"
-Assert-True ($hooks -match 'Unit\.local_pose\(owner_unit,\s*pair\.source\)') `
-    "death driver must read local poses from the vanilla carrier"
+# v0.1.48: rotation-only retarget. Full local-pose copy resurrected the closed
+# v0.1.28 stretch class at death (carrier bone lengths + *_scale proportions
+# compound down Crunch's chains). Rotations cannot stretch; j_hips alone also
+# copies translation so the corpse falls; *_scale and aim_target are excluded.
+Assert-True ($hooks -match 'Unit\.set_local_rotation\(outfit_unit,\s*pair\.target') `
+    "death driver must write carrier rotations into the intact outfit hierarchy"
+Assert-True ($hooks -match 'Unit\.local_rotation\(owner_unit,\s*pair\.source\)') `
+    "death driver must read local rotations from the vanilla carrier"
+Assert-True ($hooks -notmatch 'Unit\.set_local_pose\(outfit_unit,\s*pair\.target') `
+    "death driver must not copy full local poses (v0.1.28/v0.1.47 stretch class)"
+Assert-True ($hooks -match 'pair\.is_hips') `
+    "death driver must special-case j_hips translation so the corpse falls"
+Assert-True ($hooks -match '_scale') `
+    "death driver must exclude the animated proportion *_scale bones"
 
 $deathReactions = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\extensions\death_reactions.lua") -Raw
 Assert-True ([regex]::Matches($deathReactions, 'mod\._prepare_warlock_death\(').Count -eq 2) `

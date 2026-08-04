@@ -324,25 +324,44 @@ mod._prepare_warlock_death = function(owner_unit, source)
 	mod._warlock_outfits[owner_unit] = nil
 	Unit.disable_animation_state_machine(outfit_unit)
 
+	-- v0.1.48: ROTATION-ONLY retarget. Copying full local poses (v0.1.45-47)
+	-- resurrected the closed v0.1.28 bridge failure at death time: the ratling
+	-- carrier's local matrices carry ITS bone translations and its animated
+	-- proportion SCALE (the *_scale bones the bridge maps), which compound
+	-- multiplicatively down every chain on Crunch's hierarchy - the reported
+	-- giant sky-flying stretch. Rotations alone cannot stretch: bone lengths
+	-- and proportions stay at the outfit's own bind. j_hips additionally
+	-- copies local TRANSLATION (one root-relative bone, no chain to compound)
+	-- so the corpse actually falls to the ground instead of pivoting in air.
+	-- *_scale bones and the aim_target constraint node are excluded outright.
 	local bridge = AttachmentNodeLinking.doomrocket_warlock_bridge
 	local node_pairs = {}
+	local skipped = 0
 	for i = 1, #bridge do
 		local entry = bridge[i]
 		local target_node = entry.target
 		local source_node = entry.source
+		local target_name = type(target_node) == "string" and target_node or nil
+		local source_name = type(source_node) == "string" and source_node or nil
+		local excluded =
+			(target_name and (target_name:sub(-6) == "_scale" or target_name == "aim_target")) or
+			(source_name and (source_name:sub(-6) == "_scale" or source_name == "aim_target"))
 
 		-- Target 0 is already root-linked by the inventory attachment. Preserve
-		-- that one link and copy only child-node local transforms.
-		if target_node ~= 0 then
-			local target_index = type(target_node) == "string" and
-				Unit.node(outfit_unit, target_node) or target_node
-			local source_index = type(source_node) == "string" and
-				Unit.node(owner_unit, source_node) or source_node
+		-- that one link and drive only child-node local rotations.
+		if target_node ~= 0 and not excluded then
+			local target_index = target_name and
+				Unit.node(outfit_unit, target_name) or target_node
+			local source_index = source_name and
+				Unit.node(owner_unit, source_name) or source_node
 
 			node_pairs[#node_pairs + 1] = {
 				target = target_index,
 				source = source_index,
+				is_hips = (source_name == "j_hips") or (target_name == "j_hips"),
 			}
+		elseif target_node ~= 0 then
+			skipped = skipped + 1
 		end
 	end
 
@@ -354,12 +373,16 @@ mod._prepare_warlock_death = function(owner_unit, source)
 
 	for i = 1, #node_pairs do
 		local pair = node_pairs[i]
-		Unit.set_local_pose(outfit_unit, pair.target,
-			Unit.local_pose(owner_unit, pair.source))
+		Unit.set_local_rotation(outfit_unit, pair.target,
+			Unit.local_rotation(owner_unit, pair.source))
+		if pair.is_hips then
+			Unit.set_local_position(outfit_unit, pair.target,
+				Unit.local_position(owner_unit, pair.source))
+		end
 	end
 
-	printf("[doomrocket:RAGDOLL] %s pre-event local-pose carrier active: nodes=%d custom_physics=absent",
-		tostring(source), #node_pairs)
+	printf("[doomrocket:RAGDOLL] %s pre-event rotation carrier active: nodes=%d scale/aim_excluded=%d custom_physics=absent",
+		tostring(source), #node_pairs, skipped)
 
 	return driver
 end
@@ -383,8 +406,12 @@ mod._update_warlock_death_pose = function(data)
 	local node_pairs = driver.node_pairs
 	for i = 1, #node_pairs do
 		local pair = node_pairs[i]
-		Unit.set_local_pose(outfit_unit, pair.target,
-			Unit.local_pose(owner_unit, pair.source))
+		Unit.set_local_rotation(outfit_unit, pair.target,
+			Unit.local_rotation(owner_unit, pair.source))
+		if pair.is_hips then
+			Unit.set_local_position(outfit_unit, pair.target,
+				Unit.local_position(owner_unit, pair.source))
+		end
 	end
 end
 
