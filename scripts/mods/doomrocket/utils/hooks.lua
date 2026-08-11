@@ -221,6 +221,38 @@ local unit_get_data = Unit.get_data
 -- with the units). Registered when the outfit is swapped onto the ratling
 -- state machine in the _setup_configuration hook below.
 mod._warlock_outfits = mod._warlock_outfits or setmetatable({}, { __mode = "kv" })
+mod._warlock_donor_mesh_counts = mod._warlock_donor_mesh_counts or setmetatable({}, { __mode = "k" })
+
+local function set_warlock_donor_mesh_visibility(owner_unit, visible, reason)
+	if not owner_unit or not Unit.alive(owner_unit) then
+		return false
+	end
+
+	local num_meshes = mod._warlock_donor_mesh_counts[owner_unit]
+	if not num_meshes then
+		local counted = pcall(function()
+			num_meshes = Unit.num_meshes(owner_unit)
+		end)
+
+		if not counted or not num_meshes or num_meshes <= 0 then
+			num_meshes = 17
+		end
+
+		mod._warlock_donor_mesh_counts[owner_unit] = num_meshes
+	end
+
+	local changed = 0
+	for mesh_index = 0, num_meshes - 1 do
+		if pcall(Unit.set_mesh_visibility, owner_unit, mesh_index, visible, "default") then
+			changed = changed + 1
+		end
+	end
+
+	printf("[doomrocket:RAGDOLL] donor fallback visibility=%s meshes=%d/%d reason=%s",
+		tostring(visible), changed, num_meshes, tostring(reason))
+
+	return changed > 0
+end
 
 mod:hook(Unit, "animation_event", function(func, unit, event, ...)
 	-- The doomrocket donor is a STORMVERMIN body whose machine lacks the gun
@@ -305,11 +337,12 @@ local warlock_child_package_requested = false
 -- mesh's local scene-graph hierarchy and recreates the old "stick figure".
 --
 -- Keep the existing root-only attachment. This function is called BEFORE
--- ai_extension:die sends the owner's death event; it disables the outfit ASM
--- and builds an index-pair driver. The death reaction copies each vanilla
--- carrier LOCAL pose into the equivalent node of the intact outfit hierarchy
--- every frame. This is the runtime analogue of the parent-relative retarget
--- that made the living v0.1.39 animation set work.
+-- ai_extension:die sends the owner's death event; it detaches event mirroring,
+-- keeps the outfit ASM live for render evaluation, and builds an index-pair
+-- driver. The death reaction copies each vanilla carrier LOCAL rotation into
+-- the equivalent node of the intact outfit hierarchy every frame. This is the
+-- runtime analogue of the parent-relative retarget that made the living
+-- v0.1.39 animation set work.
 mod._prepare_warlock_death = function(owner_unit, source)
 	local outfit_unit = mod._warlock_outfits[owner_unit]
 
@@ -319,10 +352,22 @@ mod._prepare_warlock_death = function(owner_unit, source)
 		return
 	end
 
-	-- Remove the mirror entry before disabling the outfit machine. Sending an
-	-- animation event to a disabled ASM is an engine-level fatal.
+	-- Remove the mirror entry before the owner's death event so that event is not
+	-- forwarded into the outfit. v0.1.48 disabled the outfit ASM here; six clean
+	-- v0.1.48 deaths left the native carrier (and embedded arrows) in place while
+	-- the entire skinned outfit vanished. Keep the outfit's own ASM evaluating so
+	-- Stingray continues to update its skinned render state/bounds, then apply the
+	-- carrier rotations after the living mirror has been detached.
 	mod._warlock_outfits[owner_unit] = nil
-	Unit.disable_animation_state_machine(outfit_unit)
+	Unit.set_animation_bone_mode(outfit_unit, "transform")
+	Unit.set_bones_lod(outfit_unit, 0)
+	Unit.set_unit_visibility(outfit_unit, true)
+
+	-- Always expose the native carrier at death. It is the actual stable PhysX
+	-- ragdoll and forms a fail-safe underlay if the custom skinned overlay is
+	-- culled or transformed away. This is deliberately death-only: the donor
+	-- remains hidden while alive, and the custom outfit remains enabled above it.
+	set_warlock_donor_mesh_visibility(owner_unit, true, "death-underlay")
 
 	-- v0.1.48: ROTATION-ONLY retarget. Copying full local poses (v0.1.45-47)
 	-- resurrected the closed v0.1.28 bridge failure at death time: the ratling
@@ -369,6 +414,10 @@ mod._prepare_warlock_death = function(owner_unit, source)
 		owner = owner_unit,
 		outfit = outfit_unit,
 		node_pairs = node_pairs,
+		owner_hips = Unit.node(owner_unit, "j_hips"),
+		outfit_hips = Unit.node(outfit_unit, "j_hips"),
+		frame = 0,
+		escape_reported = false,
 	}
 
 	for i = 1, #node_pairs do
@@ -381,8 +430,13 @@ mod._prepare_warlock_death = function(owner_unit, source)
 		end
 	end
 
-	printf("[doomrocket:RAGDOLL] %s pre-event rotation carrier active: nodes=%d scale/aim_excluded=%d custom_physics=absent",
-		tostring(source), #node_pairs, skipped)
+	local owner_root = Unit.world_position(owner_unit, 0)
+	local outfit_root = Unit.world_position(outfit_unit, 0)
+	local owner_hips = Unit.world_position(owner_unit, driver.owner_hips)
+	local outfit_hips = Unit.world_position(outfit_unit, driver.outfit_hips)
+	printf("[doomrocket:RAGDOLL] %s pre-event live-ASM rotation carrier active: nodes=%d scale/aim_excluded=%d custom_physics=absent root_delta=%.3f hips_delta=%.3f",
+		tostring(source), #node_pairs, skipped,
+		Vector3.length(outfit_root - owner_root), Vector3.length(outfit_hips - owner_hips))
 
 	return driver
 end
@@ -399,9 +453,18 @@ mod._update_warlock_death_pose = function(data)
 
 	if not owner_unit or not Unit.alive(owner_unit) or
 			not outfit_unit or not Unit.alive(outfit_unit) then
+		if owner_unit and Unit.alive(owner_unit) then
+			set_warlock_donor_mesh_visibility(owner_unit, true, "outfit-not-alive")
+		end
+		printf("[doomrocket:RAGDOLL] pose driver stopped owner_alive=%s outfit_alive=%s frame=%d",
+			tostring(owner_unit and Unit.alive(owner_unit) or false),
+			tostring(outfit_unit and Unit.alive(outfit_unit) or false),
+			driver.frame or -1)
 		data.warlock_pose_driver = nil
 		return
 	end
+
+	driver.frame = driver.frame + 1
 
 	local node_pairs = driver.node_pairs
 	for i = 1, #node_pairs do
@@ -411,6 +474,31 @@ mod._update_warlock_death_pose = function(data)
 		if pair.is_hips then
 			Unit.set_local_position(outfit_unit, pair.target,
 				Unit.local_position(owner_unit, pair.source))
+		end
+	end
+
+	local frame = driver.frame
+	if frame == 1 or frame == 2 or frame == 4 or frame == 8 or
+			frame == 16 or frame == 32 or frame == 64 then
+		-- Reassert custom-overlay visibility at diagnostic checkpoints. This also
+		-- defeats any death flow that merely toggles the outfit visibility flag.
+		Unit.set_unit_visibility(outfit_unit, true)
+
+		local owner_root = Unit.world_position(owner_unit, 0)
+		local outfit_root = Unit.world_position(outfit_unit, 0)
+		local owner_hips = Unit.world_position(owner_unit, driver.owner_hips)
+		local outfit_hips = Unit.world_position(outfit_unit, driver.outfit_hips)
+		local root_delta = Vector3.length(outfit_root - owner_root)
+		local hips_delta = Vector3.length(outfit_hips - owner_hips)
+
+		printf("[doomrocket:RAGDOLL] sample frame=%d owner_alive=true outfit_alive=true root_delta=%.3f hips_delta=%.3f",
+			frame, root_delta, hips_delta)
+
+		if not driver.escape_reported and (root_delta > 5 or hips_delta > 5) then
+			driver.escape_reported = true
+			set_warlock_donor_mesh_visibility(owner_unit, true, "overlay-transform-escape")
+			printf("[doomrocket:RAGDOLL] overlay transform escaped carrier frame=%d root_delta=%.3f hips_delta=%.3f",
+				frame, root_delta, hips_delta)
 		end
 	end
 end
@@ -545,6 +633,8 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 		if not counted or not num_meshes or num_meshes <= 0 then
 			num_meshes = 17
 		end
+
+		mod._warlock_donor_mesh_counts[unit] = num_meshes
 
 		for mesh_index = 0, num_meshes - 1 do
 			if pcall(Unit.set_mesh_visibility, unit, mesh_index, false, "default") then

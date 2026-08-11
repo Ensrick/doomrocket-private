@@ -105,6 +105,14 @@ Assert-True ($hooks -notmatch 'World\.unlink_unit\(world,\s*outfit_unit\)') `
     "death handoff must preserve the living root-only attachment"
 Assert-True ($hooks -notmatch 'World\.link_unit\(world,\s*outfit_unit,\s*target_index,\s*owner_unit,\s*source_index\)') `
     "death handoff must not independently link outfit bones (v0.1.44 stick-figure class)"
+Assert-True ($hooks -notmatch '(?s)_prepare_warlock_death\s*=\s*function.*?Unit\.disable_animation_state_machine\(outfit_unit\).*?return driver') `
+    "death handoff must keep the outfit ASM active so Stingray maintains skinned render state"
+Assert-True ($hooks -match 'Unit\.set_unit_visibility\(outfit_unit,\s*true\)') `
+    "death handoff must reassert custom outfit visibility"
+Assert-True ($hooks -match 'set_warlock_donor_mesh_visibility\(owner_unit,\s*true,\s*"death-underlay"\)') `
+    "death handoff must expose the stable native carrier as a corpse fallback"
+Assert-True ($hooks -match 'root_delta=.*hips_delta=') `
+    "death handoff must emit carrier/outfit displacement telemetry"
 # v0.1.48: rotation-only retarget. Full local-pose copy resurrected the closed
 # v0.1.28 stretch class at death (carrier bone lengths + *_scale proportions
 # compound down Crunch's chains). Rotations cannot stretch; j_hips alone also
