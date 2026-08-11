@@ -1,0 +1,5 @@
+18:18:40.000 [doomrocket:RAGDOLL] death handoff prepared source=unit pairs=90 owner_root=(0.0,0.0,0.0) outfit_root=(0.0,0.0,0.0)
+18:18:40.016 [doomrocket:RAGDOLL] pose frame=1 root_delta=0.000 hips_delta=0.040 pairs=90
+18:18:40.500 [doomrocket:RAGDOLL] pose frame=32 root_delta=0.000 hips_delta=0.710 pairs=90
+18:18:41.000 [doomrocket:RAGDOLL] pose frame=64 root_delta=0.000 hips_delta=1.683 pairs=90
+18:18:41.010 [doomrocket:RAGDOLL] donor fallback visibility=true meshes=24/24 reason=death-underlay

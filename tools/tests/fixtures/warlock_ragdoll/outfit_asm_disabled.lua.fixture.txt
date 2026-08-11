@@ -1,0 +1,6 @@
+-- Inert source fixture: the .fixture.txt suffix keeps it out of VMB bundles.
+mod._prepare_warlock_death = function(owner_unit, source)
+    local outfit_unit = mod._warlock_outfits[owner_unit]
+    Unit.disable_animation_state_machine(outfit_unit)
+    Unit.set_unit_visibility(outfit_unit, false)
+end

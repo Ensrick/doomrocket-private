@@ -440,14 +440,12 @@ AttachmentNodeLinking.doomrocket_warlock_root = {
     },
 }
 
--- Crunch's Warlock Bombardier body (body, fur, armor, backpack on one rig),
--- compiled since v0.1.27 on DALO'S recovered vanilla skeleton
--- (units/bombadier/bombadier.fbx: 97 bones, scale-100 armature, cm mesh data -
--- the exact conventions of the vanilla units whose plague-monk precedent
--- proves bridge-driven skinning). The v0.1.18-23 stick figures were compiled
--- from Crunch's Blender-native armature instead; identical rest pose, but not
--- Dalo's asset conventions. Linking is assigned below AFTER the filtered
--- bridge is built (doomrocket_warlock_bridge).
+-- Crunch's Warlock Bombardier body (body, fur, armor, backpack on one rig).
+-- The shipped .bones contains 138 entries; Dalo's source has the same set plus
+-- camera_attach. The scale-100 armature wrapper is a real compiled hierarchy
+-- difference, not evidence that the Bitsquid Blender exporter invented bones.
+-- Living use is root-only/self-ASM; the filtered bridge below is calibration
+-- metadata for the visual-only death retarget.
 local bombadier_curiass = {
 	unit_extension_template = "ai_outfit_unit",
     unit_name = "units/warlock_bombardier/warlock_bombardier_3p",
@@ -566,11 +564,9 @@ for i = 1, #DOOMROCKET_EXTRA_ARMOR_NODES do
 end
 
 
--- The warlock unit now compiles on Dalo's recovered 97-bone vanilla skeleton
--- (units/bombadier/bombadier.fbx) with Crunch's weights - the composition both
--- authors intended. Bridge entries whose TARGET bone is absent from that unit
--- are engine fatals at vanilla link time (the item side has no prune pass), so
--- the item links through this filtered copy. Generated from
+-- The shipped Warlock state-machine skeleton has 138 bones. Bridge entries
+-- whose TARGET bone is absent from that unit are engine fatals at lookup time,
+-- so the death-retarget metadata uses this filtered copy. Generated from
 -- warlock_bombardier_3p.bones - keep the two in sync (Test-WarlockPipeline).
 local WARLOCK_UNIT_BONES = {
     ["root_point"] = true,

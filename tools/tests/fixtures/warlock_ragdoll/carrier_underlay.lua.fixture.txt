@@ -1,0 +1,10 @@
+-- Inert source fixture: the .fixture.txt suffix keeps it out of VMB bundles.
+local function set_warlock_donor_mesh_visibility(owner_unit, visible)
+    for mesh_index = 0, Unit.num_meshes(owner_unit) - 1 do
+        Unit.set_mesh_visibility(owner_unit, mesh_index, visible, "default")
+    end
+end
+
+mod._prepare_warlock_death = function(owner_unit, source)
+    set_warlock_donor_mesh_visibility(owner_unit, true)
+end

@@ -1,0 +1,4 @@
+18:00:00.000 [doomrocket:RAGDOLL] phase=begin id=unit-0205 source=unit owner_alive=true outfit_alive=true carrier_visible=false custom_actors=0 carrier_reveals=0 parent_mismatch=0 scale_mutations=0 nonhips_translation_mutations=0 hips_delta=0.040 frame_ms=16 elapsed_ms=0
+18:00:00.016 [doomrocket:RAGDOLL] phase=sample id=unit-0205 source=unit owner_alive=true outfit_alive=true carrier_visible=false carrier_reveals=0 hips_drift=0.011 frame_ms=16 elapsed_ms=16
+18:00:01.000 [doomrocket:RAGDOLL] phase=sample id=unit-0205 source=unit owner_alive=true outfit_alive=true carrier_visible=true carrier_reveals=24 hips_drift=0.078 frame_ms=16 elapsed_ms=1000
+18:00:05.000 [doomrocket:RAGDOLL] phase=sample id=unit-0205 source=unit owner_alive=true outfit_alive=true carrier_visible=false carrier_reveals=0 hips_drift=0.184 frame_ms=16 elapsed_ms=5000

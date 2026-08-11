@@ -153,14 +153,11 @@ mod:hook(UnitSpawner, "create_unit_extensions", function(func, self, world, unit
 			if extension_init_data.locomotion_system.breed then
 				if extension_init_data.locomotion_system.breed.name == "skaven_doomrocket" then
 					if Unit.alive(unit) then
-						-- NO state-machine swap: the ratling machine's clips animate
-						-- gun bones the stormvermin skeleton lacks - binding it to
-						-- this donor is a raw native crash moments after spawn
-						-- (v0.1.34, no Error Context). Cross-skeleton SM binding is
-						-- dead in EVERY direction now: mod->vanilla (v0.1.24,
-						-- AnimationBlender assert) and vanilla->vanilla (v0.1.34).
-						-- The donor keeps its own stormvermin machine; gun-rat
-						-- clips require animations compiled against this skeleton.
+						-- NO state-machine swap. The native ratling carrier keeps its
+						-- own machine; the custom outfit keeps clips compiled against
+						-- its own skeleton. Binding either unit to the other's machine
+						-- is the uncatchable AnimationBlender crash class proven in
+						-- v0.1.24/34.
 						for animaiton_event, details in pairs(new_animations) do
 							Unit.set_data(unit, animaiton_event, "timing", details.timing)
 							Unit.set_data(unit, animaiton_event, "emitted_event", details.emitted_event)
@@ -168,11 +165,9 @@ mod:hook(UnitSpawner, "create_unit_extensions", function(func, self, world, unit
 
 						mod.anim_emitters[unit] = AnimEmitter:new(unit, blackboard)
 
-						-- The fixed-index hides that lived here targeted the RATLING
-						-- body's gun/tank/belt LOD meshes; on the stormvermin donor
-						-- those indices are arbitrary (and an out-of-range index is
-						-- an engine assert). The full donor hide runs at warlock
-						-- attach in the _setup_configuration hook below.
+						-- Fixed-index hides are unsafe because an out-of-range mesh
+						-- index is an engine assert. The complete native carrier hide
+						-- runs after Warlock attachment below.
 					end
 				end
 			end
@@ -218,50 +213,44 @@ local has_animation_event = Unit.has_animation_event
 local unit_get_data = Unit.get_data
 
 -- Doomrocket owner unit -> warlock outfit unit riding it (weak: entries die
--- with the units). Registered when the outfit is swapped onto the ratling
--- state machine in the _setup_configuration hook below.
+-- with the units). The owner is the native ratling carrier; its render meshes
+-- stay hidden while its authored skeleton/PhysX scene drives the custom skin.
 mod._warlock_outfits = mod._warlock_outfits or setmetatable({}, { __mode = "kv" })
-mod._warlock_donor_mesh_counts = mod._warlock_donor_mesh_counts or setmetatable({}, { __mode = "k" })
+mod._warlock_carriers = mod._warlock_carriers or setmetatable({}, { __mode = "k" })
+mod._warlock_pending_death_drivers = mod._warlock_pending_death_drivers or setmetatable({}, { __mode = "k" })
+mod._warlock_active_death_drivers = mod._warlock_active_death_drivers or {}
+mod._warlock_death_sequence = mod._warlock_death_sequence or 0
 
-local function set_warlock_donor_mesh_visibility(owner_unit, visible, reason)
-	if not owner_unit or not Unit.alive(owner_unit) then
-		return false
-	end
+-- A native-carrier reveal was the v0.1.49 diagnostic shortcut that made a
+-- ratling gunner corpse appear instead of the Warlock. Keep a runtime counter
+-- as well as the static regression rule so an external visibility write is
+-- visible in a tester log and attributable to one corpse.
+mod:hook(Unit, "set_mesh_visibility", function(func, unit, mesh_index, visible, ...)
+	local tracker = mod._warlock_carriers[unit]
 
-	local num_meshes = mod._warlock_donor_mesh_counts[owner_unit]
-	if not num_meshes then
-		local counted = pcall(function()
-			num_meshes = Unit.num_meshes(owner_unit)
-		end)
-
-		if not counted or not num_meshes or num_meshes <= 0 then
-			num_meshes = 17
-		end
-
-		mod._warlock_donor_mesh_counts[owner_unit] = num_meshes
-	end
-
-	local changed = 0
-	for mesh_index = 0, num_meshes - 1 do
-		if pcall(Unit.set_mesh_visibility, owner_unit, mesh_index, visible, "default") then
-			changed = changed + 1
+	if tracker and visible then
+		tracker.reveal_count = (tracker.reveal_count or 0) + 1
+		if tracker.id then
+			local elapsed_ms = (Application.time_since_launch() - tracker.created_at) * 1000
+			printf("[doomrocket:RAGDOLL] phase=carrier_reveal id=%s source=%s elapsed_ms=%.1f mesh=%s carrier_reveals=%d",
+				tracker.id, tracker.source, elapsed_ms, tostring(mesh_index),
+				tracker.reveal_count)
+		else
+			printf("[doomrocket:CARRIER] unexpected living mesh reveal mesh=%s count=%d",
+				tostring(mesh_index), tracker.reveal_count)
 		end
 	end
 
-	printf("[doomrocket:RAGDOLL] donor fallback visibility=%s meshes=%d/%d reason=%s",
-		tostring(visible), changed, num_meshes, tostring(reason))
-
-	return changed > 0
-end
+	return func(unit, mesh_index, visible, ...)
+end)
 
 mod:hook(Unit, "animation_event", function(func, unit, event, ...)
-	-- The doomrocket donor is a STORMVERMIN body whose machine lacks the gun
-	-- rat's event vocabulary (attack_shoot_*, wind_up_*). DO NOT hot-swap it
-	-- onto the ratling machine: cross-skeleton state-machine binding is a raw
-	-- native crash (v0.1.34) - the clips animate bones this skeleton lacks.
-	-- Unknown events are swallowed instead; the visual for those actions stays
-	-- whatever the stormvermin machine is doing until clips compiled against
-	-- this skeleton exist.
+	-- The doomrocket owner is the native ratling carrier. Never bind the custom
+	-- outfit to that foreign machine: cross-skeleton state-machine binding is a
+	-- raw native crash (v0.1.24/34). The outfit mirrors only compatible events
+	-- by name while alive and is removed from this registry in death pre_start.
+	-- Unknown events are swallowed instead; the custom visual stays on the last
+	-- compatible clip until an equivalent clip exists on its own machine.
 	local breed = unit_get_data(unit, "breed")
 
 	if breed and breed.name == "skaven_doomrocket" and not has_animation_event(unit, event) then
@@ -326,59 +315,359 @@ local WARLOCK_CUSTOM_TEXTURES = {
 }
 local warlock_child_package_requested = false
 
--- v0.1.43 proved that "keep the custom actors kinematic" was insufficient.
--- The owner's death event was mirrored into the outfit before the delayed
--- handoff; the outfit's ragdoll state then made its actors dynamic internally,
--- stalling physics for 1-1.6 s and corrupting the skeleton before Lua ran
--- again. v0.1.44 removes the custom PhysX scene and ragdoll layer altogether.
+-- Death visuals use a two-unit contract: the hidden native ratling owns all
+-- actors/PhysX, while this physics-free custom unit owns the pixels. Previous
+-- builds failed in three independent ways: custom actors destabilized PhysX;
+-- per-bone links destroyed this unit's hierarchy; and raw native local poses
+-- were copied into a custom hierarchy whose compiled armature wrapper is 100x.
 --
--- v0.1.44 then proved that a native carrier alone is not enough: linking 97
--- target bones independently with World.link_unit destroys this Blender-built
--- mesh's local scene-graph hierarchy and recreates the old "stick figure".
---
--- Keep the existing root-only attachment. This function is called BEFORE
--- ai_extension:die sends the owner's death event; it detaches event mirroring,
--- keeps the outfit ASM live for render evaluation, and builds an index-pair
--- driver. The death reaction copies each vanilla carrier LOCAL rotation into
--- the equivalent node of the intact outfit hierarchy every frame. This is the
--- runtime analogue of the parent-relative retarget that made the living
--- v0.1.39 animation set work.
-mod._prepare_warlock_death = function(owner_unit, source)
-	local outfit_unit = mod._warlock_outfits[owner_unit]
+-- The calibrated transfer below is deliberately captured in death pre_start,
+-- before GenericHitReactionExtension can emit its delayed death event. It then
+-- runs from AnimationSystem's safe callback, after World.update_animations and
+-- before World.update_scene. The outfit ASM stays enabled for its proven render
+-- lifecycle, but bone mode "ignore" makes this callback the sole bone writer.
+local WARLOCK_RAGDOLL_SAMPLE_TIMES_MS = { 0, 100, 250, 500, 1000, 2000, 5000 }
+local WARLOCK_RAGDOLL_DRIVE_TIME_MS = 5000
+local WARLOCK_RAGDOLL_PROBE_NAMES = {
+	"root_point", "j_hips", "j_head", "j_righthand", "j_lefthand",
+	"j_rightfoot", "j_leftfoot",
+}
 
-	if not outfit_unit or not Unit.alive(outfit_unit) then
-		printf("[doomrocket:RAGDOLL] %s death: no live warlock outfit to hand off",
-			tostring(source))
+local function warlock_rigid_world_pose(unit, node)
+	return Matrix4x4.from_quaternion_position(
+		Unit.world_rotation(unit, node), Unit.world_position(unit, node))
+end
+
+local function warlock_node_depth(unit, node)
+	local depth = 0
+	local current = node
+
+	while current and current ~= 0 and depth < 256 do
+		local parent = Unit.scene_graph_parent(unit, current)
+		if not parent or parent == current then
+			break
+		end
+
+		current = parent
+		depth = depth + 1
+	end
+
+	return depth
+end
+
+local function warlock_unit_actor_count(unit)
+	local count = -1
+	pcall(function()
+		count = Unit.num_actors(unit)
+	end)
+
+	return count
+end
+
+local function warlock_bounds_radius(unit)
+	local radius = 0
+	pcall(function()
+		local _, extents = Unit.box(unit)
+		radius = Vector3.length(extents)
+	end)
+
+	return radius
+end
+
+
+local function warlock_max_bone_radius(driver)
+	local outfit_unit = driver.outfit
+	local center = Unit.world_position(outfit_unit, driver.outfit_hips)
+	local radius = 0
+
+	for i = 1, #driver.node_pairs do
+		local distance = Vector3.length(
+			Unit.world_position(outfit_unit, driver.node_pairs[i].target) - center)
+		radius = math.max(radius, distance)
+	end
+
+	return radius
+end
+
+local function stop_warlock_death_driver(driver, reason)
+	if driver.stopped then
 		return
 	end
 
-	-- Remove the mirror entry before the owner's death event so that event is not
-	-- forwarded into the outfit. v0.1.48 disabled the outfit ASM here; six clean
-	-- v0.1.48 deaths left the native carrier (and embedded arrows) in place while
-	-- the entire skinned outfit vanished. Keep the outfit's own ASM evaluating so
-	-- Stingray continues to update its skinned render state/bounds, then apply the
-	-- carrier rotations after the living mirror has been detached.
-	mod._warlock_outfits[owner_unit] = nil
-	Unit.set_animation_bone_mode(outfit_unit, "transform")
-	Unit.set_bones_lod(outfit_unit, 0)
-	Unit.set_unit_visibility(outfit_unit, true)
+	driver.stopped = true
+	mod._warlock_active_death_drivers[driver] = nil
+	local now = Application.time_since_launch()
+	local owner_alive = driver.owner and Unit.alive(driver.owner) or false
+	local outfit_alive = driver.outfit and Unit.alive(driver.outfit) or false
+	printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=%.1f owner_alive=%s outfit_alive=%s reason=%s callbacks=%d",
+		driver.id, driver.source, (now - driver.created_at) * 1000,
+		tostring(owner_alive), tostring(outfit_alive), tostring(reason),
+		driver.callback_count or 0)
+end
 
-	-- Always expose the native carrier at death. It is the actual stable PhysX
-	-- ragdoll and forms a fail-safe underlay if the custom skinned overlay is
-	-- culled or transformed away. This is deliberately death-only: the donor
-	-- remains hidden while alive, and the custom outfit remains enabled above it.
-	set_warlock_donor_mesh_visibility(owner_unit, true, "death-underlay")
+local function sample_warlock_death_driver(driver, now, checkpoint_ms, wall_gap_ms)
+	local owner_unit = driver.owner
+	local outfit_unit = driver.outfit
+	local owner_root = Unit.world_position(owner_unit, 0)
+	local outfit_anchor = Unit.world_position(outfit_unit, 0)
+	local owner_hips = Unit.world_position(owner_unit, driver.owner_hips)
+	local outfit_hips = Unit.world_position(outfit_unit, driver.outfit_hips)
+	local hips_offset = outfit_hips - owner_hips
+	local root_delta = Vector3.length(outfit_anchor - owner_root)
+	local hips_delta = Vector3.length(hips_offset)
+	local hips_drift = Vector3.length(hips_offset - driver.initial_hips_offset:unbox())
+	local parent_mismatch = 0
+	local scale_mutations = 0
+	local nonhips_translation_mutations = 0
 
-	-- v0.1.48: ROTATION-ONLY retarget. Copying full local poses (v0.1.45-47)
-	-- resurrected the closed v0.1.28 bridge failure at death time: the ratling
-	-- carrier's local matrices carry ITS bone translations and its animated
-	-- proportion SCALE (the *_scale bones the bridge maps), which compound
-	-- multiplicatively down every chain on Crunch's hierarchy - the reported
-	-- giant sky-flying stretch. Rotations alone cannot stretch: bone lengths
-	-- and proportions stay at the outfit's own bind. j_hips additionally
-	-- copies local TRANSLATION (one root-relative bone, no chain to compound)
-	-- so the corpse actually falls to the ground instead of pivoting in air.
-	-- *_scale bones and the aim_target constraint node are excluded outright.
+	for i = 1, #driver.node_pairs do
+		local pair = driver.node_pairs[i]
+		if Unit.scene_graph_parent(outfit_unit, pair.target) ~= pair.parent then
+			parent_mismatch = parent_mismatch + 1
+		end
+		if Vector3.length(Unit.local_scale(outfit_unit, pair.target) -
+				pair.initial_local_scale:unbox()) > 0.0001 then
+			scale_mutations = scale_mutations + 1
+		end
+		if not pair.is_hips and Vector3.length(Unit.local_position(outfit_unit, pair.target) -
+				pair.initial_local_position:unbox()) > 0.0001 then
+			nonhips_translation_mutations = nonhips_translation_mutations + 1
+		end
+	end
+
+	local anchor_max_drift = 0
+	local named_root_drift = 0
+	for i = 1, #driver.probes do
+		local probe = driver.probes[i]
+		local offset = Unit.world_position(outfit_unit, probe.target) -
+			Unit.world_position(owner_unit, probe.source)
+		local drift = Vector3.length(offset - probe.initial_offset:unbox())
+		anchor_max_drift = math.max(anchor_max_drift, drift)
+		if probe.name == "root_point" then
+			named_root_drift = drift
+		end
+	end
+
+	local bounds_radius = warlock_bounds_radius(outfit_unit)
+	local max_bone_radius = warlock_max_bone_radius(driver)
+	local bounds_ratio = driver.initial_bounds_radius > 0 and
+		bounds_radius / driver.initial_bounds_radius or 1
+	local max_bone_radius_ratio = driver.initial_max_bone_radius > 0 and
+		max_bone_radius / driver.initial_max_bone_radius or 1
+	local tracker = driver.carrier_tracker
+
+	printf("[doomrocket:RAGDOLL] phase=sample id=%s source=%s checkpoint_ms=%d elapsed_ms=%.1f wall_gap_ms=%.1f owner_alive=true outfit_alive=true nodes=%d custom_actors=%d carrier_reveals=%d parent_mismatch=%d root_delta=%.3f named_root_drift=%.3f hips_delta=%.3f hips_drift=%.3f anchor_max_drift=%.3f scale_mutations=%d nonhips_translation_mutations=%d bounds_ratio=%.3f max_bone_radius_ratio=%.3f",
+		driver.id, driver.source, checkpoint_ms, (now - driver.created_at) * 1000,
+		wall_gap_ms, #driver.node_pairs, warlock_unit_actor_count(outfit_unit),
+		tracker and tracker.reveal_count or 0, parent_mismatch, root_delta,
+		named_root_drift, hips_delta, hips_drift, anchor_max_drift,
+		scale_mutations, nonhips_translation_mutations, bounds_ratio,
+		max_bone_radius_ratio)
+end
+
+local queue_warlock_death_pose
+
+local function apply_warlock_death_pose(driver)
+	local owner_unit = driver.owner
+	local outfit_unit = driver.outfit
+
+	if not owner_unit or not Unit.alive(owner_unit) or
+			not outfit_unit or not Unit.alive(outfit_unit) then
+		stop_warlock_death_driver(driver, "unit_not_alive")
+		return false
+	end
+
+	local now = Application.time_since_launch()
+	local wall_gap_ms = (now - driver.last_callback_at) * 1000
+	driver.last_callback_at = now
+	driver.callback_count = driver.callback_count + 1
+
+	-- Freeze all source samples before touching the target. Source transforms are
+	-- rebuilt rigid (unit scale) so native animated scale/shear can never enter
+	-- the custom skin. With Stingray's row-matrix convention:
+	--   D = inverse(S0) * St; desiredWorld = T0 * D
+	-- and desiredLocal = desiredWorld * inverse(desiredParentWorld).
+	-- The final inverse-parent step is what normalizes the 100x wrapper.
+	local desired_worlds = {}
+	for i = 1, #driver.node_pairs do
+		local pair = driver.node_pairs[i]
+		local source_world = warlock_rigid_world_pose(owner_unit, pair.source)
+		if not Matrix4x4.is_valid(source_world) then
+			stop_warlock_death_driver(driver, "invalid_source_matrix")
+			return false
+		end
+
+		local source_delta = Matrix4x4.multiply(
+			pair.source_world_inverse_at_handoff:unbox(), source_world)
+		desired_worlds[i] = Matrix4x4.multiply(
+			pair.target_world_at_handoff:unbox(), source_delta)
+
+		if not Matrix4x4.is_valid(source_delta) or
+				not Matrix4x4.is_valid(desired_worlds[i]) then
+			stop_warlock_death_driver(driver, "invalid_source_or_world_matrix")
+			return false
+		end
+	end
+
+	local resolved_worlds = {}
+	local function resolve_target_world(node)
+		local pair_index = driver.pair_by_target[node]
+		if pair_index then
+			return desired_worlds[pair_index]
+		end
+		if node == 0 then
+			return Unit.world_pose(outfit_unit, 0)
+		end
+
+		local cached = resolved_worlds[node]
+		if cached then
+			return cached
+		end
+
+		local graph_node = driver.target_graph[node]
+		if not graph_node then
+			return Unit.world_pose(outfit_unit, node)
+		end
+
+		local parent_world = resolve_target_world(graph_node.parent)
+		local world_pose = Matrix4x4.multiply(
+			graph_node.local_pose_at_handoff:unbox(), parent_world)
+		resolved_worlds[node] = world_pose
+
+		return world_pose
+	end
+
+	-- Resolve and validate the entire candidate pose before the first engine
+	-- write. A NaN/Inf matrix must never reach Unit.set_local_*.
+	local desired_locals = {}
+	for i = 1, #driver.node_pairs do
+		local pair = driver.node_pairs[i]
+		local parent_world = resolve_target_world(pair.parent)
+		if not Matrix4x4.is_valid(parent_world) then
+			stop_warlock_death_driver(driver, "invalid_parent_matrix")
+			return false
+		end
+
+		local parent_x = Vector3.length(Matrix4x4.axis(parent_world, 1))
+		local parent_y = Vector3.length(Matrix4x4.axis(parent_world, 2))
+		local parent_z = Vector3.length(Matrix4x4.axis(parent_world, 3))
+		if parent_x < 0.000001 or parent_y < 0.000001 or parent_z < 0.000001 then
+			stop_warlock_death_driver(driver, "singular_parent_matrix")
+			return false
+		end
+
+		local parent_inverse = Matrix4x4.inverse(parent_world)
+		if not Matrix4x4.is_valid(parent_inverse) then
+			stop_warlock_death_driver(driver, "invalid_parent_inverse")
+			return false
+		end
+
+		local desired_local = Matrix4x4.multiply(
+			desired_worlds[i], parent_inverse)
+
+		if not Matrix4x4.is_valid(desired_local) then
+			stop_warlock_death_driver(driver, "invalid_parent_or_local_matrix")
+			return false
+		end
+
+		desired_locals[i] = desired_local
+	end
+
+	-- The bridge table is not parent-first, so node_pairs was explicitly sorted
+	-- by target scene-graph depth during calibration.
+	for i = 1, #driver.node_pairs do
+		local pair = driver.node_pairs[i]
+		local desired_local = desired_locals[i]
+		Unit.set_local_rotation(outfit_unit, pair.target,
+			Matrix4x4.rotation(desired_local))
+		if pair.is_hips then
+			Unit.set_local_position(outfit_unit, pair.target,
+				Matrix4x4.translation(desired_local))
+		end
+	end
+
+	World.update_unit(Unit.world(outfit_unit), outfit_unit)
+
+	local elapsed_ms = (now - driver.created_at) * 1000
+	local checkpoint = WARLOCK_RAGDOLL_SAMPLE_TIMES_MS[driver.next_sample]
+	if checkpoint and elapsed_ms >= checkpoint then
+		repeat
+			driver.next_sample = driver.next_sample + 1
+			checkpoint = WARLOCK_RAGDOLL_SAMPLE_TIMES_MS[driver.next_sample]
+		until not checkpoint or elapsed_ms < checkpoint
+
+		sample_warlock_death_driver(driver, now,
+			WARLOCK_RAGDOLL_SAMPLE_TIMES_MS[driver.next_sample - 1], wall_gap_ms)
+	end
+
+	if elapsed_ms >= WARLOCK_RAGDOLL_DRIVE_TIME_MS then
+		stop_warlock_death_driver(driver, "monitor_complete")
+		return false
+	end
+
+	return true
+end
+
+queue_warlock_death_pose = function(driver)
+	if not driver or driver.stopped or driver.callback_pending then
+		return
+	end
+
+	local entity_manager = Managers.state.entity
+	local animation_system = entity_manager and entity_manager:system("animation_system")
+	if not animation_system then
+		stop_warlock_death_driver(driver, "animation_system_missing")
+		return
+	end
+
+	driver.callback_pending = true
+	animation_system:add_safe_animation_callback(function()
+		driver.callback_pending = false
+		if not driver.stopped then
+			apply_warlock_death_pose(driver)
+		end
+	end)
+end
+
+-- AnimationSystem's callback queue is global and ScriptWorld drains it once
+-- for every active world. Enqueuing from inside a callback can therefore run
+-- the 90-bone transfer several times in one rendered frame. Instead, enqueue
+-- once only after the specific world that owns this carrier has finished its
+-- animation pass; ScriptWorld drains it immediately before that same world's
+-- scene update.
+local function queue_warlock_death_drivers_for_world(world)
+	for driver, _ in pairs(mod._warlock_active_death_drivers) do
+		if driver.stopped then
+			mod._warlock_active_death_drivers[driver] = nil
+		elseif not driver.owner or not Unit.alive(driver.owner) or
+				not driver.outfit or not Unit.alive(driver.outfit) then
+			stop_warlock_death_driver(driver, "unit_not_alive")
+		elseif Unit.world(driver.owner) == world then
+			queue_warlock_death_pose(driver)
+		end
+	end
+end
+
+mod:hook_safe(World, "update_animations", function(world, ...)
+	queue_warlock_death_drivers_for_world(world)
+end)
+
+mod:hook_safe(World, "update_animations_with_callback", function(world, ...)
+	queue_warlock_death_drivers_for_world(world)
+end)
+
+mod._prepare_warlock_death = function(owner_unit, source)
+	mod._warlock_death_sequence = mod._warlock_death_sequence + 1
+	local id = string.format("%s-%04d", source, mod._warlock_death_sequence)
+	local created_at = Application.time_since_launch()
+	local outfit_unit = mod._warlock_outfits[owner_unit]
+
+	if not outfit_unit or not Unit.alive(outfit_unit) then
+		printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=0 owner_alive=%s outfit_alive=false reason=no_live_outfit callbacks=0",
+			id, source, tostring(owner_unit and Unit.alive(owner_unit) or false))
+		return
+	end
+
 	local bridge = AttachmentNodeLinking.doomrocket_warlock_bridge
 	local node_pairs = {}
 	local skipped = 0
@@ -392,51 +681,124 @@ mod._prepare_warlock_death = function(owner_unit, source)
 			(target_name and (target_name:sub(-6) == "_scale" or target_name == "aim_target")) or
 			(source_name and (source_name:sub(-6) == "_scale" or source_name == "aim_target"))
 
-		-- Target 0 is already root-linked by the inventory attachment. Preserve
-		-- that one link and drive only child-node local rotations.
+		-- Target 0 is already root-linked by the inventory attachment. Keep that
+		-- single link and drive only the intact child hierarchy.
 		if target_node ~= 0 and not excluded then
-			local target_index = target_name and
-				Unit.node(outfit_unit, target_name) or target_node
-			local source_index = source_name and
-				Unit.node(owner_unit, source_name) or source_node
+			local target_index = target_name and Unit.node(outfit_unit, target_name) or target_node
+			local source_index = source_name and Unit.node(owner_unit, source_name) or source_node
+			local parent = Unit.scene_graph_parent(outfit_unit, target_index)
+			local source_world_at_handoff = warlock_rigid_world_pose(owner_unit, source_index)
 
 			node_pairs[#node_pairs + 1] = {
 				target = target_index,
 				source = source_index,
+				name = target_name or source_name or tostring(target_index),
+				parent = parent,
+				depth = warlock_node_depth(outfit_unit, target_index),
 				is_hips = (source_name == "j_hips") or (target_name == "j_hips"),
+				source_world_at_handoff = Matrix4x4Box(source_world_at_handoff),
+				source_world_inverse_at_handoff = Matrix4x4Box(
+					Matrix4x4.inverse(source_world_at_handoff)),
+				target_world_at_handoff = Matrix4x4Box(
+					Unit.world_pose(outfit_unit, target_index)),
+				initial_local_position = Vector3Box(
+					Unit.local_position(outfit_unit, target_index)),
+				initial_local_scale = Vector3Box(
+					Unit.local_scale(outfit_unit, target_index)),
 			}
 		elseif target_node ~= 0 then
 			skipped = skipped + 1
 		end
 	end
 
-	local driver = {
-		owner = owner_unit,
-		outfit = outfit_unit,
-		node_pairs = node_pairs,
-		owner_hips = Unit.node(owner_unit, "j_hips"),
-		outfit_hips = Unit.node(outfit_unit, "j_hips"),
-		frame = 0,
-		escape_reported = false,
-	}
+	table.sort(node_pairs, function(a, b)
+		return a.depth == b.depth and a.target < b.target or a.depth < b.depth
+	end)
 
+	local pair_by_target = {}
+	local target_graph = {}
 	for i = 1, #node_pairs do
-		local pair = node_pairs[i]
-		Unit.set_local_rotation(outfit_unit, pair.target,
-			Unit.local_rotation(owner_unit, pair.source))
-		if pair.is_hips then
-			Unit.set_local_position(outfit_unit, pair.target,
-				Unit.local_position(owner_unit, pair.source))
+		pair_by_target[node_pairs[i].target] = i
+		local current = node_pairs[i].parent
+		local guard = 0
+		while current and current ~= 0 and not target_graph[current] and guard < 256 do
+			local parent = Unit.scene_graph_parent(outfit_unit, current)
+			target_graph[current] = {
+				parent = parent,
+				local_pose_at_handoff = Matrix4x4Box(Unit.local_pose(outfit_unit, current)),
+			}
+			current = parent
+			guard = guard + 1
 		end
 	end
 
-	local owner_root = Unit.world_position(owner_unit, 0)
-	local outfit_root = Unit.world_position(outfit_unit, 0)
-	local owner_hips = Unit.world_position(owner_unit, driver.owner_hips)
-	local outfit_hips = Unit.world_position(outfit_unit, driver.outfit_hips)
-	printf("[doomrocket:RAGDOLL] %s pre-event live-ASM rotation carrier active: nodes=%d scale/aim_excluded=%d custom_physics=absent root_delta=%.3f hips_delta=%.3f",
-		tostring(source), #node_pairs, skipped,
-		Vector3.length(outfit_root - owner_root), Vector3.length(outfit_hips - owner_hips))
+	local probes = {}
+	for i = 1, #WARLOCK_RAGDOLL_PROBE_NAMES do
+		local name = WARLOCK_RAGDOLL_PROBE_NAMES[i]
+		if Unit.has_node(owner_unit, name) and Unit.has_node(outfit_unit, name) then
+			local source_node = Unit.node(owner_unit, name)
+			local target_node = Unit.node(outfit_unit, name)
+			probes[#probes + 1] = {
+				name = name,
+				source = source_node,
+				target = target_node,
+				initial_offset = Vector3Box(Unit.world_position(outfit_unit, target_node) -
+					Unit.world_position(owner_unit, source_node)),
+			}
+		end
+	end
+
+	local owner_hips = Unit.node(owner_unit, "j_hips")
+	local outfit_hips = Unit.node(outfit_unit, "j_hips")
+	local tracker = mod._warlock_carriers[owner_unit] or { reveal_count = 0 }
+	tracker.id = id
+	tracker.source = source
+	tracker.created_at = created_at
+	mod._warlock_carriers[owner_unit] = tracker
+
+	local driver = {
+		id = id,
+		source = source,
+		created_at = created_at,
+		last_callback_at = created_at,
+		owner = owner_unit,
+		outfit = outfit_unit,
+		node_pairs = node_pairs,
+		pair_by_target = pair_by_target,
+		target_graph = target_graph,
+		probes = probes,
+		owner_hips = owner_hips,
+		outfit_hips = outfit_hips,
+		initial_hips_offset = Vector3Box(
+			Unit.world_position(outfit_unit, outfit_hips) -
+			Unit.world_position(owner_unit, owner_hips)),
+		next_sample = 1,
+		callback_count = 0,
+		callback_pending = false,
+		carrier_tracker = tracker,
+	}
+	driver.initial_bounds_radius = warlock_bounds_radius(outfit_unit)
+	driver.initial_max_bone_radius = warlock_max_bone_radius(driver)
+
+	-- Calibration above must see the last proven living pose. Only after it is
+	-- boxed do we detach event mirroring and switch animation ownership.
+	mod._warlock_outfits[owner_unit] = nil
+	Unit.set_animation_bone_mode(outfit_unit, "ignore")
+	Unit.set_bones_lod(outfit_unit, 0)
+	Unit.set_unit_visibility(outfit_unit, true)
+	mod._warlock_pending_death_drivers[owner_unit] = driver
+	mod._warlock_active_death_drivers[driver] = true
+
+	printf("[doomrocket:RAGDOLL] phase=begin id=%s source=%s elapsed_ms=0 owner_alive=true outfit_alive=true nodes=%d scale_aim_excluded=%d custom_actors=%d carrier_reveals=%d bone_mode=ignore callback=post_animation",
+		id, source, #node_pairs, skipped, warlock_unit_actor_count(outfit_unit),
+		tracker.reveal_count or 0)
+
+	return driver
+end
+
+mod._take_warlock_death_driver = function(owner_unit)
+	local driver = mod._warlock_pending_death_drivers[owner_unit]
+	mod._warlock_pending_death_drivers[owner_unit] = nil
 
 	return driver
 end
@@ -447,60 +809,13 @@ mod._update_warlock_death_pose = function(data)
 	if not driver then
 		return
 	end
-
-	local owner_unit = driver.owner
-	local outfit_unit = driver.outfit
-
-	if not owner_unit or not Unit.alive(owner_unit) or
-			not outfit_unit or not Unit.alive(outfit_unit) then
-		if owner_unit and Unit.alive(owner_unit) then
-			set_warlock_donor_mesh_visibility(owner_unit, true, "outfit-not-alive")
-		end
-		printf("[doomrocket:RAGDOLL] pose driver stopped owner_alive=%s outfit_alive=%s frame=%d",
-			tostring(owner_unit and Unit.alive(owner_unit) or false),
-			tostring(outfit_unit and Unit.alive(outfit_unit) or false),
-			driver.frame or -1)
+	if driver.stopped then
 		data.warlock_pose_driver = nil
 		return
 	end
 
-	driver.frame = driver.frame + 1
-
-	local node_pairs = driver.node_pairs
-	for i = 1, #node_pairs do
-		local pair = node_pairs[i]
-		Unit.set_local_rotation(outfit_unit, pair.target,
-			Unit.local_rotation(owner_unit, pair.source))
-		if pair.is_hips then
-			Unit.set_local_position(outfit_unit, pair.target,
-				Unit.local_position(owner_unit, pair.source))
-		end
-	end
-
-	local frame = driver.frame
-	if frame == 1 or frame == 2 or frame == 4 or frame == 8 or
-			frame == 16 or frame == 32 or frame == 64 then
-		-- Reassert custom-overlay visibility at diagnostic checkpoints. This also
-		-- defeats any death flow that merely toggles the outfit visibility flag.
-		Unit.set_unit_visibility(outfit_unit, true)
-
-		local owner_root = Unit.world_position(owner_unit, 0)
-		local outfit_root = Unit.world_position(outfit_unit, 0)
-		local owner_hips = Unit.world_position(owner_unit, driver.owner_hips)
-		local outfit_hips = Unit.world_position(outfit_unit, driver.outfit_hips)
-		local root_delta = Vector3.length(outfit_root - owner_root)
-		local hips_delta = Vector3.length(outfit_hips - owner_hips)
-
-		printf("[doomrocket:RAGDOLL] sample frame=%d owner_alive=true outfit_alive=true root_delta=%.3f hips_delta=%.3f",
-			frame, root_delta, hips_delta)
-
-		if not driver.escape_reported and (root_delta > 5 or hips_delta > 5) then
-			driver.escape_reported = true
-			set_warlock_donor_mesh_visibility(owner_unit, true, "overlay-transform-escape")
-			printf("[doomrocket:RAGDOLL] overlay transform escaped carrier frame=%d root_delta=%.3f hips_delta=%.3f",
-				frame, root_delta, hips_delta)
-		end
-	end
+	-- The owner-world animation hooks keep this driver running for the full
+	-- five-second window, including after vanilla's husk reaction completes.
 end
 
 mod._apply_warlock_child_materials = function(outfit_unit)
@@ -575,25 +890,11 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 			if outfit_unit_name == "units/beings/enemies/skaven_plague_monk/chr_skaven_plague_monk" then
 				Unit.disable_animation_state_machine(outfit_unit)
 			elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then
-				-- Since v0.1.27 the unit compiles on DALO's recovered vanilla
-				-- skeleton with vanilla asset conventions, so it is driven exactly
-				-- like the plague-monk overlay: per-bone bridge links from the
-				-- donor rat (playing vanilla ratling animations), own state machine
-				-- DISABLED so the links win. The v0.1.18-23 stick figures came from
-				-- compiling on Crunch's Blender-native armature, not from the
-				-- bridge. Bone mode + LOD set first, per the Pusfume contract.
-				--
-				-- Still true (v0.1.24 crash): NEVER point this unit at a vanilla
-				-- state machine - uncatchable AnimationBlender assert one frame
-				-- later.
-				-- SELF-ANIMATION (v0.1.37, the only configuration ever confirmed
-				-- correct in-game - v0.1.22). Bridge driving is CLOSED: two
-				-- compiles x two donors x scale-links on/off all deformed
-				-- (v0.1.23/28/35/36); the engine's linked-skinning bind space is
-				-- not producible from Blender FBX export. Gun-rat clips arrive by
-				-- importing the ratling's compiled animations onto this rig via
-				-- the Bitsquid tools (the path that produced the working idle)
-				-- and compiling them against THIS skeleton.
+				-- Living configuration proven since v0.1.37: root-only attachment
+				-- plus this custom unit's own enabled ASM. Its clips were imported
+				-- from compiled ratling animation and recompiled against THIS rig.
+				-- Per-bone World links deform the Blender hierarchy, while binding
+				-- a foreign state machine is an uncatchable engine crash.
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
 				Unit.enable_animation_state_machine(outfit_unit)
@@ -622,25 +923,29 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 
 		-- v0.1.10-dev hid 0: the loop was gated on Unit.has_mesh(unit, index), but that
 		-- API does not take a mesh index, so it returned false and broke immediately.
-		-- Ask the unit how many meshes it has; fall back to the range the existing
-		-- create_unit_extensions hook already writes to (it hides up to index 16, so
-		-- those indices are known to exist on this donor).
+		-- Ask the unit how many meshes it has; if that API is unavailable, use the
+		-- 24-mesh count measured from the current compiled native ratling carrier.
 		local num_meshes = 0
 		local counted = pcall(function()
 			num_meshes = Unit.num_meshes(unit)
 		end)
 
 		if not counted or not num_meshes or num_meshes <= 0 then
-			num_meshes = 17
+			-- Current compiled native ratling carrier has 24 meshes. Failing
+			-- closed over the full known range is safer than leaving its last
+			-- seven renderables visible (the obsolete fallback was 17).
+			num_meshes = 24
 		end
-
-		mod._warlock_donor_mesh_counts[unit] = num_meshes
 
 		for mesh_index = 0, num_meshes - 1 do
 			if pcall(Unit.set_mesh_visibility, unit, mesh_index, false, "default") then
 				hidden = hidden + 1
 			end
 		end
+
+		-- Register only after the initial hide. Any later true mesh write is a
+		-- regression and is correlated with the eventual corpse ID at death.
+		mod._warlock_carriers[unit] = { reveal_count = 0 }
 
 		printf("[doomrocket] donor reports %s mesh(es)%s",
 			tostring(num_meshes), counted and "" or " (Unit.num_meshes unavailable; used fallback)")

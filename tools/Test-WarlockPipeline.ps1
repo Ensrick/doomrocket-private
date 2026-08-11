@@ -95,70 +95,42 @@ Assert-True ($hooks -match 'Application\.can_get\("material",\s*material_path\)'
     "runtime material swap must verify each spliced child material is resident"
 Assert-True ($hooks -match 'Application\.can_get\("texture",\s*texture_path\)') `
     "runtime material diagnostics must verify custom texture residency"
-Assert-True ($hooks -notmatch 'Actor\.set_kinematic\(actor,\s*false\)') `
-    "custom warlock actors must never be released (v0.1.42 solver-explosion class)"
-Assert-True ($hooks -notmatch 'Unit\.(?:find_actor|actor)\(outfit_unit') `
-    "custom outfit must not participate in actor physics at all"
-Assert-True ($hooks -match 'AttachmentNodeLinking\.doomrocket_warlock_bridge') `
-    "death handoff must use the pruned vanilla Skaven bone bridge"
-Assert-True ($hooks -notmatch 'World\.unlink_unit\(world,\s*outfit_unit\)') `
-    "death handoff must preserve the living root-only attachment"
-Assert-True ($hooks -notmatch 'World\.link_unit\(world,\s*outfit_unit,\s*target_index,\s*owner_unit,\s*source_index\)') `
-    "death handoff must not independently link outfit bones (v0.1.44 stick-figure class)"
-Assert-True ($hooks -notmatch '(?s)_prepare_warlock_death\s*=\s*function.*?Unit\.disable_animation_state_machine\(outfit_unit\).*?return driver') `
-    "death handoff must keep the outfit ASM active so Stingray maintains skinned render state"
-Assert-True ($hooks -match 'Unit\.set_unit_visibility\(outfit_unit,\s*true\)') `
-    "death handoff must reassert custom outfit visibility"
-Assert-True ($hooks -match 'set_warlock_donor_mesh_visibility\(owner_unit,\s*true,\s*"death-underlay"\)') `
-    "death handoff must expose the stable native carrier as a corpse fallback"
-Assert-True ($hooks -match 'root_delta=.*hips_delta=') `
-    "death handoff must emit carrier/outfit displacement telemetry"
-# v0.1.48: rotation-only retarget. Full local-pose copy resurrected the closed
-# v0.1.28 stretch class at death (carrier bone lengths + *_scale proportions
-# compound down Crunch's chains). Rotations cannot stretch; j_hips alone also
-# copies translation so the corpse falls; *_scale and aim_target are excluded.
-Assert-True ($hooks -match 'Unit\.set_local_rotation\(outfit_unit,\s*pair\.target') `
-    "death driver must write carrier rotations into the intact outfit hierarchy"
-Assert-True ($hooks -match 'Unit\.local_rotation\(owner_unit,\s*pair\.source\)') `
-    "death driver must read local rotations from the vanilla carrier"
-Assert-True ($hooks -notmatch 'Unit\.set_local_pose\(outfit_unit,\s*pair\.target') `
-    "death driver must not copy full local poses (v0.1.28/v0.1.47 stretch class)"
-Assert-True ($hooks -match 'pair\.is_hips') `
-    "death driver must special-case j_hips translation so the corpse falls"
-Assert-True ($hooks -match '_scale') `
-    "death driver must exclude the animated proportion *_scale bones"
+
+# Historical death-handoff implementations repeatedly passed brittle positive
+# regexes while failing in Stingray. The mutation-tested policy suite owns all
+# ragdoll mechanism and telemetry assertions; this pipeline retains material,
+# package, animation, and built-asset checks around it.
+$ragdollRegression = Join-Path $PSScriptRoot 'tests\Test-WarlockRagdollRegressions.ps1'
+try {
+    & $ragdollRegression -RepoRoot $repoRoot
+} catch {
+    [void]$failures.Add("ragdoll regression suite failed: $($_.Exception.Message)")
+}
 
 $deathReactions = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\extensions\death_reactions.lua") -Raw
 Assert-True ([regex]::Matches($deathReactions, 'mod\._prepare_warlock_death\(').Count -eq 2) `
     "doomrocket death reaction must prepare the vanilla carrier for both unit and husk"
-Assert-True ([regex]::Matches($deathReactions,
-        '(?s)start = function \([^)]+\)\s*local warlock_pose_driver = mod\._prepare_warlock_death\([^)]+\)\s*local data, result = ai_default_(?:unit|husk)_start').Count -eq 2) `
-    "vanilla carrier handoff must happen before ai_default_*_start emits the owner death event"
-Assert-True ([regex]::Matches($deathReactions, 'mod\._update_warlock_death_pose\(data\)').Count -eq 2) `
-    "server and husk corpse updates must continuously copy the carrier pose"
+foreach ($lane in @('unit', 'husk')) {
+    Assert-True ($deathReactions -match
+        "(?ms)pre_start = function \([^)]+\)\s*(?:--[^\r\n]*\r?\n\s*)*mod\._prepare_warlock_death\(unit, `"$lane`"\)\s*ai_default_${lane}_pre_start") `
+        "$lane carrier handoff must be calibrated in pre_start before the delayed death event"
+    Assert-True ($deathReactions -match
+        "(?s)start = function \([^)]+\)\s*local warlock_pose_driver = mod\._take_warlock_death_driver\(unit\)\s*local data, result = ai_default_${lane}_start") `
+        "$lane start must consume the driver calibrated in pre_start"
+}
 Assert-True ($deathReactions -notmatch 'mod\._(?:schedule|update)_warlock_ragdoll') `
     "delayed custom-ragdoll handoff must not return"
-# Exactly one driving mode IN THE WARLOCK BRANCH (the plague monk branch also
-# calls disable, so scope the check): bridge (disable ASM, bridge linking, no
-# mirror registration) or self-ASM (enable + idle, root linking).
+# Scope animation-state checks to the Warlock branch (the plague monk branch
+# also disables its outfit ASM). The Warlock must retain its own working ASM.
 $warlockBranchText = [regex]::Match($hooks, '(?s)elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then(.*?)\r?\n\s*elseif').Groups[1].Value
 Assert-True ($warlockBranchText.Length -gt 0) "could not extract the warlock branch from hooks.lua"
-$hasDisable = $warlockBranchText -match 'Unit\.disable_animation_state_machine\(outfit_unit\)'
 $hasEnable = $warlockBranchText -match 'Unit\.enable_animation_state_machine\(outfit_unit\)'
-Assert-True ($hasDisable -xor $hasEnable) `
-    "warlock branch must use exactly one driving mode (disable-ASM bridge or enable-ASM self-anim)"
+Assert-True ($hasEnable -and $warlockBranchText -notmatch 'Unit\.disable_animation_state_machine\(outfit_unit\)') `
+    "warlock branch must keep its own animation state machine enabled"
 
-# v0.1.27 crash class: firing an animation event into a DISABLED state machine
-# is an engine assert - bridge mode must not register for event mirroring.
-if ($hasDisable) {
-    Assert-True ($warlockBranchText -notmatch '_warlock_outfits\[unit\]\s*=') `
-        "bridge mode (disabled ASM) must not register the outfit in mod._warlock_outfits (v0.1.27 crash class)"
-}
-
-# v0.1.27: the unit compiles on Dalo's 97-bone skeleton; every bridge TARGET
-# must exist on the unit (missing target = uncatchable Unit.node fatal at
-# vanilla link time). The WARLOCK_UNIT_BONES whitelist in the inventory lua
-# must exactly match the shipped .bones list.
+# Every bridge target must exist on the shipped skeleton (missing target = an
+# uncatchable Unit.node fatal at vanilla link time). The WARLOCK_UNIT_BONES
+# whitelist in the inventory lua must exactly match the current .bones list.
 $bonesText = Get-Content (Join-Path $unitDir "warlock_bombardier_3p.bones") -Raw
 $bonesList = [regex]::Matches($bonesText, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
 $invText = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\breeds\skaven_doomrocket_inventory.lua") -Raw
@@ -168,16 +140,9 @@ Assert-True ($whitelist.Count -eq $bonesList.Count) `
     "WARLOCK_UNIT_BONES count $($whitelist.Count) != .bones count $($bonesList.Count)"
 $diff = Compare-Object $whitelist $bonesList
 Assert-True (-not $diff) "WARLOCK_UNIT_BONES diverges from .bones: $(($diff | ForEach-Object InputObject) -join ', ')"
-# Linking table must match the driving mode: bridge mode drives per-bone
-# through the filtered bridge; self-ASM mode must root-link only (per-bone
-# links would fight the enabled state machine).
-if ($hasDisable) {
-    Assert-True ($invText -match 'bombadier_curiass\.attachment_node_linking = AttachmentNodeLinking\.doomrocket_warlock_bridge') `
-        "bridge driving mode requires the filtered doomrocket_warlock_bridge linking"
-} else {
-    Assert-True ($invText -match 'bombadier_curiass\.attachment_node_linking = AttachmentNodeLinking\.doomrocket_warlock_root') `
-        "self-ASM driving mode requires root-only linking"
-}
+# Per-bone scene links fight the enabled outfit ASM and corrupt its hierarchy.
+Assert-True ($invText -match 'bombadier_curiass\.attachment_node_linking = AttachmentNodeLinking\.doomrocket_warlock_root') `
+    "enabled Warlock outfit ASM requires root-only attachment linking"
 
 # v0.1.25 crash class: variable/constraint indices are only meaningful within
 # one compiled state machine; forwarding a raw index to a unit on a different

@@ -614,10 +614,14 @@ DeathReactions.templates.sm_rocket = {
 DeathReactions.templates.doomrocket = {
     unit = {
         pre_start = function (unit, context, t, killing_blow)
+            -- Capture the final living Warlock pose and detach event mirroring
+            -- synchronously in DeathSystem.kill_unit. GenericHitReaction emits
+            -- its delayed death event later in the frame, before start().
+            mod._prepare_warlock_death(unit, "unit")
             ai_default_unit_pre_start(unit, context, t, killing_blow)
         end,
         start = function (unit, context, t, killing_blow, is_server)
-            local warlock_pose_driver = mod._prepare_warlock_death(unit, "unit")
+            local warlock_pose_driver = mod._take_warlock_death_driver(unit)
             local data, result = ai_default_unit_start(unit, context, t, killing_blow, is_server)
             data.warlock_pose_driver = warlock_pose_driver
 
@@ -664,10 +668,11 @@ DeathReactions.templates.doomrocket = {
     },
     husk = {
         pre_start = function (unit, context, t, killing_blow)
+            mod._prepare_warlock_death(unit, "husk")
             ai_default_husk_pre_start(unit, context, t, killing_blow)
         end,
         start = function (unit, context, t, killing_blow, is_server)
-            local warlock_pose_driver = mod._prepare_warlock_death(unit, "husk")
+            local warlock_pose_driver = mod._take_warlock_death_driver(unit)
             local data, result = ai_default_husk_start(unit, context, t, killing_blow, is_server)
             data.warlock_pose_driver = warlock_pose_driver
 

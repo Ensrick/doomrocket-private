@@ -1,0 +1,6 @@
+-- Inert source fixture: the .fixture.txt suffix keeps it out of VMB bundles.
+mod._prepare_warlock_death = function(owner_unit, source)
+    local outfit_unit = mod._warlock_outfits[owner_unit]
+    local actor = Unit.find_actor(outfit_unit, "j_hips")
+    Actor.set_kinematic(actor, false)
+end

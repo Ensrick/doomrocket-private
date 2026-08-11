@@ -1,0 +1,8 @@
+-- Inert source fixture: the .fixture.txt suffix keeps it out of VMB bundles.
+mod._prepare_warlock_death = function(owner_unit, source)
+    for _, pair in ipairs(bone_pairs) do
+        Unit.set_local_pose(outfit_unit, pair.target, Unit.local_pose(owner_unit, pair.source))
+        Unit.set_local_scale(outfit_unit, pair.target, Unit.local_scale(owner_unit, pair.source))
+        Unit.set_local_position(outfit_unit, pair.target, Unit.local_position(owner_unit, pair.source))
+    end
+end

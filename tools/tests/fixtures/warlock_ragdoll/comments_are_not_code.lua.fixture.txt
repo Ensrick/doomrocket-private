@@ -1,0 +1,12 @@
+-- Inert source fixture: the .fixture.txt suffix keeps it out of VMB bundles.
+-- World.link_unit(world, outfit_unit, target, owner_unit, source)
+-- Unit.set_local_pose(outfit_unit, target, source_pose)
+-- Unit.disable_animation_state_machine(outfit_unit)
+-- set_warlock_donor_mesh_visibility(owner_unit, true)
+local explanation = "Actor.set_kinematic(actor, false) and Unit.set_local_scale(outfit_unit, target, scale)"
+local escaped_quote = "This is still text after an escaped quote: \" World.link_unit(world, outfit_unit)"
+
+mod._prepare_warlock_death = function(owner_unit, source)
+    local outfit_unit = mod._warlock_outfits[owner_unit]
+    Unit.set_unit_visibility(outfit_unit, true)
+end

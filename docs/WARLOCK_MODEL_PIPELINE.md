@@ -3,14 +3,19 @@
 How Crunch's Warlock Engineer model ships as the doomrocket enemy, what broke
 along the way, and the invariants that keep it working. Companion tooling:
 `tools/splice_warlock_materials.ps1`, `tools/Test-WarlockPipeline.ps1`.
+The current native-ragdoll visual-handoff research and its still-untested
+candidate are recorded in `docs/research/RAGDOLL_VISUAL_HANDOFF.md`.
 
-## The proven contract (v0.1.22 baseline, user-confirmed in-game)
+## The proven living-visual contract (v0.1.22 baseline, user-confirmed in-game)
 
 1. **Mesh**: 4 meshes joined (`g_body_lod0`, `g_fur_lod0`,
    `SM_Skaven_WarlockBombardier_Armor`, `_Backpack`; 29,123 verts), 5 material
    slots, on the 138-bone `armature object.008` rig. The rig was authored to
    fit the gun rat's existing animation set.
    `g_stormvermin_armor_lod0` is donor-scene scaffolding - never export it.
+   The current `warlock_bombardier_3p.bones` contains exactly 138 names. The
+   old `units/bombadier/bombadier.bones` contains 139; its only additional name
+   is `camera_attach`. This is not evidence of Blender inventing bones.
 2. **FBX for the DCC importer** must:
    - come from the `prepare_pusfume_fbx.py` round-trip (weights pruned to 4
      deform influences, renormalized to 1.0);
@@ -31,13 +36,21 @@ along the way, and the invariants that keep it working. Companion tooling:
    `doomrocket.mod`'s packages list and loaded at runtime via
    `mod:load_package` after the Globadier donor package is resident.
    `hooks.lua` swaps each slot via `Unit.set_material` per spawn.
-5. **Driving**: root-only link (`AttachmentNodeLinking.doomrocket_warlock_root`)
+5. **Living driving**: root-only link (`AttachmentNodeLinking.doomrocket_warlock_root`)
    + `Unit.set_animation_bone_mode("transform")` + `Unit.set_bones_lod(0)` +
    own state machine enabled + explicit `idle` event. The rat's
-   `Unit.animation_event` / `animation_set_variable` /
-   `animation_set_constraint_target` calls are mirrored onto the outfit
+   name-based `Unit.animation_event` calls are mirrored onto the outfit
    (`mod._warlock_outfits`); events the outfit's state machine lacks are
-   skipped, so each new clip/state starts working the moment it ships.
+   skipped. Raw variable and constraint indices are deliberately **not**
+   mirrored because indices are state-machine-local and forwarding them caused
+   native animation assertions in earlier builds.
+6. **Carrier identity**: the gameplay unit is a native **ratling gunner** clone
+   (`Breeds.skaven_doomrocket = table.clone(Breeds.skaven_ratling_gunner)`).
+   Its render meshes are hidden while alive, but its native unit, actors,
+   animation controller, and ragdoll remain the authoritative gameplay and
+   physics carrier. The separate 138-bone Warlock unit is the visible overlay.
+   References to a "stormvermin donor" elsewhere in the history describe rig
+   ancestry or an abandoned v0.1.31-35 experiment, not the current carrier.
 
 ## Ship procedure
 
@@ -71,10 +84,12 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 | v0.1.36 | STILL deformed with all six scale bones linked + ratling donor | Ran on the cm compile (v0.1.29-proven internally inconsistent); but this completes the matrix: 2 compiles x 2 donors x scale-links on/off - every cell deformed | **BRIDGE LANE CLOSED.** The engine's linked-skinning bind space is not producible from Blender FBX export. Self-anim (v0.1.22, the only user-confirmed-correct config) is the architecture; gun-rat clips arrive via the Bitsquid compiled-animation importer onto OUR skeleton |
 | v0.1.40 | Ragdoll deformed terribly, stretched wildly, FPS < 1 | Physics solver explosion. Suspects, in order: scene actors dynamic AT SPAWN fighting the animation (serialized eKINEMATIC possibly not honored on instantiation); near-zero inertia tensors on small bones (tails ~8e-5) destabilizing the joint chain; no joint projection so error compounds unboundedly (giant polygons = fill-rate death) | v0.1.41 counters all three: spawn audit force-kinematics all 29 actors (+ prints [doomrocket:RAGDOLL] found/created), inertia floor 0.01 + heavier extremity masses, D6 ePROJECTION 0.05m/0.5rad, solver 16/4. Await the audit line from the next run |
 | v0.1.43 | Kinematic-at-spawn held while alive, but death still corrupted the skeleton with a 1-1.6 s physics stall | The owner's death event was mirrored into the outfit BEFORE the delayed handoff; the outfit's SM ragdoll state flipped its actors dynamic internally, so the custom scene still fought the engine at death | v0.1.44 removes the custom PhysX scene and the SM ragdoll layer entirely - the authored-scene lane is closed for ragdoll |
-| v0.1.44 | Native-carrier attempt: linking the 97 target bones independently with World.link_unit recreated the "stick figure" | Per-bone World.link_unit destroys this Blender-built mesh's local scene-graph hierarchy (same class as the closed bridge lane) | Keep the root-only attachment; drive child nodes by copying LOCAL poses, never by re-linking |
+| v0.1.44 | Native-carrier attempt: linking the 97 target bones independently with World.link_unit recreated the "stick figure" | Per-bone World.link_unit destroys this Blender-built mesh's local scene-graph hierarchy (same class as the closed bridge lane) | Keep the root-only attachment and intact custom hierarchy; never independently re-link its bones. Later builds also proved raw local-pose copying invalid |
 | v0.1.45/46 | (design, [untested]) | Death handoff = vanilla-carrier pose copy: `_prepare_warlock_death` runs BEFORE ai_extension:die, removes the mirror entry, disables the outfit ASM, builds owner->outfit node pairs from `AttachmentNodeLinking.doomrocket_warlock_bridge` (skipping root); the death reaction copies each carrier LOCAL pose per frame (`_update_warlock_death_pose`) while the OWNER'S native ratling ragdoll does the physics. Diagnostics: `[doomrocket:RAGDOLL] <src> pre-event local-pose carrier active: nodes=N custom_physics=absent` | This is the runtime analogue of the parent-relative retarget that made v0.1.39's living animations work |
 | v0.1.47 (tested) | Ragdoll = giant stretched mess flying skyward, but NO framerate loss (2026-08-04, host + client logs agree; carrier armed cleanly, nodes=96, both peers) | The v0.1.45 raw `Unit.local_pose` copy is the closed v0.1.28 bridge failure resurrected at death: the ratling carrier's local matrices carry ITS bone translations and its animated proportion SCALE (the bridge maps the `*_scale` bones), compounding multiplicatively down every chain on Crunch's hierarchy. No fps loss because no physics is involved - pure render deformation | v0.1.48: ROTATION-ONLY retarget (`Unit.set_local_rotation` per mapped bone - bone lengths/proportions stay at Crunch's bind, stretch impossible by construction), j_hips alone also copies local translation (root-relative, no chain) so the corpse falls; `*_scale` + `aim_target` excluded. Diagnostic line now `rotation carrier active: nodes=N scale/aim_excluded=K` |
-| v0.1.48 (tested) | Six clean deaths with Less Corpses absent and corpse limit 70: the visible Warlock outfit vanished, while embedded longbow arrows remained suspended on the native carrier corpse; no FPS or solver failure | The carrier ragdoll and outfit were both live at handoff, so the remaining fault is the custom skinned render handoff. Disabling the outfit ASM also stops the only proven render-evaluation path for this Blender/Stingray skin | v0.1.49 keeps the outfit ASM active after detaching event mirroring, reasserts outfit visibility, exposes the stable native carrier meshes as a death-only underlay, and logs sampled owner/outfit root + hips displacement and lifetime. Uploaded ManifestID `8847975153665526573` |
+| v0.1.48 (tested) | Six clean deaths with Less Corpses absent and corpse limit 70: the visible Warlock outfit vanished, while embedded longbow arrows remained suspended on the native carrier corpse; no FPS or solver failure | Raw native hips local position was copied under the custom scale-100 parent. Compiled-rest composition places the custom hips about 86.899 m from its valid rest position, fully explaining an out-of-view/bounds skin without deletion. ASM disable may also affect the experimental render path, but is not needed for this displacement | Never copy source-local translations across these rigs. Convert calibrated world motion back through the target parent's inverse; test culling separately only if bounded pose telemetry passes |
+| v0.1.49 (tested, 2026-08-11) | The corpse looked like a ratling gunner because the build deliberately revealed all 24 native carrier meshes on all 11 deaths. Physics stayed stable, but the Warlock overlay did not follow: `root_delta` stayed 0 while mean/max `hips_delta` grew from 0.04/0.07 m at frame 1 to 1.32/1.683 m at frame 64 | The visible corpse was a fallback underlay, not the Warlock model. The pose driver wrote during entity update, before the same frame's world animation evaluation; the still-enabled outfit ASM in `transform` mode could write the bones afterward. Direct carrier/outfit local transforms are also not interchangeable because the compiled custom rig has a scale-100 wrapper and different rest matrices | Never expose the carrier as a substitute corpse. Drive the custom visual after animation evaluation, block animation bone writes, and convert through calibrated world/rest space. This replacement is a candidate until runtime video **and** post-animation logs pass. Tested ManifestID: `8847975153665526573` |
+| v0.1.50 (candidate, uploaded 2026-08-11) | Hidden native ratling remains the sole physics owner; custom outfit captures its final living world/rest calibration in death `pre_start`, switches to bone mode `ignore`, and receives a topology-ordered world-delta/local-parent conversion once per carrier-world animation frame. Five-second per-corpse telemetry now has unique unit/husk IDs | Corrects the v0.1.47 raw full-pose error, v0.1.48 raw hips-local/scale-100 error, v0.1.49 double-writer and ratling-underlay errors, and the first candidate's multi-world callback self-rescheduling hazard. Mutation fixtures use inert `.fixture.txt` suffixes so VMB cannot compile test failures into shipping bundles | Do not call this fixed until `docs/testing/WARLOCK_RAGDOLL_TEST_PROTOCOL.md` passes on host and remote client with both video and analyzer output. Workshop item `3771657344`, upload-confirmed ManifestID `2137195637454965122` |
 | v0.1.47 | User report "No ragdoll" (2026-08-03) was a STALE BUILD: the 22:21 session log shows `[doomrocket:LOAD] v0.1.41-dev` + the v0.1.41 spawn-audit line | v0.1.42-46 were deployed locally but NEVER uploaded; the user's Steam restart (pulling an unrelated gt update) re-synced item 3771657344 back to the 07-27 v0.1.41 manifest - the exact clobber class in `feedback_local_deploy_clobbered_must_upload` | v0.1.47-dev republishes the current tree (identical code to v0.1.46 + version/title bump), upload log-confirmed ManifestID 3747860009260434476. NOTE: launcher v0.5.7+ refuses direct `upload` (publication receipt required); the out-of-monorepo doomrocket flow uses the v0.5.6 baseline binary `vmb-launcher-baseline-056-20260726` |
 
 ## Uncatchable crash classes (pcall is useless)
@@ -88,6 +103,42 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 - `Unit.node()` on a missing node (why the old bridge pruned via
   `Unit.has_node`).
 
+## Current native-carrier visual handoff (researched; runtime result pending)
+
+The stable physics architecture is now fixed: the hidden native ratling unit
+owns the ragdoll, and the custom Warlock unit owns no physics. The remaining
+problem is transferring the carrier's final ragdoll pose into a differently
+wrapped visual skeleton. Offline parsing of the current compiled resources
+found:
+
+- custom: 142 scene nodes, 138 state-machine bones, 1 skin, 0 actors and no
+  physics scene;
+- native ratling: 235 scene nodes, 106 state-machine bones, 17 skins, 32
+  actors and a 125,620-byte native physics scene;
+- all 138 custom bone names already exist in the ratling scene graph, so name
+  absence and importer-created bones are not the issue;
+- the custom unit has three wrapper nodes, then an armature node at index 3
+  with world scale `(100, 100, 100)`, then `root_point` at index 4. Native
+  `root_point` is top-level index 0 at scale 1. Of 106 common state-machine
+  bones, 83 local rest matrices differ and all 106 world rest matrices differ.
+
+The candidate therefore does **not** copy raw source-local matrices. It keeps
+the carrier hidden, leaves the outfit ASM enabled but changes its animation
+bone mode to `ignore`, schedules the copy with
+`AnimationSystem.add_safe_animation_callback()` (after world animation and
+before scene update), applies calibrated world-space rotation deltas, and
+derives the desired hips local pose through the inverse desired target-parent
+world pose. It remains **UNTESTED** until the visible corpse is the Warlock in
+runtime footage and post-animation telemetry stays within the documented
+limits. See `docs/research/RAGDOLL_VISUAL_HANDOFF.md` for formulas, source
+trace, Autodesk references, and acceptance gates.
+
+AnimationSystem's safe-callback queue is global, while ScriptWorld drains it
+for every active world. The callback is therefore one-shot and never queues
+itself. Hooks on both `World.update_animations` variants enqueue it only after
+the carrier's own `Unit.world` animation pass, producing one transfer/sample
+per carrier-world frame before that world's scene update.
+
 ## MILESTONE - v0.1.39 USER-CONFIRMED IN-GAME (2026-07-27)
 
 "This seems to work... it works." Crunch's model, gun-rat animation set,
@@ -98,12 +149,12 @@ scale/helper/weapon-bone curves, keep root_point -> bake to Crunch's rig ->
 render-verify -> export via the proven FBX pipeline -> state machine over the
 ratling event vocabulary -> event mirror at runtime.
 
-Remaining from that test: no ragdoll on death (shipped v0.1.40, below,
-[untested]), and the texture pass (Crunch's full material masters - 4 sets of
+Remaining at that milestone: no ragdoll on death (the later v0.1.40 authored
+physics lane failed and was removed), and the texture pass (Crunch's full material masters - 4 sets of
 BC/NR/MASE/E incl. warpstone emissive - arrived 2026-07-26; current spliced
 setup predates them).
 
-## Ragdoll (v0.1.40-dev, [untested]) - authored PhysX scene, no Maya
+## Historical ragdoll experiment (v0.1.40-dev) - authored PhysX scene, no Maya
 
 Vanilla character ragdolls are NOT unit-editor actors: the ratling's 32
 ActorResource entries are c_* hit capsules (template keyframed_no_collision);
@@ -164,8 +215,10 @@ names == SM ragdolls block == .bones entries and joints == actors-1.
   vs VT2 `_nm`/`_s` conventions, wb_skin still on a flat normal. Crunch's
   full masters are in Downloads\zxnu2hjyuovl4rhx.zip (4 sets of BC/NR/MASE/E
   at 2048/1024/512 + warpstone emissive) - NEXT UP.
-- Ragdoll tuning once v0.1.40 is user-verified: joint limits are first-pass
-  guesses; collision filter words are 0 (engine may override via shape
-  templates - watch for corpse blocking players or falling through floors).
+- **Native-carrier visual handoff**: run the acceptance matrix in
+  `docs/research/RAGDOLL_VISUAL_HANDOFF.md`. The offset-corrected,
+  post-animation candidate is not a fix until both runtime visuals and its
+  post-animation telemetry pass; do not reveal the native ratling meshes as a
+  fallback.
 - Launcher/rocket/tube props still placeholders (exports staged in
   `_warlock_bombardier_art/`).

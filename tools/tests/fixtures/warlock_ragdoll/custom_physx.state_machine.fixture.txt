@@ -1,0 +1,9 @@
+ragdolls = {
+    default = "warlock_bombardier_3p"
+}
+
+states = {
+    ragdoll = {
+        state_type = "ragdoll"
+    }
+}
