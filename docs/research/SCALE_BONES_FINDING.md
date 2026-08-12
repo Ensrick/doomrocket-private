@@ -117,10 +117,10 @@ runtime manifestation of that mistake. Rotation-only copying removed the most
 dangerous scale/translation compounding, but it did not solve animation write
 order or the wrapper-relative hips conversion.
 
-The current **untested** candidate instead calibrates source and target world
-poses at handoff. In VT2's row-vector convention, for source calibration `S0`,
-current source `St`, target calibration `T0`, and desired target parent world
-pose `PdesiredW`:
+The v0.1.50 implementation instead calibrates source and target world poses at
+handoff. In VT2's row-vector convention, for source calibration `S0`, current
+source `St`, target calibration `T0`, and desired target parent world pose
+`PdesiredW`:
 
     D = inverse(rigid(S0)) * rigid(St)
     TdesiredW = T0 * D
@@ -131,8 +131,15 @@ local translation and scale and take only the rotation from `Ldesired`; the
 hips receives the required position derived through its target parent's world
 inverse. The current bridge list is not parent-first, so any implementation
 that depends on desired parent poses must topologically order the nodes or
-look up the separately computed desired parent world pose. This candidate is
-not a proven fix until runtime visual and post-animation log acceptance pass.
+look up the separately computed desired parent world pose. Eleven host corpses
+passed five seconds of the original post-animation telemetry on 2026-08-12.
+That run validates this coordinate conversion, not the later persistent
+sleep/wake driver or hardened preflight. The post-v0.1.50 worktree now checks
+every named node before lookup, enforces the exact 90-node/one-hips contract,
+and validates every source inverse and required target-parent matrix with a
+scale-normalized singularity test before changing visual ownership. Those
+guards, visual signoff, post-monitor wake behavior, and the remote-client husk
+lane remain separate runtime acceptance requirements.
 
 Full agent reports: see the session record; key paths -
 attachment_node_linking.lua (vanilla link tables incl. 75 _scale entries),

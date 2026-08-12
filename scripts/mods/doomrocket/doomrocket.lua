@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.50-dev"
+local MOD_VERSION = "0.1.51-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -10,11 +10,12 @@ printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 
 Managers.package:load("resource_packages/breeds/skaven_ratling_gunner", "global")
+Managers.package:load("resource_packages/breeds/skaven_storm_vermin", "global")
 -- Managers.package:load("resource_packages/breeds/skaven_warpfire_thrower", "global")
--- The warlock body's spliced armor/backpack/skin materials keep the Globadier
--- donor child's auxiliary texture ids (black emissive + shared LUTs); this
--- package is what makes those game textures resident (Pusfume native contract).
-Managers.package:load("units/beings/player/dark_pact_skins/skaven_wind_globadier/skin_1001/third_person/chr_third_person_mesh", "global")
+-- The visible Warlock uses a Ratling-family armor shader plus the exact
+-- Stormvermin skin/fur/whisker children selected in Crunch's source scene.
+-- Load both installed game packages before the runtime child-material swap.
+Managers.package:load("units/beings/player/dark_pact_skins/skaven_ratlinggunner/skin_1001/third_person/chr_third_person_mesh", "global")
 
 mod:dofile("scripts/mods/doomrocket/breeds/skaven_doomrocket")
 mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_interaction")
@@ -190,6 +191,26 @@ function mod.update(dt)
 	for unit,anim_emitter in pairs(mod.anim_emitters) do
 		anim_emitter:update(unit, dt)
 	end
+end
+
+local function reset_warlock_runtime_state()
+	if mod._reset_warlock_death_drivers then
+		mod._reset_warlock_death_drivers()
+	end
+end
+
+function mod.on_game_state_changed(status, state)
+	if status == "exit" and state == "StateIngame" then
+		reset_warlock_runtime_state()
+	end
+end
+
+function mod.on_disabled()
+	reset_warlock_runtime_state()
+end
+
+function mod.on_unload()
+	reset_warlock_runtime_state()
 end
 
 mod:dofile("scripts/settings/breeds")

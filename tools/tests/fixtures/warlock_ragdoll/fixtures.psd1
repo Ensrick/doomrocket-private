@@ -46,6 +46,18 @@
             ExpectedText = 'OK'
         }
         @{
+            Name = 'incomplete trace without stop record'
+            Log = 'missing_stop_fail.log'
+            ExpectedExit = 1
+            ExpectedText = 'missing stop record'
+        }
+        @{
+            Name = 'trace with missing checkpoint'
+            Log = 'checkpoint_gap_fail.log'
+            ExpectedExit = 1
+            ExpectedText = 'missing required checkpoint_ms value(s): 500'
+        }
+        @{
             Name = 'solver freeze telemetry'
             Log = 'fps_collapse_fail.log'
             ExpectedExit = 1

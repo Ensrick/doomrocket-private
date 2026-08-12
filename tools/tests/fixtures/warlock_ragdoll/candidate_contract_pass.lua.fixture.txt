@@ -10,14 +10,60 @@ local function configure_living_outfit(owner_unit, outfit_unit)
     end
 end
 
-local WARLOCK_RAGDOLL_SAMPLE_TIMES_MS = { 0, 100, 5000 }
+local raw_set_mesh_visibility = Unit.set_mesh_visibility
+local function hide_warlock_carrier_meshes(unit)
+    local counted, num_meshes = pcall(Unit.num_meshes, unit)
+    if not counted or not num_meshes or num_meshes <= 0 then
+        num_meshes = 24
+    end
+    for mesh_index = 0, num_meshes - 1 do
+        pcall(raw_set_mesh_visibility, unit, mesh_index, false, "default")
+    end
+end
+
+mod:hook(Unit, "set_mesh_visibility", function(func, unit, mesh_index, visible, ...)
+    local tracker = mod._warlock_carriers[unit]
+    if tracker and visible then
+        visible = false
+    end
+    return func(unit, mesh_index, visible, ...)
+end)
+
+mod:hook(Unit, "set_unit_visibility", function(func, unit, visible, ...)
+    local result = func(unit, visible, ...)
+    local tracker = mod._warlock_carriers[unit]
+    if tracker and visible then
+        hide_warlock_carrier_meshes(unit)
+    end
+    return result
+end)
+
+local WARLOCK_RAGDOLL_SAMPLE_TIMES_MS = { 0, 100, 250, 500, 1000, 2000, 5000 }
+local WARLOCK_RAGDOLL_EXPECTED_NODES = 90
+local WARLOCK_MATRIX_VOLUME_EPSILON = 0.00001
+
+local function warlock_game_time()
+    return Managers.time and Managers.time:time("game") or Application.time_since_launch()
+end
 
 local function warlock_rigid_world_pose(unit, node)
     return Matrix4x4.from_quaternion_position(
         Unit.world_rotation(unit, node), Unit.world_position(unit, node))
 end
 
+local function warlock_matrix_is_invertible(matrix)
+    local x = Matrix4x4.axis(matrix, 1)
+    local y = Matrix4x4.axis(matrix, 2)
+    local z = Matrix4x4.axis(matrix, 3)
+    local normalized_volume = math.abs(Vector3.dot(x, Vector3.cross(y, z))) /
+        (Vector3.length(x) * Vector3.length(y) * Vector3.length(z))
+    return Matrix4x4.is_valid(matrix) and
+        normalized_volume > WARLOCK_MATRIX_VOLUME_EPSILON
+end
+
 local function apply_warlock_death_pose(driver)
+    local wall_gap_ms = driver.wall_gap_ms
+    driver.max_wall_gap_ms = math.max(driver.max_wall_gap_ms or 0, wall_gap_ms)
     local desired_worlds = {}
     for i, pair in ipairs(driver.node_pairs) do
         local source_world = warlock_rigid_world_pose(driver.owner, pair.source)
@@ -29,8 +75,14 @@ local function apply_warlock_death_pose(driver)
 
     for i, pair in ipairs(driver.node_pairs) do
         local parent_world = desired_worlds[pair.parent_pair]
+        if not warlock_matrix_is_invertible(parent_world) then
+            return false
+        end
         local desired_local = Matrix4x4.multiply(
             desired_worlds[i], Matrix4x4.inverse(parent_world))
+        if not warlock_matrix_is_invertible(desired_local) then
+            return false
+        end
         Unit.set_local_rotation(driver.outfit, pair.target,
             Matrix4x4.rotation(desired_local))
         if pair.is_hips then
@@ -39,10 +91,30 @@ local function apply_warlock_death_pose(driver)
         end
     end
 
-    printf("[doomrocket:RAGDOLL] phase=sample id=%s source=%s checkpoint_ms=%d elapsed_ms=%d wall_gap_ms=%.1f owner_alive=true outfit_alive=true nodes=%d custom_actors=0 carrier_reveals=0 parent_mismatch=0 root_delta=%.3f hips_delta=%.3f hips_drift=%.3f scale_mutations=0 nonhips_translation_mutations=0 bounds_ratio=%.3f max_bone_radius_ratio=%.3f",
-        driver.id, driver.source, checkpoint, driver.elapsed_ms, wall_gap,
-        #driver.node_pairs, root_delta, hips_delta, hips_drift, bounds_ratio,
-        max_bone_radius_ratio)
+    printf("[doomrocket:RAGDOLL] phase=sample id=%s source=%s checkpoint_ms=%d elapsed_ms=%d wall_gap_ms=%.1f owner_alive=true outfit_alive=true nodes=%d custom_actors=0 carrier_reveals=0 parent_mismatch=0 root_delta=%.3f named_root_drift=%.3f hips_delta=%.3f hips_drift=%.3f anchor_max_drift=%.3f scale_mutations=0 nonhips_translation_mutations=0 bounds_ratio=%.3f max_bone_radius_ratio=%.3f",
+        driver.id, driver.source, checkpoint, driver.elapsed_ms, driver.max_wall_gap_ms,
+        #driver.node_pairs, root_delta, named_root_drift, hips_delta, hips_drift,
+        anchor_max_drift, bounds_ratio, max_bone_radius_ratio)
+end
+
+local function warlock_carrier_ragdoll_sleeping(driver)
+    local actors = {}
+    for actor_index = 0, Unit.num_actors(driver.owner) - 1 do
+        local actor = Unit.actor(driver.owner, actor_index)
+        if actor and Actor.is_dynamic(actor) then
+            actors[#actors + 1] = actor
+        end
+    end
+    if #actors == 0 then
+        return false
+    end
+    for i = 1, #actors do
+        local actor = actors[i]
+        if not Actor.is_sleeping(actor) then
+            return false
+        end
+    end
+    return true
 end
 
 mod._warlock_active_death_drivers = setmetatable({}, { __mode = "k" })
@@ -51,7 +123,6 @@ local function queue_warlock_death_pose(driver)
     if driver.callback_pending then
         return
     end
-
     local animation_system = Managers.state.entity:system("animation_system")
     driver.callback_pending = true
     animation_system:add_safe_animation_callback(function()
@@ -65,7 +136,8 @@ end
 local function queue_active_warlocks_for_world(world)
     for driver in pairs(mod._warlock_active_death_drivers) do
         local owner = driver.owner
-        if owner and Unit.alive(owner) and Unit.world(owner) == world then
+        if owner and Unit.alive(owner) and Unit.world(owner) == world and
+            (not driver.monitor_complete or not warlock_carrier_ragdoll_sleeping(driver)) then
             queue_warlock_death_pose(driver)
         end
     end
@@ -74,29 +146,56 @@ end
 mod:hook_safe(World, "update_animations", function(world)
     queue_active_warlocks_for_world(world)
 end)
-
 mod:hook_safe(World, "update_animations_with_callback", function(world)
     queue_active_warlocks_for_world(world)
 end)
 
 mod._prepare_warlock_death = function(owner_unit, source)
     local outfit_unit = mod._warlock_outfits[owner_unit]
-    Unit.set_animation_bone_mode(outfit_unit, "ignore")
+    local source_name, target_name = "j_hips", "j_hips"
+    if not Unit.has_node(owner_unit, source_name) or
+        not Unit.has_node(outfit_unit, target_name) then
+        return nil
+    end
+    local source_hips = Unit.node(owner_unit, source_name)
+    local target_hips = Unit.node(outfit_unit, target_name)
+    local target_seen = {}
+    if target_seen[target_hips] then return nil end
+    target_seen[target_hips] = true
     local source_world_at_handoff = warlock_rigid_world_pose(owner_unit, source_hips)
+    if not warlock_matrix_is_invertible(source_world_at_handoff) then return nil end
+    local source_world_inverse_at_handoff = Matrix4x4.inverse(source_world_at_handoff)
+    local target_world_at_handoff = Unit.world_pose(outfit_unit, target_hips)
+    if not warlock_matrix_is_invertible(target_world_at_handoff) then return nil end
+    local local_pose_at_handoff = Unit.local_pose(
+        outfit_unit, Unit.scene_graph_parent(outfit_unit, target_hips))
+    if not warlock_matrix_is_invertible(local_pose_at_handoff) then return nil end
     local pair = {
+        source = source_hips,
+        target = target_hips,
+        is_hips = true,
         source_world_at_handoff = Matrix4x4Box(source_world_at_handoff),
-        source_world_inverse_at_handoff = Matrix4x4Box(
-            Matrix4x4.inverse(source_world_at_handoff)),
-        target_world_at_handoff = Matrix4x4Box(
-            Unit.world_pose(outfit_unit, target_hips)),
+        source_world_inverse_at_handoff = Matrix4x4Box(source_world_inverse_at_handoff),
+        target_world_at_handoff = Matrix4x4Box(target_world_at_handoff),
     }
+    local node_pairs = {}
+    for i = 1, WARLOCK_RAGDOLL_EXPECTED_NODES do node_pairs[i] = pair end
+    if #node_pairs ~= WARLOCK_RAGDOLL_EXPECTED_NODES or
+        not Unit.has_node(owner_unit, "j_hips") or
+        not Unit.has_node(outfit_unit, "j_hips") then
+        return nil
+    end
+    Unit.set_animation_bone_mode(outfit_unit, "ignore")
     local driver = {
         id = id,
         source = source,
         owner = owner_unit,
         outfit = outfit_unit,
-        node_pairs = { pair },
+        node_pairs = node_pairs,
         callback_pending = false,
+        max_wall_gap_ms = 0,
+        created_game_at = warlock_game_time(),
+        monitor_complete = false,
     }
     mod._warlock_active_death_drivers[driver] = true
     printf("[doomrocket:RAGDOLL] phase=begin id=%s source=%s elapsed_ms=0", id, source)
@@ -107,4 +206,21 @@ local function stop_driver(driver)
     mod._warlock_active_death_drivers[driver] = nil
     printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=%d",
         driver.id, driver.source, driver.elapsed_ms)
+end
+
+local function complete_monitor(driver)
+    driver.monitor_complete = true
+end
+
+mod._reset_warlock_death_drivers = function()
+    for driver in pairs(mod._warlock_active_death_drivers) do
+        driver.stopped = true
+    end
+    mod._warlock_active_death_drivers = {}
+end
+
+local function flush_sample_gap(driver)
+    local max_wall_gap_ms = driver.max_wall_gap_ms
+    driver.max_wall_gap_ms = 0
+    sample_warlock_death_driver(driver, max_wall_gap_ms)
 end

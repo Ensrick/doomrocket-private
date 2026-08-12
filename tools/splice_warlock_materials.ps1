@@ -14,14 +14,15 @@
 # live in the boot-flushed main package. They ride in
 # resource_packages/doomrocket/warlock_child.package, which is absent from
 # doomrocket.mod's packages list and is loaded at runtime via
-# mod:load_package AFTER the Globadier donor package is resident. The five
+# mod:load_package AFTER the exact native donor packages are resident. The five
 # materials/warlock_bombardier/wb_* boot materials stay SDK-compiled; the
 # runtime swaps each slot to the child via Unit.set_material (hooks.lua).
 #
-# Donors (Pusfume-proven):
-#   opaque (armor/backpack/skin) <- Globadier dark-pact mtr_outfit child, 768 B
-#   fur                          <- native Skaven mtr_fur_1bit_climate, 256 B
-#   whiskers/alpha cards         <- Laurel feather child, 128 B
+# Donors (source-lineage verified against Crunch's Blender file):
+#   armor/backpack <- dark-pact Ratling mtr_outfit 0488..., 768 B
+#   skin            <- Stormvermin mtr_skin_climate_darken 2CC5..., 496 B
+#   fur             <- Stormvermin mtr_fur_1bit_climate_burn EB66..., 416 B
+#   whiskers        <- Stormvermin mtr_wiskers 3EB0..., 128 B
 #
 # Donor payloads derive from Fatshark game data: they are built under .build\
 # and must never be committed.
@@ -29,7 +30,8 @@
 param(
     [string]$GameBundleDir = "C:\Program Files (x86)\Steam\steamapps\common\Warhammer Vermintide 2\bundle",
     [string]$UnpackerExe = "C:\Tools\vt2_bundle_unpacker\target\release\unpacker.exe",
-    [string]$UnpackerDict = "C:\Users\danjo\source\repos\vt2_bundle_unpacker\dictionary.csv"
+    [string]$UnpackerDict = "C:\Users\danjo\source\repos\vt2_bundle_unpacker\dictionary.csv",
+    [switch]$PayloadOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,89 +49,152 @@ function Invoke-Py {
     if ($LASTEXITCODE -ne 0) { throw "python tool failed: $($Arguments -join ' ')" }
 }
 
+function Assert-Sha256 {
+    param([string]$Path, [string]$Expected)
+    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+    if ($actual -ne $Expected) {
+        throw "donor hash mismatch: $Path -> $actual (expected $Expected)"
+    }
+}
+
 # --- 1. Extract donor payloads from the installed game ---------------------
 
 $donors = @(
-    @{ Key = "globadier"; Bundle = "7a8e617a32277fc4"; Include = "*90BDF3BAC6F81BA8*"; File = "90BDF3BAC6F81BA8.material" },
-    @{ Key = "laurel";    Bundle = "95865e5dbaf202e3"; Include = "*C70B1AAD3B363E24*"; File = "C70B1AAD3B363E24.material" },
-    @{ Key = "fur";       Bundle = "6766ece9a8417e33"; Include = "*mtr_fur_1bit_climate*"; File = "units_beings_enemies_mtr_fur_1bit_climate.material" }
+    @{
+        Key = "ratling"
+        Bundle = "64f9019d56c8ce61"
+        Includes = @("*0488D08E3CE5CBC3*")
+        Files = @(
+            @{ Name = "0488D08E3CE5CBC3.material"; Sha256 = "0D1DA98E59642E000E954A3438A28EDAC63982F1526937DE6A3893C6F0F144EC" }
+        )
+    },
+    @{
+        Key = "stormvermin"
+        Bundle = "c43c291e4cc55d96"
+        Includes = @("*2CC5FCB51388A255*", "*EB663E2D6E5EB732*", "*3EB079055472D4C3*")
+        Files = @(
+            @{ Name = "2CC5FCB51388A255.material"; Sha256 = "15BDECC1897BD62E2EBA055B38388840A95FCA3395CFE9E25A442817ECF16295" },
+            @{ Name = "EB663E2D6E5EB732.material"; Sha256 = "64E8E88C1D17A54C2A774B3F1FF090B994CAF6620BD8E5C0E857C6D84C3270D2" },
+            @{ Name = "3EB079055472D4C3.material"; Sha256 = "680284D028524BB224667DD4FF14013CF3C52C66CA62CE83E6C392C6CE47571A" }
+        )
+    }
 )
 foreach ($donor in $donors) {
     $dir = Join-Path $buildDir $donor.Key
     New-Item -ItemType Directory -Force $dir | Out-Null
-    & $UnpackerExe --dict $UnpackerDict extract (Join-Path $GameBundleDir $donor.Bundle) $dir --flatten --include $donor.Include 2>&1 | Out-Null
-    if (-not (Test-Path (Join-Path $dir $donor.File))) {
-        throw "donor extraction failed: $($donor.Key) -> $($donor.File)"
+    $extractArgs = @("--dict", $UnpackerDict, "extract",
+        (Join-Path $GameBundleDir $donor.Bundle), $dir, "--flatten")
+    foreach ($include in $donor.Includes) {
+        $extractArgs += @("--include", $include)
     }
-    Write-Host "[splice] extracted donor $($donor.Key)"
+    & $UnpackerExe @extractArgs 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "donor extraction command failed: $($donor.Key)"
+    }
+    foreach ($file in $donor.Files) {
+        $path = Join-Path $dir $file.Name
+        if (-not (Test-Path -LiteralPath $path)) {
+            throw "donor extraction failed: $($donor.Key) -> $($file.Name)"
+        }
+        Assert-Sha256 $path $file.Sha256
+    }
+    Write-Host "[splice] extracted and hash-verified donor $($donor.Key)"
 }
-$globadierPayload = Join-Path $buildDir "globadier\90BDF3BAC6F81BA8.material"
-$laurelPayload = Join-Path $buildDir "laurel\C70B1AAD3B363E24.material"
-$furPayload = Join-Path $buildDir "fur\units_beings_enemies_mtr_fur_1bit_climate.material"
+$ratlingPayload = Join-Path $buildDir "ratling\0488D08E3CE5CBC3.material"
+$skinPayload = Join-Path $buildDir "stormvermin\2CC5FCB51388A255.material"
+$furPayload = Join-Path $buildDir "stormvermin\EB663E2D6E5EB732.material"
+$whiskersPayload = Join-Path $buildDir "stormvermin\3EB079055472D4C3.material"
 
 # --- 2. Build patched payloads ---------------------------------------------
 # Texture ids = murmur64 of extensionless resource paths.
-# Globadier channels: texture_map_02af90f8=diffuse, 27b67fd2=emissive,
-# 8bf37d8e=normal+gloss-in-alpha. Variable C985395A is the donor's warpstone
-# emissive_color [14.2, 25.3, 2].
-# v0.1.43 texture correction (Crunch's source .blend, node-link verified):
-# NR.rgb is tangent normal and NR.a is ROUGHNESS, passed through directly.
-# v0.1.41 inverted it as gloss, which reversed the material response in-game.
-# The separate MASE maps cannot be bound by this native three-texture character
-# parent; the committed _s resources are retained for a future compatible
-# parent, but are intentionally absent from runtime residency diagnostics.
-# Armor has NO
-# emissive (E_01 is pure black - donor black kept, variable zeroed); the
-# BACKPACK is the emissive slot (E_02 warpstone glow -> wb_backpack_e, variable
-# restored); skin ships the vanilla body normal (roughness in normal alpha)
-# instead of the flat stub.
+# Verified Ratling 0488 channels:
+#   texture_map_02af90f8 = base color
+#   texture_map_8bf37d8e = tangent normal + roughness in alpha
+#   texture_map_27b67fd2 = packed metallic/AO/feature/emission mask
+# Variable C985395A is the emissive color multiplied by packed-map alpha.
+#
+# Crunch's source graph uses BC directly, NR.rgb directly with NR.a as
+# roughness, and MASE_Fix.rgb as its final mask response. The adapter builder
+# restores original MASE.a because that channel is the localized emission mask
+# from which the separate E image was authored. Never bind the E RGB image into
+# texture_map_27b67fd2: v0.1.50 did that and turned the entire backpack into an
+# overbright mask while discarding metallic/AO data.
 
-$opaque = @(
-    @{ Name = "wb_armor";    Df = "300FD46C61FB7091"; Nm = "DD7D6050A52FBF6D"; Em = "45FFAEEF53695A86"; EmVar = "0,0,0" },
-    @{ Name = "wb_backpack"; Df = "C4D517C71806AE3B"; Nm = "38DFFF0C6905532F"; Em = "4F71D9C786EFF4D3"; EmVar = "8,8,8" },
-    @{ Name = "wb_skin";     Df = "B42E3663823A42B7"; Nm = "DF22A46A364470F8"; Em = "45FFAEEF53695A86"; EmVar = "0,0,0" }
+$armorAndBackpack = @(
+    @{ Name = "wb_armor";    Df = "300FD46C61FB7091"; Nm = "DD7D6050A52FBF6D"; Ma = "D6D9CA1DA53AB7F3"; EmVar = "0,0,0" },
+    @{ Name = "wb_backpack"; Df = "C4D517C71806AE3B"; Nm = "38DFFF0C6905532F"; Ma = "D5CECA5B225DE243"; EmVar = "0.61224258,1.32689383,0.24368675" }
 )
-foreach ($mat in $opaque) {
-    Write-Host "[splice] payload $($mat.Name)_child (globadier opaque donor)"
+foreach ($mat in $armorAndBackpack) {
+    Write-Host "[splice] payload $($mat.Name)_child (Ratling 0488 packed-mask adapter)"
     Invoke-Py @($makeTool,
-        "--extracted", $globadierPayload,
+        "--extracted", $ratlingPayload,
         "--resource", "child_materials/warlock_bombardier/$($mat.Name)_child",
         "--expect-size", "768", "--expect-parent", "3D25339231384C80",
-        "--map", "DD74D8319F514D96=$($mat.Df)",
-        "--map", "E334A8CB6BCB5E6D=$($mat.Nm)",
-        "--map", "45FFAEEF53695A86=$($mat.Em)",
+        "--map", "C554581405CC782C=$($mat.Df)",
+        "--map", "6F873A2AA7CA611C=$($mat.Nm)",
+        "--map", "8ABCC048427DAE38=$($mat.Ma)",
         "--set-variable", "C985395A=$($mat.EmVar)",
+        "--expect-texture-count", "7",
+        "--expect-texture", "6A35771D=0B35F2C32178BB63",
+        "--expect-texture", "1E706DD3=19ADB9C889F644A0",
+        "--expect-texture", "E25C59E9=2E82F037A3245005",
+        "--expect-texture", "EEE29B95=2E82F037A3245005",
         "--expect-texture", "texture_map_02af90f8=$($mat.Df)",
-        "--expect-texture", "texture_map_27b67fd2=$($mat.Em)",
+        "--expect-texture", "texture_map_27b67fd2=$($mat.Ma)",
         "--expect-texture", "texture_map_8bf37d8e=$($mat.Nm)",
         "--out", (Join-Path $buildDir "$($mat.Name)_child.payload"))
 }
 
-Write-Host "[splice] payload wb_whiskers_child (laurel alpha-card donor)"
+Write-Host "[splice] payload wb_skin_child (exact source Stormvermin skin)"
 Invoke-Py @($makeTool,
-    "--extracted", $laurelPayload,
-    "--resource", "child_materials/warlock_bombardier/wb_whiskers_child",
-    "--expect-size", "128", "--expect-parent", "F85B289742D5D69A",
-    "--map", "C9CF19C214612D75=C02CF6B03A57BA9A",
-    "--map", "CDA03B9B0226037A=643B3C4BBA851928",
-    "--map", "D3FD8377A3DE498A=3784C666E3B8724B",
-    "--expect-texture", "texture_map_c0ba2942=C02CF6B03A57BA9A",
-    "--expect-texture", "texture_map_59cd86b9=643B3C4BBA851928",
-    "--expect-texture", "texture_map_b788717c=3784C666E3B8724B",
-    "--out", (Join-Path $buildDir "wb_whiskers_child.payload"))
+    "--extracted", $skinPayload,
+    "--resource", "child_materials/warlock_bombardier/wb_skin_child",
+    "--expect-size", "496", "--expect-parent", "EE15D2DA0DB8191E",
+    "--map", "ED67ABE0A2542484=ED67ABE0A2542484",
+    "--expect-texture-count", "6",
+    "--expect-texture", "6A35771D=0B35F2C32178BB63",
+    "--expect-texture", "BB4A8D2F=328E22775ECE4D7C",
+    "--expect-texture", "1E706DD3=19ADB9C889F644A0",
+    "--expect-texture", "040408FA=4B7F05AED3F40BDF",
+    "--expect-texture", "62E7F461=A706B01BC822A417",
+    "--expect-texture", "F17ED3B3=ED67ABE0A2542484",
+    "--out", (Join-Path $buildDir "wb_skin_child.payload"))
+Assert-Sha256 (Join-Path $buildDir "wb_skin_child.payload") "15BDECC1897BD62E2EBA055B38388840A95FCA3395CFE9E25A442817ECF16295"
 
-# Fur keeps every donor texture id: the donor references the exact vanilla fur
-# maps this design wants; skaven levels keep them resident. Self-map = no-op.
-Write-Host "[splice] payload wb_fur_child (native skaven fur donor, unpatched)"
+Write-Host "[splice] payload wb_fur_child (exact source Stormvermin fur)"
 Invoke-Py @($makeTool,
     "--extracted", $furPayload,
     "--resource", "child_materials/warlock_bombardier/wb_fur_child",
-    "--expect-size", "256", "--expect-parent", "7B55B884FAFA2B12",
+    "--expect-size", "416", "--expect-parent", "3BC475F93930640D",
     "--map", "1916CFCA6ED85BFD=1916CFCA6ED85BFD",
-    "--expect-texture", "texture_map_5e198820=1916CFCA6ED85BFD",
+    "--expect-texture-count", "5",
+    "--expect-texture", "5940AA57=328E22775ECE4D7C",
+    "--expect-texture", "1E706DD3=19ADB9C889F644A0",
+    "--expect-texture", "374548C2=4E1893E178945A92",
+    "--expect-texture", "50736EB4=1916CFCA6ED85BFD",
+    "--expect-texture", "0526F37D=E7AC0D635A39E926",
     "--out", (Join-Path $buildDir "wb_fur_child.payload"))
+Assert-Sha256 (Join-Path $buildDir "wb_fur_child.payload") "64E8E88C1D17A54C2A774B3F1FF090B994CAF6620BD8E5C0E857C6D84C3270D2"
+
+Write-Host "[splice] payload wb_whiskers_child (exact source Stormvermin whiskers)"
+Invoke-Py @($makeTool,
+    "--extracted", $whiskersPayload,
+    "--resource", "child_materials/warlock_bombardier/wb_whiskers_child",
+    "--expect-size", "128", "--expect-parent", "64058AD3567FB490",
+    "--map", "3E851D59331DC868=3E851D59331DC868",
+    "--expect-texture-count", "3",
+    "--expect-texture", "68F2A5BA=A3854CB4540799DF",
+    "--expect-texture", "CDAA7E64=3E851D59331DC868",
+    "--expect-texture", "552EAA73=FE1EAB79ADD8215B",
+    "--out", (Join-Path $buildDir "wb_whiskers_child.payload"))
+Assert-Sha256 (Join-Path $buildDir "wb_whiskers_child.payload") "680284D028524BB224667DD4FF14013CF3C52C66CA62CE83E6C392C6CE47571A"
 
 # --- 3. Splice each payload into exactly one built bundle ------------------
+
+if ($PayloadOnly) {
+    Write-Host "[splice] OK - 5 payloads verified; PayloadOnly left bundleV2 unchanged"
+    return
+}
 
 $materials = @("wb_armor", "wb_backpack", "wb_skin", "wb_whiskers", "wb_fur")
 foreach ($mat in $materials) {

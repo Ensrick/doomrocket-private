@@ -148,6 +148,9 @@ def main():
                         metavar="CHANNEL=ID",
                         help="require a compiled texture channel to reference "
                              "the given resource id after patching")
+    parser.add_argument("--expect-texture-count", type=int, default=None,
+                        help="require exactly this many compiled texture "
+                             "bindings after patching")
     parser.add_argument("--set-variable", action="append", default=[],
                         metavar="NAME=FLOAT[,FLOAT...]",
                         help="set a reflected scalar/vector value after "
@@ -267,6 +270,26 @@ def main():
                       f"{expected:016X}", file=sys.stderr)
                 return 1
             print(f"verified texture {channel_name} -> {expected:016X}")
+
+        if (args.expect_texture_count is not None
+                and len(bindings) != args.expect_texture_count):
+            print(f"material has {len(bindings)} texture bindings, expected "
+                  f"{args.expect_texture_count}", file=sys.stderr)
+            return 1
+        if args.expect_texture_count is not None:
+            print(f"verified texture binding count -> {len(bindings)}")
+    elif args.expect_texture_count is not None:
+        try:
+            bindings = read_texture_bindings(payload)
+        except ValueError as error:
+            print(f"cannot verify texture binding count: {error}",
+                  file=sys.stderr)
+            return 1
+        if len(bindings) != args.expect_texture_count:
+            print(f"material has {len(bindings)} texture bindings, expected "
+                  f"{args.expect_texture_count}", file=sys.stderr)
+            return 1
+        print(f"verified texture binding count -> {len(bindings)}")
 
     with open(args.out, "wb") as out:
         out.write(bytes(payload))

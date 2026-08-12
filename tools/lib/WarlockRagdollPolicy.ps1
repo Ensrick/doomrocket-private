@@ -316,7 +316,9 @@ function Test-WarlockRagdollPolicy {
             $deathTokens -match 'source_world_at_handoff' -and
             $deathTokens -match 'target_world_at_handoff'
         $hasCachedSourceInverse =
-            $deathTokens -match '(?s)source_world_inverse_at_handoff\s*=\s*Matrix4x4Box\s*\(\s*Matrix4x4\.inverse\s*\(\s*source_world_at_handoff\s*\)\s*\)'
+            $deathTokens -match '(?s)source_world_inverse_at_handoff\s*=\s*Matrix4x4Box\s*\(\s*Matrix4x4\.inverse\s*\(\s*source_world_at_handoff\s*\)\s*\)' -or
+            ($deathTokens -match 'local\s+source_world_inverse_at_handoff\s*=\s*Matrix4x4\.inverse\s*\(\s*source_world_at_handoff\s*\)' -and
+                $deathTokens -match 'source_world_inverse_at_handoff\s*=\s*Matrix4x4Box\s*\(\s*source_world_inverse_at_handoff\s*\)')
         $hasSourceDelta =
             ($deathTokens -match '(?s)source_delta\s*=\s*Matrix4x4\.multiply\s*\(\s*Matrix4x4\.inverse\s*\(\s*pair\.source_world_at_handoff.*?source_world\s*\)' -or
                 ($hasCachedSourceInverse -and
@@ -335,9 +337,15 @@ function Test-WarlockRagdollPolicy {
             $deathTokens -match '(?s)Unit\.set_local_rotation\s*\([^\)]*Matrix4x4\.rotation\s*\(\s*desired_local\s*\)' -and
             $deathTokens -match '(?s)if\s+pair\.is_hips\s+then\s*Unit\.set_local_position\s*\([^\)]*Matrix4x4\.translation\s*\(\s*desired_local\s*\)' -and
             $localPositionWriteCount -eq 1
-        if (-not $hasRigidWorldCalibration -or -not $hasSourceDelta -or -not $hasInverseParentLocal) {
+        $hasSingularMatrixGuard =
+            $deathTokens -match 'Vector3\.dot\s*\([^\)]*Vector3\.cross\s*\(' -and
+            $deathTokens -match 'normalized_volume\s*>\s*WARLOCK_MATRIX_VOLUME_EPSILON' -and
+            $deathTokens -match '(?s)if\s+not\s+warlock_matrix_is_invertible\s*\(\s*parent_world\s*\)\s+then.*?Matrix4x4\.inverse\s*\(\s*parent_world\s*\)' -and
+            $deathTokens -match '(?s)if\s+not\s+warlock_matrix_is_invertible\s*\(\s*desired_local\s*\)\s+then.*?Unit\.set_local_rotation\s*\([^\)]*Matrix4x4\.rotation\s*\(\s*desired_local\s*\)'
+        if (-not $hasRigidWorldCalibration -or -not $hasSourceDelta -or
+                -not $hasInverseParentLocal -or -not $hasSingularMatrixGuard) {
             Add-WarlockPolicyViolation $violations 'WR-RAG-007' `
-                'candidate lacks the rigid handoff-delta / inverse-parent local transfer'
+                'candidate lacks the rigid handoff-delta, singularity guard, or inverse-parent transfer'
         }
 
         # WR-RAG-008: every runtime format string must be correlatable. Looking
@@ -359,25 +367,86 @@ function Test-WarlockRagdollPolicy {
         $requiredSampleFields = @(
             'checkpoint_ms', 'elapsed_ms', 'wall_gap_ms', 'owner_alive', 'outfit_alive',
             'nodes', 'custom_actors', 'carrier_reveals', 'parent_mismatch', 'root_delta',
-            'hips_delta', 'hips_drift', 'scale_mutations', 'nonhips_translation_mutations',
+            'named_root_drift', 'hips_delta', 'hips_drift', 'anchor_max_drift',
+            'scale_mutations', 'nonhips_translation_mutations',
             'bounds_ratio', 'max_bone_radius_ratio'
         )
         $missingSampleFields = @($requiredSampleFields | Where-Object {
                 $field = $_
                 -not @($sampleFormats | Where-Object { $_ -match "\b$field=" }).Count
             })
+        $hasWorstGapAccumulator =
+            $deathTokens -match 'driver\.max_wall_gap_ms\s*=\s*math\.max\s*\(' -and
+            $deathTokens -match 'driver\.max_wall_gap_ms\s*=\s*0' -and
+            $deathTokens -match 'sample_warlock_death_driver\s*\([^\)]*max_wall_gap_ms'
+        $hasGameTimeMonitor =
+            $hooksWithStrings -match 'Managers\.time\s+and\s+Managers\.time\s*:\s*time\s*\(\s*["'']game["'']\s*\)' -and
+            $deathTokens -match 'created_game_at'
         if ($ragdollFormats.Count -eq 0 -or $hasUnkeyedFormat -or
-                $hasCorePhases -contains $false -or $missingSampleFields.Count -gt 0) {
+                $hasCorePhases -contains $false -or $missingSampleFields.Count -gt 0 -or
+                -not $hasWorstGapAccumulator -or -not $hasGameTimeMonitor) {
             Add-WarlockPolicyViolation $violations 'WR-RAG-008' `
-                'ragdoll formats lack correlation, core phases, or required sample diagnostics'
+                'ragdoll telemetry lacks correlation, core phases, required fields, or worst-gap accumulation'
         }
 
         $hasCarrierMeshFallback =
             $hooksTokens -match '(?s)if\s+not\s+counted\s+or\s+not\s+num_meshes\s+or\s+num_meshes\s*<=\s*0\s+then\s*num_meshes\s*=\s*24'
-        if ($hooksTokens -notmatch '(?:Unit\.set_mesh_visibility\s*\(\s*|pcall\s*\(\s*Unit\.set_mesh_visibility\s*,\s*)(?:owner_unit|unit|driver\.owner)\s*,[^\r\n]*\bfalse\b' -or
-                -not $hasCarrierMeshFallback) {
+        $hasCarrierHide =
+            $hooksTokens -match '(?:Unit\.set_mesh_visibility\s*\(\s*|pcall\s*\(\s*(?:Unit\.set_mesh_visibility|raw_set_mesh_visibility)\s*,\s*)(?:owner_unit|unit|driver\.owner)\s*,[^\r\n]*\bfalse\b'
+        $blocksMeshReveal =
+            $hooksTokens -match '(?s)if\s+tracker\s+and\s+visible\s+then\s+visible\s*=\s*false\s+end\s+return\s+func\s*\(\s*unit\s*,\s*mesh_index\s*,\s*visible'
+        $rehidesWholeUnit =
+            $hooksWithStrings -match 'mod\s*:\s*hook\s*\(\s*Unit\s*,\s*["'']set_unit_visibility["'']' -and
+            $hooksTokens -match '(?s)if\s+tracker\s+and\s+visible\s+then.*?hide_warlock_carrier_meshes\s*\(\s*unit\s*\)'
+        if (-not $hasCarrierHide -or -not $hasCarrierMeshFallback -or
+                -not $blocksMeshReveal -or -not $rehidesWholeUnit) {
             Add-WarlockPolicyViolation $violations 'WR-RAG-005' `
-                'candidate does not hide every carrier mesh with the audited 24-mesh fallback'
+                'candidate does not fail closed against carrier mesh/whole-unit reveals'
+        }
+
+        # WR-RAG-009: all node and matrix calibration must be preflighted before
+        # Unit.node/inverse can trigger a native assertion or any writer changes
+        # outfit ownership. The current compiled mapping is exactly 90 nodes.
+        $sourceHasIndex = $deathTokens.IndexOf('Unit.has_node(owner_unit, source_name)')
+        $sourceNodeIndex = $deathTokens.IndexOf('Unit.node(owner_unit, source_name)')
+        $targetHasIndex = $deathTokens.IndexOf('Unit.has_node(outfit_unit, target_name)')
+        $targetNodeIndex = $deathTokens.IndexOf('Unit.node(outfit_unit, target_name)')
+        $sourceValidIndex = $deathTokens.IndexOf('warlock_matrix_is_invertible(source_world_at_handoff)')
+        $sourceInverseIndex = $deathTokens.IndexOf('Matrix4x4.inverse(source_world_at_handoff)')
+        $hasCalibrationPreflight =
+            $sourceHasIndex -ge 0 -and $sourceNodeIndex -gt $sourceHasIndex -and
+            $targetHasIndex -ge 0 -and $targetNodeIndex -gt $targetHasIndex -and
+            $sourceValidIndex -ge 0 -and $sourceInverseIndex -gt $sourceValidIndex -and
+            $deathTokens -match 'target_seen\s*\[\s*(?:target_index|target_hips)\s*\]' -and
+            $deathTokens -match '#node_pairs\s*~=\s*WARLOCK_RAGDOLL_EXPECTED_NODES' -and
+            $deathTokens -match 'WARLOCK_RAGDOLL_EXPECTED_NODES\s*=\s*90' -and
+            $deathWithStrings -match 'Unit\.has_node\s*\(\s*owner_unit\s*,\s*["'']j_hips["'']\s*\)' -and
+            $deathWithStrings -match 'Unit\.has_node\s*\(\s*outfit_unit\s*,\s*["'']j_hips["'']\s*\)' -and
+            $deathTokens -match 'warlock_matrix_is_invertible\s*\(\s*target_world_at_handoff\s*\)' -and
+            $deathTokens -match 'warlock_matrix_is_invertible\s*\(\s*local_pose_at_handoff\s*\)'
+        if (-not $hasCalibrationPreflight) {
+            Add-WarlockPolicyViolation $violations 'WR-RAG-009' `
+                'candidate lacks complete node-count/hips/matrix calibration preflight'
+        }
+
+        # WR-RAG-010: five seconds completes diagnostics only. The pose driver
+        # remains registered until deletion, suspends work while native dynamic
+        # actors sleep, wakes with them, and can be invalidated on state exit.
+        # Unit actor indices are zero-based. A 1..num_actors loop skips actor 0
+        # and probes one past the valid range, so enforce the whole enumeration
+        # shape rather than accepting any isolated Actor.is_dynamic call.
+        $hasZeroBasedActorEnumeration =
+            $deathTokens -match '(?s)for\s+actor_index\s*=\s*0\s*,\s*Unit\.num_actors\s*\(\s*driver\.owner\s*\)\s*-\s*1\s+do\s*local\s+actor\s*=\s*Unit\.actor\s*\(\s*driver\.owner\s*,\s*actor_index\s*\).*?Actor\.is_dynamic\s*\(\s*actor\s*\)'
+        $hasPersistentWakeAwareDriver =
+            $deathTokens -match 'monitor_complete\s*=\s*true' -and
+            $hasZeroBasedActorEnumeration -and
+            $deathTokens -match 'Actor\.is_sleeping\s*\(' -and
+            $deathTokens -match '(?s)not\s+driver\.monitor_complete\s+or\s+not\s+warlock_carrier_ragdoll_sleeping\s*\(\s*driver\s*\)' -and
+            $deathTokens -match 'mod\._reset_warlock_death_drivers\s*=\s*function' -and
+            $deathTokens -notmatch '(?s)elapsed_ms\s*>=\s*WARLOCK_RAGDOLL_(?:DRIVE|MONITOR)_TIME_MS\s+then\s+stop_warlock_death_driver'
+        if (-not $hasPersistentWakeAwareDriver) {
+            Add-WarlockPolicyViolation $violations 'WR-RAG-010' `
+                'candidate stops at five seconds or lacks zero-based actor enumeration, sleep/wake, or teardown lifecycle'
         }
     }
 

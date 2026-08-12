@@ -45,6 +45,25 @@ def translation_of(matrix: Matrix) -> tuple[float, float, float]:
     return tuple(matrix[3][0:3])  # type: ignore[return-value]
 
 
+def normalized_axis_volume(matrix: Matrix) -> float:
+    x, y, z = (matrix[index][0:3] for index in range(3))
+
+    def cross(a: list[float], b: list[float]) -> list[float]:
+        return [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ]
+
+    def dot(a: list[float], b: list[float]) -> float:
+        return sum(left * right for left, right in zip(a, b))
+
+    lengths = [math.sqrt(dot(axis, axis)) for axis in (x, y, z)]
+    if min(lengths) < 1e-6:
+        return 0.0
+    return abs(dot(x, cross(y, z))) / math.prod(lengths)
+
+
 def assert_matrix_close(case: unittest.TestCase, actual: Matrix, expected: Matrix) -> None:
     for row in range(4):
         for column in range(4):
@@ -93,6 +112,19 @@ class WarlockRetargetMathTests(unittest.TestCase):
         )
         displacement = math.dist(valid_world, raw_copy_world)
         self.assertGreater(displacement, 80.0)
+
+    def test_collinear_nonzero_axes_are_rejected_before_inverse(self) -> None:
+        matrix = identity()
+        matrix[0][0:3] = [1.0, 0.0, 0.0]
+        matrix[1][0:3] = [2.0, 0.0, 0.0]
+        matrix[2][0:3] = [0.0, 0.0, 1.0]
+        self.assertEqual(normalized_axis_volume(matrix), 0.0)
+
+    def test_near_singular_axes_are_rejected_scale_independently(self) -> None:
+        matrix = uniform_scale(100.0)
+        matrix[1][0:3] = [100.0, 0.0000001, 0.0]
+        self.assertLess(normalized_axis_volume(matrix), 0.00001)
+        self.assertGreater(normalized_axis_volume(uniform_scale(100.0)), 0.99999)
 
 
 if __name__ == "__main__":

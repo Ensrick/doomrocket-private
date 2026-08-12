@@ -31,6 +31,16 @@ $smText = Get-Content (Join-Path $unitDir "warlock_bombardier_3p.state_machine")
 Assert-True ($smText -match 'bones\s*=\s*"units/warlock_bombardier/warlock_bombardier_3p"') `
     ".state_machine bones key must be the unit's own path"
 
+# Texture/channel regressions are Python/Pillow based because byte-exact PNG
+# comparisons are not practical in PowerShell. Keep this in the mandatory
+# pre-deploy pipeline: it also rejects source rocket slots that would enter the
+# engine before Lua with no material-manager mapping.
+$textureRegression = Join-Path $PSScriptRoot 'tests\test_warlock_texture_pipeline.py'
+& py -3 $textureRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("texture/material regression suite failed (exit $LASTEXITCODE)")
+}
+
 # Every animation referenced by the state machine must exist as clip + recipe
 # and every .animation recipe must target the unit's own skeleton.
 foreach ($match in [regex]::Matches($smText, '"units/warlock_bombardier/anims/([^"]+)"')) {
@@ -108,6 +118,11 @@ try {
 }
 
 $deathReactions = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\extensions\death_reactions.lua") -Raw
+$breedSource = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\breeds\skaven_doomrocket.lua") -Raw
+Assert-True ($breedSource -match 'Breeds\.skaven_doomrocket\s*=\s*table\.clone\(Breeds\.skaven_ratling_gunner\)') `
+    "doomrocket breed must retain the native Ratling carrier whose actors drive the visual handoff"
+Assert-True ($breedSource -notmatch 'base_unit\s*=') `
+    "doomrocket breed must not override the native Ratling carrier unit"
 Assert-True ([regex]::Matches($deathReactions, 'mod\._prepare_warlock_death\(').Count -eq 2) `
     "doomrocket death reaction must prepare the vanilla carrier for both unit and husk"
 foreach ($lane in @('unit', 'husk')) {
@@ -122,7 +137,7 @@ Assert-True ($deathReactions -notmatch 'mod\._(?:schedule|update)_warlock_ragdol
     "delayed custom-ragdoll handoff must not return"
 # Scope animation-state checks to the Warlock branch (the plague monk branch
 # also disables its outfit ASM). The Warlock must retain its own working ASM.
-$warlockBranchText = [regex]::Match($hooks, '(?s)elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then(.*?)\r?\n\s*elseif').Groups[1].Value
+$warlockBranchText = [regex]::Match($hooks, '(?s)elseif outfit_unit_name == "units/warlock_bombardier/warlock_bombardier_3p" then(.*?)(?:\r?\n\s*elseif|\r?\n\s*end\s*\r?\n\s*end)').Groups[1].Value
 Assert-True ($warlockBranchText.Length -gt 0) "could not extract the warlock branch from hooks.lua"
 $hasEnable = $warlockBranchText -match 'Unit\.enable_animation_state_machine\(outfit_unit\)'
 Assert-True ($hasEnable -and $warlockBranchText -notmatch 'Unit\.disable_animation_state_machine\(outfit_unit\)') `
@@ -157,8 +172,17 @@ Assert-True ($hooks -notmatch 'mod:hook\(Unit,\s*"animation_set_constraint_targe
 # mode (warlock branch disables its ASM) must not register for mirroring.
 
 $doomrocketLua = Get-Content (Join-Path $repoRoot "scripts\mods\doomrocket\doomrocket.lua") -Raw
-Assert-True ($doomrocketLua -match 'chr_third_person_mesh') `
-    "doomrocket.lua must force-load the Globadier donor package (spliced children reference its aux textures)"
+Assert-True ($doomrocketLua -match 'skaven_ratlinggunner/skin_1001/third_person/chr_third_person_mesh') `
+    "doomrocket.lua must force-load the Ratling armor donor package"
+Assert-True ($doomrocketLua -match 'resource_packages/breeds/skaven_storm_vermin') `
+    "doomrocket.lua must force-load the native Stormvermin skin/fur/whisker package"
+foreach ($lifecyclePattern in @(
+        'on_game_state_changed[\s\S]*?status\s*==\s*"exit"[\s\S]*?state\s*==\s*"StateIngame"[\s\S]*?reset_warlock_runtime_state\(\)',
+        'function\s+mod\.on_disabled\(\)[\s\S]*?reset_warlock_runtime_state\(\)',
+        'function\s+mod\.on_unload\(\)[\s\S]*?reset_warlock_runtime_state\(\)')) {
+    Assert-True ($doomrocketLua -match $lifecyclePattern) `
+        "doomrocket.lua must reset persistent Warlock death drivers on every lifecycle exit"
+}
 
 # Slot names in the runtime swap table must exactly match the .unit materials block.
 $slotNames = [regex]::Matches($unitText, '(?m)^\s*(\w+)\s*=\s*"materials/warlock_bombardier/') | ForEach-Object { $_.Groups[1].Value }
@@ -173,12 +197,13 @@ Assert-True ($slotNames.Count -eq 5) "expected 5 material slots in .unit, found 
 $bundleRoot = Join-Path $repoRoot "bundleV2"
 $childBundle = Join-Path $bundleRoot "f5283f9585ea8355.mod_bundle"
 if (Test-Path $childBundle) {
-    # Spliced payload sizes: 3x768 (globadier) + 256 (fur) + 128 (laurel).
+    # Spliced payload sizes: 2x768 (Ratling armor family), 496/416/128
+    # (exact Stormvermin skin/fur/whiskers).
     # The SDK-compiled child materials are ~22 KB sources -> 185/321 KB payloads,
     # so tiny record sizes prove the splice actually ran on this bundle.
     $spliceTool = Join-Path $PSScriptRoot "splice_bundle_resource.py"
-    $expected = @{ "wb_armor_child" = 768; "wb_backpack_child" = 768; "wb_skin_child" = 768;
-                   "wb_fur_child" = 256; "wb_whiskers_child" = 128 }
+    $expected = @{ "wb_armor_child" = 768; "wb_backpack_child" = 768; "wb_skin_child" = 496;
+                   "wb_fur_child" = 416; "wb_whiskers_child" = 128 }
     foreach ($name in $expected.Keys) {
         # Dry-run output: "<bundle>: splicing (material, <hash>) <current> -> <new> bytes"
         $probe = & py -3 $spliceTool $childBundle --type material `

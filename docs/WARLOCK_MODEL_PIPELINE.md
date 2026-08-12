@@ -3,8 +3,11 @@
 How Crunch's Warlock Engineer model ships as the doomrocket enemy, what broke
 along the way, and the invariants that keep it working. Companion tooling:
 `tools/splice_warlock_materials.ps1`, `tools/Test-WarlockPipeline.ps1`.
-The current native-ragdoll visual-handoff research and its still-untested
-candidate are recorded in `docs/research/RAGDOLL_VISUAL_HANDOFF.md`.
+The reusable authoring procedure is in `docs/HOW_TO_CREATE_A_VT2_RAGDOLL.md`.
+Detailed forensic research remains in
+`docs/research/RAGDOLL_VISUAL_HANDOFF.md`. The authoritative texture/channel,
+UV, native-donor, and conversion contract is in
+`docs/research/WARLOCK_TEXTURE_PIPELINE.md`.
 
 ## The proven living-visual contract (v0.1.22 baseline, user-confirmed in-game)
 
@@ -34,7 +37,8 @@ candidate are recorded in `docs/research/RAGDOLL_VISUAL_HANDOFF.md`.
    `child_materials/warlock_bombardier/wb_*_child` in
    `resource_packages/doomrocket/warlock_child.package`, which is absent from
    `doomrocket.mod`'s packages list and loaded at runtime via
-   `mod:load_package` after the Globadier donor package is resident.
+   `mod:load_package` after the Ratling armor and Stormvermin body donor
+   packages are resident.
    `hooks.lua` swaps each slot via `Unit.set_material` per spawn.
 5. **Living driving**: root-only link (`AttachmentNodeLinking.doomrocket_warlock_root`)
    + `Unit.set_animation_bone_mode("transform")` + `Unit.set_bones_lod(0)` +
@@ -89,7 +93,8 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 | v0.1.47 (tested) | Ragdoll = giant stretched mess flying skyward, but NO framerate loss (2026-08-04, host + client logs agree; carrier armed cleanly, nodes=96, both peers) | The v0.1.45 raw `Unit.local_pose` copy is the closed v0.1.28 bridge failure resurrected at death: the ratling carrier's local matrices carry ITS bone translations and its animated proportion SCALE (the bridge maps the `*_scale` bones), compounding multiplicatively down every chain on Crunch's hierarchy. No fps loss because no physics is involved - pure render deformation | v0.1.48: ROTATION-ONLY retarget (`Unit.set_local_rotation` per mapped bone - bone lengths/proportions stay at Crunch's bind, stretch impossible by construction), j_hips alone also copies local translation (root-relative, no chain) so the corpse falls; `*_scale` + `aim_target` excluded. Diagnostic line now `rotation carrier active: nodes=N scale/aim_excluded=K` |
 | v0.1.48 (tested) | Six clean deaths with Less Corpses absent and corpse limit 70: the visible Warlock outfit vanished, while embedded longbow arrows remained suspended on the native carrier corpse; no FPS or solver failure | Raw native hips local position was copied under the custom scale-100 parent. Compiled-rest composition places the custom hips about 86.899 m from its valid rest position, fully explaining an out-of-view/bounds skin without deletion. ASM disable may also affect the experimental render path, but is not needed for this displacement | Never copy source-local translations across these rigs. Convert calibrated world motion back through the target parent's inverse; test culling separately only if bounded pose telemetry passes |
 | v0.1.49 (tested, 2026-08-11) | The corpse looked like a ratling gunner because the build deliberately revealed all 24 native carrier meshes on all 11 deaths. Physics stayed stable, but the Warlock overlay did not follow: `root_delta` stayed 0 while mean/max `hips_delta` grew from 0.04/0.07 m at frame 1 to 1.32/1.683 m at frame 64 | The visible corpse was a fallback underlay, not the Warlock model. The pose driver wrote during entity update, before the same frame's world animation evaluation; the still-enabled outfit ASM in `transform` mode could write the bones afterward. Direct carrier/outfit local transforms are also not interchangeable because the compiled custom rig has a scale-100 wrapper and different rest matrices | Never expose the carrier as a substitute corpse. Drive the custom visual after animation evaluation, block animation bone writes, and convert through calibrated world/rest space. This replacement is a candidate until runtime video **and** post-animation logs pass. Tested ManifestID: `8847975153665526573` |
-| v0.1.50 (candidate, uploaded 2026-08-11) | Hidden native ratling remains the sole physics owner; custom outfit captures its final living world/rest calibration in death `pre_start`, switches to bone mode `ignore`, and receives a topology-ordered world-delta/local-parent conversion once per carrier-world animation frame. Five-second per-corpse telemetry now has unique unit/husk IDs | Corrects the v0.1.47 raw full-pose error, v0.1.48 raw hips-local/scale-100 error, v0.1.49 double-writer and ratling-underlay errors, and the first candidate's multi-world callback self-rescheduling hazard. Mutation fixtures use inert `.fixture.txt` suffixes so VMB cannot compile test failures into shipping bundles | Do not call this fixed until `docs/testing/WARLOCK_RAGDOLL_TEST_PROTOCOL.md` passes on host and remote client with both video and analyzer output. Workshop item `3771657344`, upload-confirmed ManifestID `2137195637454965122` |
+| v0.1.50 (host baseline passed 2026-08-12) | Hidden native ratling remains the sole physics owner; custom outfit captures its final living world/rest calibration in death `pre_start`, switches to bone mode `ignore`, and receives a topology-ordered world-delta/local-parent conversion once per carrier-world animation frame. Five-second per-corpse telemetry has unique unit/husk IDs | 11/11 host corpses completed seven checkpoints through 5 s with both units alive. Maximum hips drift 0.133 m, bone-radius ratio 1.469×, and largest checkpoint-adjacent callback gap 19.6 ms; zero carrier reveals, custom actors, parent changes, scale changes, non-hips translations, assertions, or solver anomalies | Passed the original five-second host transform/lifetime lane. That build stopped pose driving at monitor completion and did not accumulate the interval's worst gap, so it did not validate persistent corpse lifetime or hitch detection. Visual identity and remote-client `source=husk` also remain untested. Workshop item `3771657344`, ManifestID `2137195637454965122` |
+| v0.1.51-dev hardening (uploaded; runtime pending) | Calibration is fail-before-side-effects: named-node existence, unique targets, exact 90-node/one-hips contract, finite values, scale-normalized singularity checks, and validated inverses. Five seconds now closes telemetry only; the strong driver remains until unit deletion/reset, skips 90-bone writes while native actors sleep, and resumes on wake. Game time drives checkpoints; wall time accumulates worst callback gaps. Carrier mesh and whole-unit reveal attempts are logged and forcibly re-hidden | Static policy covers complete preflight, zero-based enumeration of the carrier's actual actors, persistent sleep/wake lifetime, teardown on state exit/disable/unload, worst-gap telemetry, and fail-closed visibility. Texture adapters/material donors and rocket fallback mappings also passed the full compiled-bundle gate | Friends-only Workshop item `3771657344`, ManifestID `813553378698087677`. Repeat host visual/log tests, post-five-second wake, cleanup, and remote-client `source=husk`; no v0.1.51 runtime claim exists yet |
 | v0.1.47 | User report "No ragdoll" (2026-08-03) was a STALE BUILD: the 22:21 session log shows `[doomrocket:LOAD] v0.1.41-dev` + the v0.1.41 spawn-audit line | v0.1.42-46 were deployed locally but NEVER uploaded; the user's Steam restart (pulling an unrelated gt update) re-synced item 3771657344 back to the 07-27 v0.1.41 manifest - the exact clobber class in `feedback_local_deploy_clobbered_must_upload` | v0.1.47-dev republishes the current tree (identical code to v0.1.46 + version/title bump), upload log-confirmed ManifestID 3747860009260434476. NOTE: launcher v0.5.7+ refuses direct `upload` (publication receipt required); the out-of-monorepo doomrocket flow uses the v0.5.6 baseline binary `vmb-launcher-baseline-056-20260726` |
 
 ## Uncatchable crash classes (pcall is useless)
@@ -103,13 +108,12 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 - `Unit.node()` on a missing node (why the old bridge pruned via
   `Unit.has_node`).
 
-## Current native-carrier visual handoff (researched; runtime result pending)
+## Current native-carrier visual handoff (hardened runtime pass pending)
 
-The stable physics architecture is now fixed: the hidden native ratling unit
-owns the ragdoll, and the custom Warlock unit owns no physics. The remaining
-problem is transferring the carrier's final ragdoll pose into a differently
-wrapped visual skeleton. Offline parsing of the current compiled resources
-found:
+The hidden native ratling unit owns the ragdoll, and the custom Warlock unit
+owns no physics. The core carrier-to-visual transfer has a v0.1.50 host
+baseline, while the post-v0.1.50 lifecycle and safety hardening still requires
+a runtime pass. Offline parsing of the compiled resources found:
 
 - custom: 142 scene nodes, 138 state-machine bones, 1 skin, 0 actors and no
   physics scene;
@@ -122,16 +126,29 @@ found:
   `root_point` is top-level index 0 at scale 1. Of 106 common state-machine
   bones, 83 local rest matrices differ and all 106 world rest matrices differ.
 
-The candidate therefore does **not** copy raw source-local matrices. It keeps
-the carrier hidden, leaves the outfit ASM enabled but changes its animation
-bone mode to `ignore`, schedules the copy with
+The implementation therefore does **not** copy raw source-local matrices. It
+preflights every named node before `Unit.node`, enforces one unique hips pair
+and exactly 90 mapped nodes, validates finite/invertible calibration and parent
+matrices before inversion or state changes, and rejects near-collinear bases
+with a scale-normalized triple-product test. It keeps the carrier hidden,
+leaves the outfit ASM enabled but changes its animation bone mode to `ignore`,
+schedules the copy with
 `AnimationSystem.add_safe_animation_callback()` (after world animation and
 before scene update), applies calibrated world-space rotation deltas, and
 derives the desired hips local pose through the inverse desired target-parent
-world pose. It remains **UNTESTED** until the visible corpse is the Warlock in
-runtime footage and post-animation telemetry stays within the documented
-limits. See `docs/research/RAGDOLL_VISUAL_HANDOFF.md` for formulas, source
-trace, Autodesk references, and acceptance gates.
+world pose.
+
+The strong driver persists after the five-second monitor closes. After that
+point it skips pose writes while all cached native dynamic actors sleep and
+queues again when any actor wakes; it is removed only when either unit dies or
+on explicit state/mod teardown. Checkpoints use game time, while wall-clock
+callback gaps are accumulated as the worst gap between samples. Mesh reveal
+attempts are changed to `false`; whole-unit reveal attempts are followed by a
+complete carrier-mesh re-hide. The v0.1.50 run predates these hardening changes,
+so visual inspection, post-monitor wake/cleanup, and the remote-client husk lane
+remain separate gates. See `docs/HOW_TO_CREATE_A_VT2_RAGDOLL.md` for the
+practical procedure and `docs/research/RAGDOLL_VISUAL_HANDOFF.md` for the
+forensic derivation.
 
 AnimationSystem's safe-callback queue is global, while ScriptWorld drains it
 for every active world. The callback is therefore one-shot and never queues
@@ -199,26 +216,24 @@ names == SM ragdolls block == .bones entries and joints == actors-1.
 
 ## Open work
 
-- **Gun-rat animation set as mod clips** - the blocking asset. The idle
-  (`skaven_stormvermin/anims/passive_idle_3.003`) proves the path: a vanilla
-  clip imported as a Blender action on this rig compiles and plays perfectly.
-  Need the same for the ratling set (locomotion, attack_shoot, wind_up/reload,
-  death) via whatever toolchain produced that idle action - ask Crunch.
-  Dalokraff's `doomrocket_reload.fbx` is a bundle-recovery artifact (hashed
-  bone names, 2-frame take) and is not transferable.
-- State machine states named for the ratling event vocabulary
-  (`attack_shoot_align`, `attack_shoot_start`, `wind_up_start`,
-  `wind_up_loop`, locomotion events) as clips land - mirroring then drives
-  them with zero new runtime code.
-- Armor/backpack texture mapping partly wrong + map set incomplete (user
-  observation, deferred until animations are done): NR/MASE channel packing
-  vs VT2 `_nm`/`_s` conventions, wb_skin still on a flat normal. Crunch's
-  full masters are in Downloads\zxnu2hjyuovl4rhx.zip (4 sets of BC/NR/MASE/E
-  at 2048/1024/512 + warpstone emissive) - NEXT UP.
-- **Native-carrier visual handoff**: run the acceptance matrix in
-  `docs/research/RAGDOLL_VISUAL_HANDOFF.md`. The offset-corrected,
-  post-animation candidate is not a fix until both runtime visuals and its
-  post-animation telemetry pass; do not reveal the native ratling meshes as a
-  fallback.
+- **Animation set: complete for the current enemy loop.** Since v0.1.39 the
+  custom unit has compiled locomotion, shoot, wind-up/reload, stagger, and
+  death clips plus state-machine events using the ratling vocabulary. Treat
+  the older passive-idle-only notes above as pipeline history, not a present
+  blocker. Add new clips only when a new gameplay state actually needs one.
+- **Texture conversion: implemented offline, awaiting runtime approval.** Armor
+  and backpack now use source BC RGBA, NR RGBA, and
+  `MASE_Fix.rgb + MASE.a` through the exact Ratling 0488 three-map child.
+  Skin/fur/whiskers use the exact source-native Stormvermin children. UV
+  comparison proves no flip or resampling is required. The 17-test texture
+  regression suite and deterministic donor-payload validation pass; the
+  verified build/splice is uploaded and its in-game visual check remains. See
+  `docs/research/WARLOCK_TEXTURE_PIPELINE.md`.
+- **Native-carrier visual handoff**: v0.1.50 passed the original five-second
+  host baseline. The hardened worktree is identified as `v0.1.51-dev`; reject
+  a test log that still reports `v0.1.50-dev`. Record visual identity, a
+  post-five-second sleep/wake interaction, ordinary cleanup, pause behavior,
+  and a remote-client `source=husk` run.
+  Never reveal the native ratling meshes as a fallback.
 - Launcher/rocket/tube props still placeholders (exports staged in
   `_warlock_bombardier_art/`).

@@ -31,6 +31,8 @@ FIELD_RE = re.compile(
     r"\b([A-Za-z_][A-Za-z0-9_]*)=(\"(?:\\.|[^\"])*\"|'(?:\\.|[^'])*'|[^\s]+)"
 )
 VALID_PHASES = {"begin", "sample", "stop", "carrier_reveal"}
+STANDARD_CHECKPOINTS_MS = (0.0, 100.0, 250.0, 500.0, 1000.0, 2000.0, 5000.0)
+EXPECTED_NODE_COUNT = 90
 ZERO_COUNTERS = (
     "custom_actor_count",
     "custom_actors",
@@ -50,8 +52,10 @@ REQUIRED_SAMPLE_FIELDS = (
     "carrier_reveals",
     "parent_mismatch",
     "root_delta",
+    "named_root_drift",
     "hips_delta",
     "hips_drift",
+    "anchor_max_drift",
     "scale_mutations",
     "nonhips_translation_mutations",
     "bounds_ratio",
@@ -122,6 +126,9 @@ def analyze(
     max_frame_ms: float,
     max_deformation_ratio: float,
     max_root_delta: float,
+    max_hips_delta: float,
+    max_anchor_drift: float,
+    expected_nodes: int,
 ) -> tuple[list[str], dict[str, object]]:
     errors: list[str] = []
     records: list[Record] = []
@@ -282,10 +289,10 @@ def analyze(
             ratio = finite_float(record.fields[ratio_field])
             if ratio is None or ratio <= 0:
                 errors.append(f"line {line_number}: invalid {ratio_field} value")
-            elif ratio > max_deformation_ratio:
+            elif ratio > max_deformation_ratio or ratio < 1.0 / max_deformation_ratio:
                 errors.append(
-                    f"line {line_number}: {ratio_field}={ratio:g} exceeds "
-                    f"{max_deformation_ratio:g}x baseline"
+                    f"line {line_number}: {ratio_field}={ratio:g} is outside "
+                    f"[{1.0 / max_deformation_ratio:g}, {max_deformation_ratio:g}]x baseline"
                 )
 
         if phase == "sample":
@@ -305,6 +312,10 @@ def analyze(
             elif nodes_value is not None:
                 if nodes_value <= 0 or not nodes_value.is_integer():
                     errors.append(f"line {line_number}: nodes must be a positive integer")
+                elif int(nodes_value) != expected_nodes:
+                    errors.append(
+                        f"line {line_number}: nodes={int(nodes_value)}, expected {expected_nodes}"
+                    )
                 elif trace.node_count is None:
                     trace.node_count = int(nodes_value)
                 elif int(nodes_value) != trace.node_count:
@@ -323,10 +334,37 @@ def analyze(
                     f"{max_root_delta:g} m"
                 )
 
+            named_root_text = record.fields.get("named_root_drift")
+            named_root = (
+                finite_float(named_root_text) if named_root_text is not None else None
+            )
+            if named_root_text is not None and (named_root is None or named_root < 0):
+                errors.append(f"line {line_number}: invalid named_root_drift value")
+            elif named_root is not None and named_root > max_root_delta:
+                errors.append(
+                    f"line {line_number}: named_root_drift={named_root:g} m exceeds "
+                    f"{max_root_delta:g} m"
+                )
+
             hips_delta_text = record.fields.get("hips_delta")
             hips_delta = finite_float(hips_delta_text) if hips_delta_text is not None else None
             if hips_delta_text is not None and (hips_delta is None or hips_delta < 0):
                 errors.append(f"line {line_number}: invalid hips_delta value")
+            elif hips_delta is not None and hips_delta > max_hips_delta:
+                errors.append(
+                    f"line {line_number}: hips_delta={hips_delta:g} m exceeds "
+                    f"{max_hips_delta:g} m"
+                )
+
+            anchor_text = record.fields.get("anchor_max_drift")
+            anchor = finite_float(anchor_text) if anchor_text is not None else None
+            if anchor_text is not None and (anchor is None or anchor < 0):
+                errors.append(f"line {line_number}: invalid anchor_max_drift value")
+            elif anchor is not None and anchor > max_anchor_drift:
+                errors.append(
+                    f"line {line_number}: anchor_max_drift={anchor:g} m exceeds "
+                    f"{max_anchor_drift:g} m"
+                )
 
             checkpoint_text = record.fields.get("checkpoint_ms")
             checkpoint = finite_float(checkpoint_text) if checkpoint_text is not None else None
@@ -376,6 +414,8 @@ def analyze(
         label = f"id={trace.identifier} source={trace.source}"
         if trace.begin is None:
             errors.append(f"{label}: missing begin record")
+        if trace.stop is None:
+            errors.append(f"{label}: missing stop record")
         if len(trace.samples) < min_samples:
             errors.append(
                 f"{label}: only {len(trace.samples)} sample(s), expected at least {min_samples}"
@@ -399,6 +439,23 @@ def analyze(
                 f"{label}: last checkpoint_ms={observed_checkpoint:g}, expected at least "
                 f"{required_checkpoint:g}"
             )
+        if math.isclose(required_checkpoint, STANDARD_CHECKPOINTS_MS[-1]):
+            missing_checkpoints = [
+                expected
+                for expected in STANDARD_CHECKPOINTS_MS
+                if not any(math.isclose(actual, expected, abs_tol=0.5) for actual in finite_checkpoints)
+            ]
+            duplicate_checkpoints = sorted({
+                actual
+                for actual in finite_checkpoints
+                if sum(math.isclose(other, actual, abs_tol=0.5) for other in finite_checkpoints) > 1
+            })
+            if missing_checkpoints:
+                rendered = ", ".join(f"{value:g}" for value in missing_checkpoints)
+                errors.append(f"{label}: missing required checkpoint_ms value(s): {rendered}")
+            if duplicate_checkpoints:
+                rendered = ", ".join(f"{value:g}" for value in duplicate_checkpoints)
+                errors.append(f"{label}: duplicate checkpoint_ms value(s): {rendered}")
         trace_summaries.append(
             {
                 "id": trace.identifier,
@@ -419,6 +476,9 @@ def analyze(
         "min_survival_seconds": min_survival_seconds,
         "max_deformation_ratio": max_deformation_ratio,
         "max_root_delta_m": max_root_delta,
+        "max_hips_delta_m": max_hips_delta,
+        "max_anchor_drift_m": max_anchor_drift,
+        "expected_nodes": expected_nodes,
         "passed": not errors,
     }
     return errors, summary
@@ -429,10 +489,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("log", type=Path, help="Vermintide 2 console log")
     parser.add_argument("--max-hips-drift", type=float, default=0.25, metavar="METERS")
     parser.add_argument("--min-survival-seconds", type=float, default=5.0, metavar="SECONDS")
-    parser.add_argument("--min-samples", type=int, default=3)
+    parser.add_argument("--min-samples", type=int, default=len(STANDARD_CHECKPOINTS_MS))
     parser.add_argument("--max-frame-ms", type=float, default=250.0, metavar="MS")
     parser.add_argument("--max-deformation-ratio", type=float, default=2.0, metavar="RATIO")
     parser.add_argument("--max-root-delta", type=float, default=0.25, metavar="METERS")
+    parser.add_argument("--max-hips-delta", type=float, default=0.25, metavar="METERS")
+    parser.add_argument("--max-anchor-drift", type=float, default=0.5, metavar="METERS")
+    parser.add_argument("--expected-nodes", type=int, default=EXPECTED_NODE_COUNT, metavar="COUNT")
     parser.add_argument("--json", action="store_true", help="emit a machine-readable summary")
     return parser
 
@@ -446,6 +509,9 @@ def main(argv: list[str] | None = None) -> int:
         or args.max_frame_ms < 0
         or args.max_deformation_ratio < 1
         or args.max_root_delta < 0
+        or args.max_hips_delta < 0
+        or args.max_anchor_drift < 0
+        or args.expected_nodes < 1
     ):
         raise SystemExit("thresholds must be non-negative and --min-samples must be at least 1")
     try:
@@ -462,6 +528,9 @@ def main(argv: list[str] | None = None) -> int:
         max_frame_ms=args.max_frame_ms,
         max_deformation_ratio=args.max_deformation_ratio,
         max_root_delta=args.max_root_delta,
+        max_hips_delta=args.max_hips_delta,
+        max_anchor_drift=args.max_anchor_drift,
+        expected_nodes=args.expected_nodes,
     )
     if args.json:
         summary["errors"] = errors

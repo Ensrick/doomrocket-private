@@ -1,11 +1,15 @@
 [CmdletBinding()]
 param(
-    [string]$RepoRoot = (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent),
+    [string]$RepoRoot,
     [switch]$FixtureOnly
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if (-not $RepoRoot) {
+    $RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+}
 
 $failures = [System.Collections.Generic.List[string]]::new()
 $policyPath = Join-Path $RepoRoot 'tools\lib\WarlockRagdollPolicy.ps1'
@@ -157,7 +161,9 @@ $contractMutations = @(
     }
     @{
         Name = 'inverse-parent conversion removed'
-        Text = $candidateText.Replace('Matrix4x4.inverse(', 'Matrix4x4.copy(')
+        Text = $candidateText.Replace(
+            'desired_worlds[i], Matrix4x4.inverse(parent_world)',
+            'desired_worlds[i], Matrix4x4.copy(parent_world)')
         ExpectedRules = @('WR-RAG-007')
     }
     @{
@@ -165,6 +171,13 @@ $contractMutations = @(
         Text = $candidateText.Replace(
             'if pair.is_hips then',
             "Unit.set_local_position(driver.outfit, pair.target, Vector3.zero())`n        if pair.is_hips then")
+        ExpectedRules = @('WR-RAG-007')
+    }
+    @{
+        Name = 'singular desired local reaches rotation extraction'
+        Text = $candidateText.Replace(
+            'if not warlock_matrix_is_invertible(desired_local) then',
+            'if not Matrix4x4.is_valid(desired_local) then')
         ExpectedRules = @('WR-RAG-007')
     }
     @{
@@ -178,16 +191,84 @@ $contractMutations = @(
         ExpectedRules = @('WR-RAG-008')
     }
     @{
-        Name = 'native carrier meshes revealed'
+        Name = 'worst callback gap accumulator removed'
         Text = $candidateText.Replace(
-            'Unit.set_mesh_visibility(owner_unit, mesh_index, false, "default")',
-            'Unit.set_mesh_visibility(owner_unit, mesh_index, true, "default")')
+            'driver.max_wall_gap_ms = math.max(driver.max_wall_gap_ms or 0, wall_gap_ms)',
+            'driver.max_wall_gap_ms = wall_gap_ms')
+        ExpectedRules = @('WR-RAG-008')
+    }
+    @{
+        Name = 'worst callback gap interval reset removed'
+        Text = $candidateText.Replace(
+            'driver.max_wall_gap_ms = 0',
+            'driver.max_wall_gap_ms = max_wall_gap_ms')
+        ExpectedRules = @('WR-RAG-008')
+    }
+    @{
+        Name = 'native carrier meshes revealed'
+        Text = $candidateText.Replace('visible = false', 'visible = true')
         ExpectedRules = @('WR-RAG-005')
     }
     @{
         Name = 'obsolete 17-mesh carrier fallback'
         Text = $candidateText.Replace('num_meshes = 24', 'num_meshes = 17')
         ExpectedRules = @('WR-RAG-005')
+    }
+    @{
+        Name = 'whole-unit carrier rehide removed'
+        Text = $candidateText.Replace(
+            '        hide_warlock_carrier_meshes(unit)',
+            '        local ignored_carrier_reveal = unit')
+        ExpectedRules = @('WR-RAG-005')
+    }
+    @{
+        Name = 'source node preflight removed'
+        Text = $candidateText.Replace(
+            'Unit.has_node(owner_unit, source_name)',
+            'Unit.has_node(owner_unit, "unrelated")')
+        ExpectedRules = @('WR-RAG-009')
+    }
+    @{
+        Name = 'calibration inverted before validation'
+        Text = $candidateText.Replace(
+            'if not warlock_matrix_is_invertible(source_world_at_handoff) then return nil end',
+            'local premature_inverse = Matrix4x4.inverse(source_world_at_handoff)')
+        ExpectedRules = @('WR-RAG-009')
+    }
+    @{
+        Name = 'singular target handoff accepted'
+        Text = $candidateText.Replace(
+            'if not warlock_matrix_is_invertible(target_world_at_handoff) then return nil end',
+            'if not Matrix4x4.is_valid(target_world_at_handoff) then return nil end')
+        ExpectedRules = @('WR-RAG-009')
+    }
+    @{
+        Name = 'exact node-count contract removed'
+        Text = $candidateText.Replace(
+            'WARLOCK_RAGDOLL_EXPECTED_NODES = 90',
+            'WARLOCK_RAGDOLL_EXPECTED_NODES = 89')
+        ExpectedRules = @('WR-RAG-009')
+    }
+    @{
+        Name = 'five-second telemetry destroys driver'
+        Text = $candidateText.Replace(
+            'driver.monitor_complete = true',
+            'stop_driver(driver)')
+        ExpectedRules = @('WR-RAG-010')
+    }
+    @{
+        Name = 'ragdoll wake check removed'
+        Text = $candidateText.Replace(
+            'Actor.is_sleeping(actor)',
+            'true')
+        ExpectedRules = @('WR-RAG-010')
+    }
+    @{
+        Name = 'ragdoll actor enumeration made one-based'
+        Text = $candidateText.Replace(
+            'for actor_index = 0, Unit.num_actors(driver.owner) - 1 do',
+            'for actor_index = 1, Unit.num_actors(driver.owner) do')
+        ExpectedRules = @('WR-RAG-010')
     }
 )
 foreach ($mutation in $contractMutations) {
@@ -224,7 +305,12 @@ if (-not $python) {
 } else {
     $nativePreference = Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue
     $oldNativePreference = if ($nativePreference) { $nativePreference.Value } else { $null }
+    $oldErrorActionPreference = $ErrorActionPreference
     $PSNativeCommandUseErrorActionPreference = $false
+    # Windows PowerShell 5.1 wraps ordinary native stderr (including unittest
+    # progress) as ErrorRecord objects. Capture it without Stop aborting before
+    # the process exit code can be evaluated.
+    $ErrorActionPreference = 'Continue'
     try {
         $mathOutput = (& $python.Source @pythonPrefix $retargetMathTestPath 2>&1 | Out-String).Trim()
         $mathExitCode = $LASTEXITCODE
@@ -244,6 +330,7 @@ if (-not $python) {
             }
         }
     } finally {
+        $ErrorActionPreference = $oldErrorActionPreference
         if ($nativePreference) {
             $PSNativeCommandUseErrorActionPreference = $oldNativePreference
         } else {
@@ -261,3 +348,4 @@ if ($failures.Count -gt 0) {
 
 $scope = if ($FixtureOnly) { 'fixture and analyzer' } else { 'fixture, analyzer, and production' }
 Write-Host "[ragdoll-test] OK - $scope regressions hold"
+$global:LASTEXITCODE = 0

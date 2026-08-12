@@ -1,5 +1,7 @@
 materials = {
-//    remilia = "materials/remilia"
+	lambert2 = "materials/rocket/rocket_neutral"
+	lambert3 = "materials/rocket/rocket_neutral"
+	lambert4 = "materials/rocket/rocket_red"
 }
 
 data = {
