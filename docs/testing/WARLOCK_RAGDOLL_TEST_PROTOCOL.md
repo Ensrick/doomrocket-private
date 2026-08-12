@@ -6,10 +6,11 @@ Static tests prove only that known-dangerous mechanisms are absent; video is
 required to prove the visible model identity.
 
 Recorded status: uploaded v0.1.50 passed an 11-corpse, five-second host
-telemetry baseline on 2026-08-12. That build ended pose driving at monitor
-completion and logged only the callback gap adjacent to each sample. The later
-persistent sleep/wake driver, game-time monitor, worst-gap accumulator,
-calibration preflight, and visibility hard block have static coverage but no
+telemetry baseline on 2026-08-12. Uploaded v0.1.51 failed its first host death:
+hips drift reached 2.505 m at 5 s despite 602 callbacks, while deformation and
+performance metrics remained normal. The v0.1.51 sleep gate cached/consulted
+actors during the monitor and suppressed pose transfer. v0.1.52 is a fix
+candidate that forbids sleep optimization until `monitor_complete`; it has no
 runtime pass yet. Visual signoff and remote-client `source=husk` coverage also
 remain required.
 
@@ -28,10 +29,11 @@ remain required.
 5. Confirm the console contains the exact hardened candidate banner and record
    its Workshop manifest ID:
 
-       [doomrocket:LOAD] v0.1.51-dev
+       [doomrocket:LOAD] v0.1.52-dev
 
-   `[doomrocket:LOAD] v0.1.50-dev` identifies the uploaded baseline, not the
-   persistent-driver candidate, and makes the run invalid.
+   `[doomrocket:LOAD] v0.1.50-dev` identifies the original baseline.
+   `[doomrocket:LOAD] v0.1.51-dev` identifies the known pre-monitor
+   sleep-suppression regression. Neither is a valid v0.1.52 candidate run.
 
 ## Capture matrix
 
@@ -97,6 +99,12 @@ satisfy all of the following:
 - `wall_gap_ms <= 250` ms. This is the maximum callback gap observed since
   the previous checkpoint, not merely the frame immediately before logging.
 
+During those seven checkpoints, pose transfer is mandatory on every
+owner-world callback. The implementation must not enumerate/cache actors or
+suppress writes based on sleep state until after `monitor_complete`. A complete
+callback count does not prove writes occurred: v0.1.51 logged 602 callbacks
+while its visual drifted 2.505 m from the carrier.
+
 `carrier_reveals=0` covers tracked Lua calls through both
 `Unit.set_mesh_visibility` and `Unit.set_unit_visibility`. A mesh reveal attempt
 is forced to `false`; a whole-unit reveal attempt is synchronously followed by
@@ -118,6 +126,10 @@ concurrent corpse IDs and load/version evidence must remain auditable.
   v0.1.49 substitution failure.
 - Large `hips_drift`, bounds ratio, or bone-radius ratio: reject as a retarget
   failure; do not compensate by revealing the carrier.
+- Increasing hips/anchor drift with normal wall gaps, stable deformation ratios,
+  zero mutations, and a normal callback count is the v0.1.51 pose-suppression
+  signature. Verify that sleep discovery and suppression cannot execute before
+  `monitor_complete`.
 - Bounded telemetry but no visible Warlock: run a separate culling-only A/B
   build. Do not change physics, pose transfer, materials, and culling together.
 - Host passes but client/husk fails: treat it as a lifecycle/network-lane bug;

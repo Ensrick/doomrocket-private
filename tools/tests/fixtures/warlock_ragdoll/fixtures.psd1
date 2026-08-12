@@ -76,6 +76,12 @@
             ExpectedText = 'hips_drift=0.251 m exceeds 0.25 m'
         }
         @{
+            Name = 'v0.1.51 pre-monitor sleep freeze regression'
+            Log = 'v0151_premonitor_sleep_freeze_fail.log'
+            ExpectedExit = 1
+            ExpectedText = 'hips_delta=0.533 m exceeds 0.25 m'
+        }
+        @{
             Name = 'outfit disappearance telemetry'
             Log = 'disappearance_fail.log'
             ExpectedExit = 1

@@ -437,16 +437,24 @@ function Test-WarlockRagdollPolicy {
         # shape rather than accepting any isolated Actor.is_dynamic call.
         $hasZeroBasedActorEnumeration =
             $deathTokens -match '(?s)for\s+actor_index\s*=\s*0\s*,\s*Unit\.num_actors\s*\(\s*driver\.owner\s*\)\s*-\s*1\s+do\s*local\s+actor\s*=\s*Unit\.actor\s*\(\s*driver\.owner\s*,\s*actor_index\s*\).*?Actor\.is_dynamic\s*\(\s*actor\s*\)'
+        # Sleep is an optimization, not part of the calibrated transfer. Do
+        # not query or cache actors until the full five-second monitor has
+        # completed: death pre_start runs before the native ragdoll activates,
+        # so an earlier query can cache the sleeping locomotion actor and freeze
+        # the visible outfit while the eventual ragdoll moves away from it.
+        $hasMonitorGatedApplySleep =
+            $deathTokens -match 'carrier_sleeping\s*=\s*driver\.monitor_complete\s+and\s+warlock_carrier_ragdoll_sleeping\s*\(\s*driver\s*\)'
         $hasPersistentWakeAwareDriver =
             $deathTokens -match 'monitor_complete\s*=\s*true' -and
             $hasZeroBasedActorEnumeration -and
+            $hasMonitorGatedApplySleep -and
             $deathTokens -match 'Actor\.is_sleeping\s*\(' -and
             $deathTokens -match '(?s)not\s+driver\.monitor_complete\s+or\s+not\s+warlock_carrier_ragdoll_sleeping\s*\(\s*driver\s*\)' -and
             $deathTokens -match 'mod\._reset_warlock_death_drivers\s*=\s*function' -and
             $deathTokens -notmatch '(?s)elapsed_ms\s*>=\s*WARLOCK_RAGDOLL_(?:DRIVE|MONITOR)_TIME_MS\s+then\s+stop_warlock_death_driver'
         if (-not $hasPersistentWakeAwareDriver) {
             Add-WarlockPolicyViolation $violations 'WR-RAG-010' `
-                'candidate stops at five seconds or lacks zero-based actor enumeration, sleep/wake, or teardown lifecycle'
+                'candidate stops at five seconds or lacks monitor-gated actor enumeration, sleep/wake, or teardown lifecycle'
         }
     }
 

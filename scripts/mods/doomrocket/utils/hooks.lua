@@ -493,9 +493,10 @@ local function complete_warlock_death_monitor(driver, now)
 	end
 
 	driver.monitor_complete = true
-	printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=%.1f owner_alive=true outfit_alive=true reason=monitor_complete callbacks=%d",
+	printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=%.1f owner_alive=true outfit_alive=true reason=monitor_complete callbacks=%d pose_writes=%d sleep_skips=%d",
 		driver.id, driver.source, (now - driver.created_game_at) * 1000,
-		driver.callback_count or 0)
+		driver.callback_count or 0, driver.pose_write_callbacks or 0,
+		driver.sleep_skip_callbacks or 0)
 end
 
 local function warlock_carrier_ragdoll_sleeping(driver)
@@ -580,13 +581,14 @@ local function sample_warlock_death_driver(driver, now, checkpoint_ms, wall_gap_
 		max_bone_radius / driver.initial_max_bone_radius or 1
 	local tracker = driver.carrier_tracker
 
-	printf("[doomrocket:RAGDOLL] phase=sample id=%s source=%s checkpoint_ms=%d elapsed_ms=%.1f wall_gap_ms=%.1f owner_alive=true outfit_alive=true nodes=%d custom_actors=%d carrier_reveals=%d parent_mismatch=%d root_delta=%.3f named_root_drift=%.3f hips_delta=%.3f hips_drift=%.3f anchor_max_drift=%.3f scale_mutations=%d nonhips_translation_mutations=%d bounds_ratio=%.3f max_bone_radius_ratio=%.3f",
+	printf("[doomrocket:RAGDOLL] phase=sample id=%s source=%s checkpoint_ms=%d elapsed_ms=%.1f wall_gap_ms=%.1f owner_alive=true outfit_alive=true nodes=%d custom_actors=%d carrier_reveals=%d parent_mismatch=%d root_delta=%.3f named_root_drift=%.3f hips_delta=%.3f hips_drift=%.3f anchor_max_drift=%.3f scale_mutations=%d nonhips_translation_mutations=%d bounds_ratio=%.3f max_bone_radius_ratio=%.3f pose_writes=%d sleep_skips=%d",
 		driver.id, driver.source, checkpoint_ms, (now - driver.created_game_at) * 1000,
 		wall_gap_ms, #driver.node_pairs, warlock_unit_actor_count(outfit_unit),
 		tracker and tracker.reveal_count or 0, parent_mismatch, root_delta,
 		named_root_drift, hips_delta, hips_drift, anchor_max_drift,
 		scale_mutations, nonhips_translation_mutations, bounds_ratio,
-		max_bone_radius_ratio)
+		max_bone_radius_ratio, driver.pose_write_callbacks or 0,
+		driver.sleep_skip_callbacks or 0)
 end
 
 local queue_warlock_death_pose
@@ -607,7 +609,15 @@ local function apply_warlock_death_pose(driver)
 	driver.last_callback_wall_at = wall_now
 	driver.callback_count = driver.callback_count + 1
 	driver.max_wall_gap_ms = math.max(driver.max_wall_gap_ms or 0, wall_gap_ms)
-	local carrier_sleeping = warlock_carrier_ragdoll_sleeping(driver)
+	-- The first five seconds are the proven, fully driven validation window.
+	-- Do not inspect/cache carrier actors until the native death ragdoll has had
+	-- time to activate: pre-ragdoll actors can report sleeping and would freeze
+	-- the visual skeleton while the newly activated carrier keeps moving.
+	local carrier_sleeping = driver.monitor_complete and
+		warlock_carrier_ragdoll_sleeping(driver)
+	if carrier_sleeping then
+		driver.sleep_skip_callbacks = driver.sleep_skip_callbacks + 1
+	end
 
 	-- Freeze all source samples before touching the target. Source transforms are
 	-- rebuilt rigid (unit scale) so native animated scale/shear can never enter
@@ -709,6 +719,7 @@ local function apply_warlock_death_pose(driver)
 
 	if not carrier_sleeping then
 		World.update_unit(Unit.world(outfit_unit), outfit_unit)
+		driver.pose_write_callbacks = driver.pose_write_callbacks + 1
 	end
 
 	local elapsed_ms = (now - driver.created_game_at) * 1000
@@ -959,6 +970,8 @@ mod._prepare_warlock_death = function(owner_unit, source)
 			Unit.world_position(owner_unit, owner_hips)),
 		next_sample = 1,
 		callback_count = 0,
+		pose_write_callbacks = 0,
+		sleep_skip_callbacks = 0,
 		callback_pending = false,
 		max_wall_gap_ms = 0,
 		monitor_complete = false,

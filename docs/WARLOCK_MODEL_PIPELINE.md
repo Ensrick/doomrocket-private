@@ -94,7 +94,8 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 | v0.1.48 (tested) | Six clean deaths with Less Corpses absent and corpse limit 70: the visible Warlock outfit vanished, while embedded longbow arrows remained suspended on the native carrier corpse; no FPS or solver failure | Raw native hips local position was copied under the custom scale-100 parent. Compiled-rest composition places the custom hips about 86.899 m from its valid rest position, fully explaining an out-of-view/bounds skin without deletion. ASM disable may also affect the experimental render path, but is not needed for this displacement | Never copy source-local translations across these rigs. Convert calibrated world motion back through the target parent's inverse; test culling separately only if bounded pose telemetry passes |
 | v0.1.49 (tested, 2026-08-11) | The corpse looked like a ratling gunner because the build deliberately revealed all 24 native carrier meshes on all 11 deaths. Physics stayed stable, but the Warlock overlay did not follow: `root_delta` stayed 0 while mean/max `hips_delta` grew from 0.04/0.07 m at frame 1 to 1.32/1.683 m at frame 64 | The visible corpse was a fallback underlay, not the Warlock model. The pose driver wrote during entity update, before the same frame's world animation evaluation; the still-enabled outfit ASM in `transform` mode could write the bones afterward. Direct carrier/outfit local transforms are also not interchangeable because the compiled custom rig has a scale-100 wrapper and different rest matrices | Never expose the carrier as a substitute corpse. Drive the custom visual after animation evaluation, block animation bone writes, and convert through calibrated world/rest space. This replacement is a candidate until runtime video **and** post-animation logs pass. Tested ManifestID: `8847975153665526573` |
 | v0.1.50 (host baseline passed 2026-08-12) | Hidden native ratling remains the sole physics owner; custom outfit captures its final living world/rest calibration in death `pre_start`, switches to bone mode `ignore`, and receives a topology-ordered world-delta/local-parent conversion once per carrier-world animation frame. Five-second per-corpse telemetry has unique unit/husk IDs | 11/11 host corpses completed seven checkpoints through 5 s with both units alive. Maximum hips drift 0.133 m, bone-radius ratio 1.469×, and largest checkpoint-adjacent callback gap 19.6 ms; zero carrier reveals, custom actors, parent changes, scale changes, non-hips translations, assertions, or solver anomalies | Passed the original five-second host transform/lifetime lane. That build stopped pose driving at monitor completion and did not accumulate the interval's worst gap, so it did not validate persistent corpse lifetime or hitch detection. Visual identity and remote-client `source=husk` also remain untested. Workshop item `3771657344`, ManifestID `2137195637454965122` |
-| v0.1.51-dev hardening (uploaded; runtime pending) | Calibration is fail-before-side-effects: named-node existence, unique targets, exact 90-node/one-hips contract, finite values, scale-normalized singularity checks, and validated inverses. Five seconds now closes telemetry only; the strong driver remains until unit deletion/reset, skips 90-bone writes while native actors sleep, and resumes on wake. Game time drives checkpoints; wall time accumulates worst callback gaps. Carrier mesh and whole-unit reveal attempts are logged and forcibly re-hidden | Static policy covers complete preflight, zero-based enumeration of the carrier's actual actors, persistent sleep/wake lifetime, teardown on state exit/disable/unload, worst-gap telemetry, and fail-closed visibility. Texture adapters/material donors and rocket fallback mappings also passed the full compiled-bundle gate | Friends-only Workshop item `3771657344`, ManifestID `813553378698087677`. Repeat host visual/log tests, post-five-second wake, cleanup, and remote-client `source=husk`; no v0.1.51 runtime claim exists yet |
+| v0.1.51-dev hardening (runtime failed 2026-08-12) | The first host death began normally with 90 mapped nodes, then the custom visual stopped following the native carrier. At 5 s, `hips_drift=2.505` m and `anchor_max_drift=3.567` m despite 602 callbacks. `root_delta=0`, bone-radius ratio stayed about 0.998, mutations/reveals/custom actors stayed zero, and the largest wall gap was only 11.1 ms: this was pose suppression, not deformation, solver instability, or a performance stall | The new sleep optimization ran before `monitor_complete`, cached/interpreted transition-time dynamic actors as sleeping, and suppressed the 90-bone transfer while the native ragdoll continued moving | Sleep detection, actor caching, and pose-write suppression are forbidden during the complete 0–5000 ms monitor. Log: `console-2026-08-12-22.42.49-d1eaa659-0dcc-4c1d-bebd-1789887d36d9.log`; Workshop ManifestID `813553378698087677` |
+| v0.1.52-dev fix candidate (uploaded; runtime pending) | Preserve the v0.1.51 preflight, lifecycle, visibility, and telemetry hardening, but force pose transfer on every owner-world callback until `monitor_complete`. Discover and consult native dynamic actors only after the monitor has closed | This restores the proven v0.1.50 behavior during the acceptance window while retaining post-monitor sleep/wake optimization. Clean build, exact material splice, full pipeline, ragdoll regressions, and 17 texture tests passed | Friends-only Workshop item `3771657344`, ManifestID `2963729984774018388`. Static and mutation tests are necessary but insufficient. Do not claim runtime success until a uniquely versioned v0.1.52 host log and visual test pass; remote-client `source=husk` and post-monitor wake remain required |
 | v0.1.47 | User report "No ragdoll" (2026-08-03) was a STALE BUILD: the 22:21 session log shows `[doomrocket:LOAD] v0.1.41-dev` + the v0.1.41 spawn-audit line | v0.1.42-46 were deployed locally but NEVER uploaded; the user's Steam restart (pulling an unrelated gt update) re-synced item 3771657344 back to the 07-27 v0.1.41 manifest - the exact clobber class in `feedback_local_deploy_clobbered_must_upload` | v0.1.47-dev republishes the current tree (identical code to v0.1.46 + version/title bump), upload log-confirmed ManifestID 3747860009260434476. NOTE: launcher v0.5.7+ refuses direct `upload` (publication receipt required); the out-of-monorepo doomrocket flow uses the v0.5.6 baseline binary `vmb-launcher-baseline-056-20260726` |
 
 ## Uncatchable crash classes (pcall is useless)
@@ -108,12 +109,14 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 - `Unit.node()` on a missing node (why the old bridge pruned via
   `Unit.has_node`).
 
-## Current native-carrier visual handoff (hardened runtime pass pending)
+## Current native-carrier visual handoff (v0.1.52 fix candidate pending)
 
 The hidden native ratling unit owns the ragdoll, and the custom Warlock unit
 owns no physics. The core carrier-to-visual transfer has a v0.1.50 host
-baseline, while the post-v0.1.50 lifecycle and safety hardening still requires
-a runtime pass. Offline parsing of the compiled resources found:
+baseline. v0.1.51 then proved that lifecycle hardening can regress that transfer
+if sleep state is consulted during the transition: its visual accumulated
+2.505 m of hips drift while the callback continued normally. v0.1.52 is a fix
+candidate, not a runtime pass. Offline parsing of the compiled resources found:
 
 - custom: 142 scene nodes, 138 state-machine bones, 1 skin, 0 actors and no
   physics scene;
@@ -138,17 +141,18 @@ before scene update), applies calibrated world-space rotation deltas, and
 derives the desired hips local pose through the inverse desired target-parent
 world pose.
 
-The strong driver persists after the five-second monitor closes. After that
-point it skips pose writes while all cached native dynamic actors sleep and
-queues again when any actor wakes; it is removed only when either unit dies or
-on explicit state/mod teardown. Checkpoints use game time, while wall-clock
-callback gaps are accumulated as the worst gap between samples. Mesh reveal
-attempts are changed to `false`; whole-unit reveal attempts are followed by a
-complete carrier-mesh re-hide. The v0.1.50 run predates these hardening changes,
-so visual inspection, post-monitor wake/cleanup, and the remote-client husk lane
-remain separate gates. See `docs/HOW_TO_CREATE_A_VT2_RAGDOLL.md` for the
-practical procedure and `docs/research/RAGDOLL_VISUAL_HANDOFF.md` for the
-forensic derivation.
+The strong driver persists after the five-second monitor closes. Before
+`monitor_complete`, every owner-world callback must transfer the pose: actor
+discovery, sleep-state caching, and sleep-based suppression are forbidden.
+Only after monitor completion may the driver skip pose writes while all cached
+native dynamic actors sleep and queue again when any actor wakes. It is removed
+only when either unit dies or on explicit state/mod teardown. Checkpoints use
+game time, while wall-clock callback gaps are accumulated as the worst gap
+between samples. Mesh reveal attempts are changed to `false`; whole-unit reveal
+attempts are followed by a complete carrier-mesh re-hide. The v0.1.52 candidate
+still needs visual inspection, post-monitor wake/cleanup, and remote-client husk
+coverage. See `docs/HOW_TO_CREATE_A_VT2_RAGDOLL.md` for the practical procedure
+and `docs/research/RAGDOLL_VISUAL_HANDOFF.md` for the forensic derivation.
 
 AnimationSystem's safe-callback queue is global, while ScriptWorld drains it
 for every active world. The callback is therefore one-shot and never queues
@@ -230,10 +234,11 @@ names == SM ragdolls block == .bones entries and joints == actors-1.
   verified build/splice is uploaded and its in-game visual check remains. See
   `docs/research/WARLOCK_TEXTURE_PIPELINE.md`.
 - **Native-carrier visual handoff**: v0.1.50 passed the original five-second
-  host baseline. The hardened worktree is identified as `v0.1.51-dev`; reject
-  a test log that still reports `v0.1.50-dev`. Record visual identity, a
-  post-five-second sleep/wake interaction, ordinary cleanup, pause behavior,
-  and a remote-client `source=husk` run.
+  host baseline. v0.1.51 is a known pre-monitor sleep-suppression failure; the
+  fix candidate is identified as `v0.1.52-dev`. Reject logs from either older
+  build. Do not promote the candidate until visual identity, bounded monitor
+  drift, a post-five-second sleep/wake interaction, ordinary cleanup, pause
+  behavior, and a remote-client `source=husk` run pass.
   Never reveal the native ratling meshes as a fallback.
 - Launcher/rocket/tube props still placeholders (exports staged in
   `_warlock_bombardier_art/`).

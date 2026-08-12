@@ -1,8 +1,10 @@
 # Warlock visual handoff onto the native ratling ragdoll
 
 Status: **the original offset-corrected v0.1.50 handoff passed a five-second
-host baseline on 2026-08-12; post-v0.1.50 lifecycle/safety hardening, visual
-signoff, and remote-client husk coverage remain runtime-unvalidated**.
+host baseline on 2026-08-12. v0.1.51 failed because its new sleep gate
+suppressed pose transfer before the monitor completed. v0.1.52 is a fix
+candidate with no runtime pass yet; visual signoff and remote-client husk
+coverage also remain required**.
 
 This note separates three things that previous builds conflated:
 
@@ -239,16 +241,24 @@ stays in the strong active set until its owner or outfit is deleted, or until
 clears the weak registries. Already queued callbacks check the stopped flag and
 do nothing after reset.
 
-During the monitor window the owner-world hook continues to queue callbacks
-even when the native ragdoll sleeps, preserving all seven checkpoints. After
-`monitor_complete`, the implementation enumerates the carrier's actual physics
-scene with zero-based indices `0..Unit.num_actors(carrier)-1`, caches actors for
-which `Actor.is_dynamic` is true, and skips the 90-bone pose calculation and
-`World.update_unit` while all of them sleep. It keeps testing the cached actors
-from the carrier-world
-animation hook and resumes on the first wake. Physics actor names are not
-assumed to match deform-bone names. Finding no dynamic actors on the transition
-frame is treated as awake and retried.
+During the monitor window the owner-world hook must queue and execute pose
+transfer on every callback, even when an actor reports sleeping, preserving all
+seven checkpoints and the visible/native correlation. Actor enumeration,
+sleep-state caching, and sleep-based suppression are forbidden until
+`monitor_complete`. After that record, the implementation may enumerate the
+carrier's actual physics scene with zero-based indices
+`0..Unit.num_actors(carrier)-1`, cache actors for which `Actor.is_dynamic` is
+true, and skip the 90-bone pose calculation and `World.update_unit` while all of
+them sleep. It keeps testing the cached actors from the carrier-world animation
+hook and resumes on the first wake. Physics actor names are not assumed to
+match deform-bone names. Finding no dynamic actors after monitor completion is
+treated as awake and retried.
+
+v0.1.51 violated this ordering rule. It consulted and cached transition-time
+actors before monitor completion, allowing an apparently sleeping actor set to
+suppress the pose transfer while the actual native ragdoll advanced. The
+v0.1.52 candidate moves the entire sleep optimization behind
+`monitor_complete`; that change remains runtime-unvalidated.
 
 The zero-based range follows VT2's complete-enumeration code in
 `foundation/scripts/util/script_unit.lua:146-149`,
@@ -300,6 +310,30 @@ runtime pass. The log also cannot prove rendered model identity or texture
 appearance, and every trace is `source=unit`; remote-client `source=husk`
 remains untested.
 
+## What v0.1.51 disproved
+
+The
+`console-2026-08-12-22.42.49-d1eaa659-0dcc-4c1d-bebd-1789887d36d9.log`
+session loaded v0.1.51-dev and produced one complete host `source=unit` trace.
+It failed the analyzer with 15 threshold violations:
+
+- at 250 ms, hips drift was 0.558 m and anchor drift was 1.200 m;
+- at 1 s, hips drift was 2.428 m;
+- at 5 s, hips drift was 2.505 m and anchor drift was 3.567 m;
+- the normal `monitor_complete` record still reported 602 callbacks.
+
+This was not the old physics explosion or deformation signature. The largest
+recorded wall gap was only 11.1 ms; `root_delta` stayed zero; the bone-radius
+ratio stayed approximately 0.998; and custom actors, carrier reveals, parent
+mismatches, scale mutations, and non-hips translation mutations all stayed
+zero. The visual skeleton was effectively frozen at handoff while the native
+carrier pose moved away. Source review ties that signature to the pre-monitor
+sleep cache/suppression added in v0.1.51.
+
+v0.1.52 is only a fix candidate: it forces the transfer through the entire
+monitor and delays actor discovery/sleep suppression until afterward. Static
+coverage does not establish runtime success.
+
 Concurrent findings outside the ragdoll result remain open: every spawn logged
 three material lookup warnings before the later runtime material assignment;
 all 11 assignments nevertheless reported 5/5 slots and 8/8 textures resident.
@@ -310,8 +344,9 @@ kills; telemetry continued normally, so that is a separate integration bug.
 
 ## Runtime acceptance gates
 
-Use a fresh game restart and require the hardened `[doomrocket:LOAD]
-v0.1.51-dev` banner rather than the uploaded `v0.1.50-dev` baseline.
+Use a fresh game restart and require the fix-candidate `[doomrocket:LOAD]
+v0.1.52-dev` banner. v0.1.50 is only the original baseline, and v0.1.51 is the
+known pre-monitor sleep-suppression failure.
 Accept only when both runtime visuals and post-animation logs agree:
 
 - at least 10 valid non-gibbing deaths, including single deaths, multiple rapid

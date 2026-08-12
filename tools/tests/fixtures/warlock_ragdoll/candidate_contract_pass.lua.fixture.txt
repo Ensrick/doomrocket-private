@@ -61,9 +61,15 @@ local function warlock_matrix_is_invertible(matrix)
         normalized_volume > WARLOCK_MATRIX_VOLUME_EPSILON
 end
 
+local warlock_carrier_ragdoll_sleeping
+
 local function apply_warlock_death_pose(driver)
     local wall_gap_ms = driver.wall_gap_ms
     driver.max_wall_gap_ms = math.max(driver.max_wall_gap_ms or 0, wall_gap_ms)
+    local carrier_sleeping = driver.monitor_complete and warlock_carrier_ragdoll_sleeping(driver)
+    if carrier_sleeping then
+        return true
+    end
     local desired_worlds = {}
     for i, pair in ipairs(driver.node_pairs) do
         local source_world = warlock_rigid_world_pose(driver.owner, pair.source)
@@ -97,7 +103,7 @@ local function apply_warlock_death_pose(driver)
         anchor_max_drift, bounds_ratio, max_bone_radius_ratio)
 end
 
-local function warlock_carrier_ragdoll_sleeping(driver)
+warlock_carrier_ragdoll_sleeping = function(driver)
     local actors = {}
     for actor_index = 0, Unit.num_actors(driver.owner) - 1 do
         local actor = Unit.actor(driver.owner, actor_index)

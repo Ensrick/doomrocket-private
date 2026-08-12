@@ -307,9 +307,12 @@ deleted, or until `StateIngame` exit, mod disable, or mod unload resets all
 drivers. A queued callback must observe the stopped flag and become a no-op
 after reset.
 
-Before the five-second monitor completes, run the callback on every owner-world
-animation pass even if the native actors sleep so all checkpoints remain
-observable. After the monitor completes, enumerate actor indices
+Before the five-second monitor completes, run the callback and transfer the
+pose on every owner-world animation pass even if a native actor reports
+sleeping. Do not enumerate or cache the dynamic actor set and do not suppress
+any pose write before `monitor_complete`; all checkpoints must remain both
+observable and spatially correlated. After the monitor completes, enumerate
+actor indices
 `0..Unit.num_actors(carrier)-1`, retain the actual actors for which
 `Actor.is_dynamic` is true, and:
 
@@ -441,6 +444,22 @@ calibration preflight, or fail-closed visibility hooks. Those changes require
 a uniquely versioned host/client runtime pass. The result also does not replace
 visual inspection and contains no `source=husk` client coverage.
 
+### v0.1.51 sleep-gate regression and v0.1.52 candidate
+
+The v0.1.51 log
+`console-2026-08-12-22.42.49-d1eaa659-0dcc-4c1d-bebd-1789887d36d9.log`
+showed why the ordering above is mandatory. One host corpse completed all seven
+samples and logged 602 callbacks, but hips drift reached 2.505 m and anchor
+drift reached 3.567 m at 5 s. The largest wall gap was only 11.1 ms, the
+bone-radius ratio stayed approximately 0.998, and no custom actors, carrier
+reveals, hierarchy changes, scale changes, or non-hips translation changes were
+reported. The visual pose was being suppressed, not deformed or stalled.
+
+v0.1.51 had discovered/consulted sleeping actors before the monitor completed
+and skipped the transfer while the native ragdoll moved. The v0.1.52 candidate
+forces pose writes for the full monitor and delays sleep optimization until
+afterward. This is a fix design, not a runtime success claim.
+
 ## 8. Failure signatures and their causes
 
 | Symptom | Likely cause | Correct response |
@@ -452,6 +471,7 @@ visual inspection and contains no `source=husk` client coverage.
 | Stable ratling corpse appears | Carrier meshes were revealed as a shortcut | Keep all carrier meshes hidden; visible model identity is an acceptance gate |
 | Manual pose looks correct in logs but diverges after rendering | Animation writes later in the frame | Set bone mode `ignore` and apply from the post-animation safe callback |
 | Several pose callbacks per rendered frame | Safe callback self-requeued and was drained by multiple worlds | Enqueue once after the exact owner-world animation pass |
+| Hips and anchor drift grow while callbacks, frame gaps, deformation ratios, and mutation counters remain normal | Sleep detection suppressed pose writes during the monitor; v0.1.51 reached 2.505 m hips drift despite 602 callbacks | Forbid actor discovery, sleep caching, and sleep-based suppression until `monitor_complete`; validate the v0.1.52 candidate in runtime |
 | Corpse detaches only after five seconds or after a later impact | Monitor completion removed the driver, or sleep/wake detection failed to resume it | Keep the driver registered for unit lifetime; reproduce with the post-monitor wake test |
 | A paused test reaches checkpoints or a hitch disappears from telemetry | Monitor used wall time, or only the final pre-sample gap was logged | Use game time for checkpoint lifetime and accumulate the worst wall gap per interval |
 

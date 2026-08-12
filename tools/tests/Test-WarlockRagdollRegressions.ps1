@@ -257,6 +257,13 @@ $contractMutations = @(
         ExpectedRules = @('WR-RAG-010')
     }
     @{
+        Name = 'sleep optimization runs before monitor completion'
+        Text = $candidateText.Replace(
+            'local carrier_sleeping = driver.monitor_complete and warlock_carrier_ragdoll_sleeping(driver)',
+            'local carrier_sleeping = warlock_carrier_ragdoll_sleeping(driver)')
+        ExpectedRules = @('WR-RAG-010')
+    }
+    @{
         Name = 'ragdoll wake check removed'
         Text = $candidateText.Replace(
             'Actor.is_sleeping(actor)',

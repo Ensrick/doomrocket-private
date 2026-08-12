@@ -42,6 +42,7 @@ ZERO_COUNTERS = (
     "parent_mismatch",
     "scale_mutations",
     "nonhips_translation_mutations",
+    "sleep_skips",
 )
 FALSE_FLAGS = ("carrier_visible", "solver_explosion", "physics_anomaly", "escape")
 REQUIRED_SAMPLE_FIELDS = (
@@ -304,6 +305,13 @@ def analyze(
                     f"line {line_number}: sample missing "
                     f"{', '.join(missing_sample_fields)}"
                 )
+
+            pose_writes_text = record.fields.get("pose_writes")
+            pose_writes = finite_float(pose_writes_text) if pose_writes_text is not None else None
+            if pose_writes_text is not None and (
+                pose_writes is None or pose_writes <= 0 or not pose_writes.is_integer()
+            ):
+                errors.append(f"line {line_number}: pose_writes must be a positive integer")
 
             nodes_text = record.fields.get("nodes")
             nodes_value = finite_float(nodes_text) if nodes_text is not None else None
