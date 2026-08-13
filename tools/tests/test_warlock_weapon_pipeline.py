@@ -11,6 +11,7 @@ not required to prove which mesh was packaged.
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 import struct
 import subprocess
@@ -48,7 +49,15 @@ SOURCE_SHA256 = {
     "texture_zip": "551852ee9a9fa99995921e4b6b5cf898d4c17b51486e22fe7772d980f92c2187",
     "launcher_fbx": "1682ecd2979ed988c2254dbabfd20e1d2e5c7d4869ad39b3727872f914f9df69",
     "rocket_fbx": "968539eca60f065b90ed5899195f1eb2dfd6ed2b77ed87a8958ca976dcc0e0ea",
+    "tube_fbx": "eefa15569e53784077973801f3e02fc1145af1e5014e3d275d4f74a14f2dcdc9",
 }
+
+FULL_LAUNCHER_VERTEX_COUNT = 4916
+MVP_LAUNCHER_VERTEX_COUNT = 3308
+DEFERRED_HOSE_VERTEX_COUNT = 1608
+DEFERRED_HOSE_TRIANGLE_COUNT = 3024
+MVP_LAUNCHER_TRIANGLE_COUNT = 6094
+DEFERRED_HOSE_COMPONENT_SIZES = (180,) * 7 + (122,) * 2 + (26,) * 4
 
 # Decoded RGBA baselines for the authored images.  PNG container metadata or
 # recompression may change without weakening the actual pixel assertion.
@@ -72,6 +81,11 @@ OLD_DALO_FBX_SHA256 = {
     "SM_Rocket.fbx": "aff853dc8c420b7fd94f7273166025e1baf49c9828274b05ccd5647ab43294c7",
 }
 
+OLD_DALO_FBX_BLOBS = {
+    "pRocketLauncher.fbx": "4afd3ff155889b44760ff41500bca7e1bf6ccafa",
+    "SM_Rocket.fbx": "445636e36fc62a8aef8883d2f59ed85eaa6707a0",
+}
+
 CRUNCH_EXPORT_GEOMETRY = {
     "launcher": (4916, 9118, "c4f65cea8b2546cd5e75ca80c505cf67b0737387f873e14e1007f10d0dd901e3"),
     "rocket": (622, 1240, "ef545765bcbb4b88b075e953630b2142f184abf9cb523abf01932358e11815cd"),
@@ -82,13 +96,26 @@ CRUNCH_EXPORT_GEOMETRY = {
 # polygon streams as well as comparing a scale/rotation/translation-invariant
 # shape profile to Crunch's isolated exports.
 SHIPPING_GEOMETRY = {
-    "launcher": (4916, 4973, "050ff6bd3b279896f860002b1217f1abde57f2d634d53c6a7007a11851644267"),
+    "launcher": (3308, 3365, "d5affe35d35fb1698ca1880686e082edb3e2855065d467e5c56c2f2a93150667"),
     "rocket": (622, 672, "6830f43335bfe9fc008137f986af2dc57de44cea3ff16d651ac10faed808876e"),
 }
 
 CRUNCH_UV_SHA256 = {
     "launcher": "db3c98bf11a8c4025476e0215ee29c5ecf043833482d87913bb8b16958a7001f",
     "rocket": "a0639c19b8347aac26b54aa283f42fd3e8cb16c07aed56ea6eab824f2d4f79cb",
+}
+
+MVP_LAUNCHER_UV = (
+    8882,
+    "3d3d9b7b73cd4e1009ee0f01ecde6eea926813472197b7ed72d5932ca1879b47",
+)
+
+# Local-remapped triangle connectivity of the reviewed retained/deferred
+# blocks in Crunch's full isolated launcher export.  This pins the split itself
+# while SHIPPING_GEOMETRY pins Blender's retained polygon stream.
+CRUNCH_LAUNCHER_SPLIT_TOPOLOGY = {
+    "mvp": "42f22bd4b3d2b94699d86491d14cd3bcf99cba1f9423ca7f1fbb2954f5990f82",
+    "backpack_tether": "dba54aca8f082877815c5adef336d8302fd1978a306f0c051cdf1beeb79adaed",
 }
 
 
@@ -132,8 +159,20 @@ class BinaryFbx:
     def __init__(self, path: Path):
         self.path = path
         self.data = path.read_bytes()
+        self._parse()
+
+    @classmethod
+    def from_bytes(cls, data: bytes, label: str) -> "BinaryFbx":
+        """Parse an immutable Git blob without writing a temporary FBX."""
+        instance = cls.__new__(cls)
+        instance.path = Path(label)
+        instance.data = data
+        instance._parse()
+        return instance
+
+    def _parse(self) -> None:
         if not self.data.startswith(self.MAGIC):
-            raise AssertionError(f"{path}: expected a binary FBX")
+            raise AssertionError(f"{self.path}: expected a binary FBX")
         self.version = struct.unpack_from("<I", self.data, len(self.MAGIC))[0]
         self.wide = self.version >= 7500
         self.null_size = 25 if self.wide else 13
@@ -293,6 +332,13 @@ def shape_profile(node: FbxNode) -> tuple[float, ...]:
     """
     values = node.child("Vertices").properties[0]
     points = tuple(zip(values[0::3], values[1::3], values[2::3]))
+    return shape_profile_points(points)
+
+
+def shape_profile_points(points: tuple[Vector3, ...]) -> tuple[float, ...]:
+    """Return the rigid-transform-invariant profile for an explicit subset."""
+    if not points:
+        raise AssertionError("shape profile requires vertices")
     centroid = tuple(
         sum(point[axis] for point in points) / len(points) for axis in range(3)
     )
@@ -302,6 +348,11 @@ def shape_profile(node: FbxNode) -> tuple[float, ...]:
     ]
     mean_radius = sum(radii) / len(radii)
     return tuple(sorted(radius / mean_radius for radius in radii))
+
+
+def raw_geometry_points(node: FbxNode) -> tuple[Vector3, ...]:
+    values = node.child("Vertices").properties[0]
+    return tuple(zip(values[0::3], values[1::3], values[2::3]))
 
 
 def uv_signature(node: FbxNode) -> tuple[int, str]:
@@ -317,6 +368,53 @@ def uv_signature(node: FbxNode) -> tuple[int, str]:
         raise AssertionError(f"{node.properties[1]!r}: UVs must use IndexToDirect")
     values = fields["UV"]
     return len(values), sha256(struct.pack(f"<{len(values)}d", *values))
+
+
+def uv_sets_by_vertex(
+    node: FbxNode, vertex_count: int | None = None
+) -> tuple[tuple[tuple[float, float], ...], ...]:
+    """Return semantic UV coordinates per retained vertex.
+
+    Blender may compact/reorder the direct UV bank while preserving the same
+    vertex-to-UV mapping.  This representation proves the 3,308-vertex MVP is
+    derived from Crunch's full launcher instead of blessing unrelated art.
+    """
+    total_vertices = len(node.child("Vertices").properties[0]) // 3
+    vertex_count = total_vertices if vertex_count is None else vertex_count
+    if not 0 < vertex_count <= total_vertices:
+        raise AssertionError("invalid retained UV vertex count")
+    layers = [child for child in node.children if child.name == "LayerElementUV"]
+    if len(layers) != 1:
+        raise AssertionError(f"{node.properties[1]!r}: expected one UV layer")
+    fields = {
+        child.name: child.properties[0]
+        for child in layers[0].children
+        if child.properties
+    }
+    values = fields["UV"]
+    indices = fields["UVIndex"]
+    encoded = node.child("PolygonVertexIndex").properties[0]
+    if len(indices) != len(encoded):
+        raise AssertionError("UV index stream does not match polygon loops")
+    result: list[set[tuple[float, float]]] = [set() for _ in range(vertex_count)]
+    polygon: list[tuple[int, int]] = []
+    for loop, encoded_index in enumerate(encoded):
+        vertex = -encoded_index - 1 if encoded_index < 0 else encoded_index
+        polygon.append((vertex, loop))
+        if encoded_index < 0:
+            retained = [vertex < vertex_count for vertex, _loop in polygon]
+            if any(retained) and not all(retained):
+                raise AssertionError("reviewed launcher split crosses a polygon")
+            if all(retained):
+                for retained_vertex, retained_loop in polygon:
+                    uv_index = indices[retained_loop]
+                    result[retained_vertex].add(
+                        (values[uv_index * 2], values[uv_index * 2 + 1])
+                    )
+            polygon = []
+    if polygon:
+        raise AssertionError("unterminated FBX polygon while mapping UVs")
+    return tuple(tuple(sorted(coordinates)) for coordinates in result)
 
 
 def model_names(fbx: BinaryFbx) -> set[str]:
@@ -380,6 +478,539 @@ def local_translation(node: FbxNode) -> tuple[float, float, float]:
         if child.name == "P" and child.properties[0] == "Lcl Translation"
     ]
     return tuple(translations[0]) if translations else (0.0, 0.0, 0.0)
+
+
+Matrix4 = tuple[tuple[float, float, float, float], ...]
+Vector3 = tuple[float, float, float]
+
+
+def matrix_multiply(left: Matrix4, right: Matrix4) -> Matrix4:
+    return tuple(
+        tuple(
+            sum(left[row][index] * right[index][column] for index in range(4))
+            for column in range(4)
+        )
+        for row in range(4)
+    )
+
+
+def transform_point(matrix: Matrix4, point: Vector3) -> Vector3:
+    value = (*point, 1.0)
+    return tuple(
+        sum(matrix[row][column] * value[column] for column in range(4))
+        for row in range(3)
+    )
+
+
+def identity_matrix() -> Matrix4:
+    return tuple(
+        tuple(1.0 if row == column else 0.0 for column in range(4))
+        for row in range(4)
+    )
+
+
+def property_vector(
+    node: FbxNode, name: str, default: Vector3
+) -> Vector3:
+    blocks = [child for child in node.children if child.name == "Properties70"]
+    if len(blocks) != 1:
+        raise AssertionError(f"Model {node.properties[1]!r} has no unique Properties70")
+    values = [
+        child.properties[-3:]
+        for child in blocks[0].children
+        if child.name == "P" and child.properties[0] == name
+    ]
+    if len(values) > 1:
+        raise AssertionError(f"Model {node.properties[1]!r} repeats {name}")
+    return tuple(values[0]) if values else default
+
+
+def model_local_matrix(node: FbxNode) -> Matrix4:
+    """Return the simple FBX TRS used by both reviewed weapon exports.
+
+    The pinned launcher nodes use the default XYZ Euler order and no pivots,
+    offsets, pre-rotation, or post-rotation. Reject those features instead of
+    silently approximating a future export with different transform semantics.
+    """
+    properties = {
+        child.properties[0]: child.properties
+        for block in node.children
+        if block.name == "Properties70"
+        for child in block.children
+        if child.name == "P" and child.properties
+    }
+    unsupported = {
+        "RotationOffset",
+        "RotationPivot",
+        "PreRotation",
+        "PostRotation",
+        "ScalingOffset",
+        "ScalingPivot",
+    }
+    for name in unsupported:
+        values = properties.get(name)
+        if values and any(abs(float(value)) > 1e-8 for value in values[-3:]):
+            raise AssertionError(f"{node.properties[1]!r}: unsupported nonzero {name}")
+    rotation_order = properties.get("RotationOrder")
+    if rotation_order and int(rotation_order[-1]) != 0:
+        raise AssertionError(f"{node.properties[1]!r}: expected XYZ Euler order")
+
+    translation = property_vector(node, "Lcl Translation", (0.0, 0.0, 0.0))
+    rotation = tuple(
+        math.radians(value)
+        for value in property_vector(node, "Lcl Rotation", (0.0, 0.0, 0.0))
+    )
+    scale = property_vector(node, "Lcl Scaling", (1.0, 1.0, 1.0))
+    sine = tuple(math.sin(value) for value in rotation)
+    cosine = tuple(math.cos(value) for value in rotation)
+    sx, sy, sz = sine
+    cx, cy, cz = cosine
+    translate: Matrix4 = (
+        (1.0, 0.0, 0.0, translation[0]),
+        (0.0, 1.0, 0.0, translation[1]),
+        (0.0, 0.0, 1.0, translation[2]),
+        (0.0, 0.0, 0.0, 1.0),
+    )
+    rotate_x: Matrix4 = (
+        (1.0, 0.0, 0.0, 0.0),
+        (0.0, cx, -sx, 0.0),
+        (0.0, sx, cx, 0.0),
+        (0.0, 0.0, 0.0, 1.0),
+    )
+    rotate_y: Matrix4 = (
+        (cy, 0.0, sy, 0.0),
+        (0.0, 1.0, 0.0, 0.0),
+        (-sy, 0.0, cy, 0.0),
+        (0.0, 0.0, 0.0, 1.0),
+    )
+    rotate_z: Matrix4 = (
+        (cz, -sz, 0.0, 0.0),
+        (sz, cz, 0.0, 0.0),
+        (0.0, 0.0, 1.0, 0.0),
+        (0.0, 0.0, 0.0, 1.0),
+    )
+    scaling: Matrix4 = (
+        (scale[0], 0.0, 0.0, 0.0),
+        (0.0, scale[1], 0.0, 0.0),
+        (0.0, 0.0, scale[2], 0.0),
+        (0.0, 0.0, 0.0, 1.0),
+    )
+    rotation_matrix = matrix_multiply(
+        rotate_z, matrix_multiply(rotate_y, rotate_x)
+    )
+    return matrix_multiply(translate, matrix_multiply(rotation_matrix, scaling))
+
+
+def global_axis_matrix(fbx: BinaryFbx) -> Matrix4:
+    """Map FBX file coordinates to canonical (right, up, front) axes."""
+    settings = {
+        child.properties[0]: int(child.properties[-1])
+        for block in fbx.descendants("Properties70")
+        for child in block.children
+        if child.name == "P"
+        and child.properties
+        and child.properties[0]
+        in {
+            "UpAxis",
+            "UpAxisSign",
+            "FrontAxis",
+            "FrontAxisSign",
+            "CoordAxis",
+            "CoordAxisSign",
+        }
+    }
+    required = {
+        "UpAxis",
+        "UpAxisSign",
+        "FrontAxis",
+        "FrontAxisSign",
+        "CoordAxis",
+        "CoordAxisSign",
+    }
+    if settings.keys() != required:
+        raise AssertionError(f"{fbx.path}: incomplete or repeated FBX axis settings")
+    rows = [[0.0] * 4 for _ in range(4)]
+    rows[0][settings["CoordAxis"]] = settings["CoordAxisSign"]
+    rows[1][settings["UpAxis"]] = settings["UpAxisSign"]
+    rows[2][settings["FrontAxis"]] = settings["FrontAxisSign"]
+    rows[3][3] = 1.0
+    return tuple(tuple(row) for row in rows)
+
+
+def model_world_matrix(fbx: BinaryFbx, node: FbxNode) -> Matrix4:
+    models = {model.properties[0]: model for model in fbx.object_nodes("Model")}
+    parents = model_parent_ids(fbx)
+    chain: list[FbxNode] = []
+    current = node
+    visited: set[int] = set()
+    while True:
+        identifier = current.properties[0]
+        if identifier in visited:
+            raise AssertionError(f"{fbx.path}: cyclic model hierarchy")
+        visited.add(identifier)
+        chain.append(current)
+        parent = parents.get(identifier)
+        if parent not in models:
+            break
+        current = models[parent]
+    result = identity_matrix()
+    for member in reversed(chain):
+        result = matrix_multiply(result, model_local_matrix(member))
+    return result
+
+
+def geometry_model(fbx: BinaryFbx, geometry: FbxNode) -> FbxNode:
+    model_ids = {node.properties[0]: node for node in fbx.object_nodes("Model")}
+    matches = [
+        connection.properties[2]
+        for connection in fbx.descendants("C")
+        if len(connection.properties) >= 3
+        and connection.properties[0] == "OO"
+        and connection.properties[1] == geometry.properties[0]
+        and connection.properties[2] in model_ids
+    ]
+    if len(matches) != 1:
+        raise AssertionError(f"{fbx.path}: geometry has {len(matches)} model owners")
+    return model_ids[matches[0]]
+
+
+def canonical_geometry_points(fbx: BinaryFbx, vertex_count: int) -> tuple[Vector3, ...]:
+    geometry = geometry_by_vertex_count(fbx, vertex_count)
+    model = geometry_model(fbx, geometry)
+    transform = matrix_multiply(
+        global_axis_matrix(fbx), model_world_matrix(fbx, model)
+    )
+    values = geometry.child("Vertices").properties[0]
+    return tuple(
+        transform_point(transform, point)
+        for point in zip(values[0::3], values[1::3], values[2::3])
+    )
+
+
+def canonical_model_origin(fbx: BinaryFbx, node: FbxNode) -> Vector3:
+    """Return an FBX model node's origin in canonical root-space centimetres."""
+    transform = matrix_multiply(
+        global_axis_matrix(fbx), model_world_matrix(fbx, node)
+    )
+    return transform_point(transform, (0.0, 0.0, 0.0))
+
+
+def point_centroid(points: tuple[Vector3, ...]) -> Vector3:
+    if not points:
+        raise AssertionError("centroid requires at least one point")
+    return tuple(
+        sum(point[axis] for point in points) / len(points) for axis in range(3)
+    )
+
+
+def directed_cosine(left: Vector3, right: Vector3) -> float:
+    """Return the signed cosine between nonzero vectors."""
+    left_length = math.sqrt(sum(value * value for value in left))
+    right_length = math.sqrt(sum(value * value for value in right))
+    if left_length <= 1e-12 or right_length <= 1e-12:
+        raise AssertionError("directed orientation requires nonzero vectors")
+    return sum(a * b for a, b in zip(left, right)) / (
+        left_length * right_length
+    )
+
+
+def normalized_axes(matrix: Matrix4) -> tuple[Vector3, Vector3, Vector3]:
+    columns = tuple(tuple(matrix[row][column] for row in range(3)) for column in range(3))
+    result = []
+    for column in columns:
+        length = math.sqrt(sum(value * value for value in column))
+        if length <= 1e-12:
+            raise AssertionError("transform contains a zero-length axis")
+        result.append(tuple(value / length for value in column))
+    return tuple(result)
+
+
+def principal_axis(points: tuple[Vector3, ...]) -> Vector3:
+    centroid = tuple(
+        sum(point[axis] for point in points) / len(points) for axis in range(3)
+    )
+    covariance = tuple(
+        tuple(
+            sum(
+                (point[row] - centroid[row]) * (point[column] - centroid[column])
+                for point in points
+            )
+            / len(points)
+            for column in range(3)
+        )
+        for row in range(3)
+    )
+    vector: Vector3 = (1.0, 1.0, 1.0)
+    for _ in range(40):
+        product = tuple(
+            sum(covariance[row][column] * vector[column] for column in range(3))
+            for row in range(3)
+        )
+        length = math.sqrt(sum(value * value for value in product))
+        if length <= 1e-12:
+            raise AssertionError("mesh has no stable principal axis")
+        vector = tuple(value / length for value in product)
+    return vector
+
+
+def normalized_origin_envelope_gap(points: tuple[Vector3, ...]) -> float:
+    """Distance from the unit origin to its mesh AABB, divided by RMS radius."""
+    centroid = tuple(
+        sum(point[axis] for point in points) / len(points) for axis in range(3)
+    )
+    rms_radius = math.sqrt(
+        sum(
+            sum((point[axis] - centroid[axis]) ** 2 for axis in range(3))
+            for point in points
+        )
+        / len(points)
+    )
+    gaps = []
+    for axis in range(3):
+        minimum = min(point[axis] for point in points)
+        maximum = max(point[axis] for point in points)
+        gaps.append(max(minimum, 0.0, -maximum))
+    return math.sqrt(sum(gap * gap for gap in gaps)) / rms_radius
+
+
+Triangle = tuple[int, int, int]
+
+
+def triangulated_fbx_faces(node: FbxNode) -> tuple[Triangle, ...]:
+    """Return deterministic triangle fans from an FBX polygon index stream."""
+    encoded = node.child("PolygonVertexIndex").properties[0]
+    polygons: list[tuple[int, ...]] = []
+    current: list[int] = []
+    for value in encoded:
+        current.append(-value - 1 if value < 0 else value)
+        if value < 0:
+            if len(current) < 3:
+                raise AssertionError(f"{node.properties[1]!r}: polygon has fewer than 3 vertices")
+            polygons.append(tuple(current))
+            current = []
+    if current:
+        raise AssertionError(f"{node.properties[1]!r}: unterminated FBX polygon")
+    return tuple(
+        (polygon[0], polygon[index], polygon[index + 1])
+        for polygon in polygons
+        for index in range(1, len(polygon) - 1)
+    )
+
+
+def local_triangle_subset(
+    triangles: tuple[Triangle, ...], start: int, end: int
+) -> tuple[Triangle, ...]:
+    """Select a closed vertex interval and remap it to local indices."""
+    if not 0 <= start < end:
+        raise AssertionError("invalid triangle subset interval")
+    subset = []
+    for triangle in triangles:
+        inside = [start <= index < end for index in triangle]
+        if any(inside) and not all(inside):
+            raise AssertionError(
+                f"triangle {triangle} crosses reviewed [{start}, {end}) boundary"
+            )
+        if all(inside):
+            subset.append(tuple(index - start for index in triangle))
+    return tuple(subset)
+
+
+def triangle_topology_sha256(triangles: tuple[Triangle, ...]) -> str:
+    flat = tuple(index for triangle in triangles for index in triangle)
+    return sha256(struct.pack(f"<{len(flat)}q", *flat))
+
+
+def _dot(left: Vector3, right: Vector3) -> float:
+    return sum(a * b for a, b in zip(left, right))
+
+
+def _subtract(left: Vector3, right: Vector3) -> Vector3:
+    return tuple(a - b for a, b in zip(left, right))
+
+
+def _point_on_segment_distance_squared(start: Vector3, end: Vector3) -> float:
+    direction = _subtract(end, start)
+    length_squared = _dot(direction, direction)
+    if length_squared <= 1e-20:
+        return _dot(start, start)
+    amount = max(0.0, min(1.0, -_dot(start, direction) / length_squared))
+    closest = tuple(start[axis] + amount * direction[axis] for axis in range(3))
+    return _dot(closest, closest)
+
+
+def _triangle_origin_distance_squared(
+    first: Vector3, second: Vector3, third: Vector3
+) -> float:
+    """Exact origin-to-triangle distance, with a degenerate-edge fallback."""
+    edge_a = _subtract(second, first)
+    edge_b = _subtract(third, first)
+    normal = (
+        edge_a[1] * edge_b[2] - edge_a[2] * edge_b[1],
+        edge_a[2] * edge_b[0] - edge_a[0] * edge_b[2],
+        edge_a[0] * edge_b[1] - edge_a[1] * edge_b[0],
+    )
+    normal_squared = _dot(normal, normal)
+    edge_distance = min(
+        _point_on_segment_distance_squared(first, second),
+        _point_on_segment_distance_squared(second, third),
+        _point_on_segment_distance_squared(third, first),
+    )
+    if normal_squared <= 1e-20:
+        return edge_distance
+
+    # Project the origin onto the triangle plane, then use barycentric
+    # coordinates to decide whether the projection lies on the face.
+    scale = _dot(first, normal) / normal_squared
+    projected = tuple(scale * value for value in normal)
+    relative = _subtract(projected, first)
+    aa = _dot(edge_a, edge_a)
+    ab = _dot(edge_a, edge_b)
+    bb = _dot(edge_b, edge_b)
+    ar = _dot(edge_a, relative)
+    br = _dot(edge_b, relative)
+    denominator = aa * bb - ab * ab
+    if abs(denominator) <= 1e-20:
+        return edge_distance
+    weight_a = (bb * ar - ab * br) / denominator
+    weight_b = (aa * br - ab * ar) / denominator
+    if weight_a >= -1e-9 and weight_b >= -1e-9 and weight_a + weight_b <= 1.0 + 1e-9:
+        return min(edge_distance, _dot(projected, projected))
+    return edge_distance
+
+
+def origin_surface_proximity(
+    points: tuple[Vector3, ...], triangles: tuple[Triangle, ...]
+) -> tuple[float, float]:
+    """Return absolute and RMS-normalized distance from node 0 to the mesh."""
+    if not points or not triangles:
+        raise AssertionError("surface proximity requires vertices and triangles")
+    for triangle in triangles:
+        if min(triangle) < 0 or max(triangle) >= len(points):
+            raise AssertionError("triangle index is outside the vertex stream")
+    distance = math.sqrt(
+        min(
+            _triangle_origin_distance_squared(
+                points[triangle[0]], points[triangle[1]], points[triangle[2]]
+            )
+            for triangle in triangles
+        )
+    )
+    centroid = tuple(
+        sum(point[axis] for point in points) / len(points) for axis in range(3)
+    )
+    rms_radius = math.sqrt(
+        sum(
+            sum((point[axis] - centroid[axis]) ** 2 for axis in range(3))
+            for point in points
+        )
+        / len(points)
+    )
+    if rms_radius <= 1e-12:
+        raise AssertionError("surface proximity mesh has no extent")
+    return distance, distance / rms_radius
+
+
+def connected_vertex_components(
+    vertex_count: int, triangles: tuple[Triangle, ...]
+) -> tuple[tuple[int, ...], ...]:
+    """Group mesh vertices by triangle-edge connectivity."""
+    parents = list(range(vertex_count))
+    sizes = [1] * vertex_count
+
+    def find(index: int) -> int:
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    def union(left: int, right: int) -> None:
+        left = find(left)
+        right = find(right)
+        if left == right:
+            return
+        if sizes[left] < sizes[right]:
+            left, right = right, left
+        parents[right] = left
+        sizes[left] += sizes[right]
+
+    for triangle in triangles:
+        if min(triangle) < 0 or max(triangle) >= vertex_count:
+            raise AssertionError("triangle index is outside the vertex stream")
+        union(triangle[0], triangle[1])
+        union(triangle[1], triangle[2])
+        union(triangle[2], triangle[0])
+    members: dict[int, list[int]] = {}
+    for index in range(vertex_count):
+        members.setdefault(find(index), []).append(index)
+    return tuple(tuple(component) for component in members.values())
+
+
+def semantic_grip_cap_centroid(
+    points: tuple[Vector3, ...],
+    triangles: tuple[Triangle, ...],
+    *,
+    coordinate_tolerance: float = 1e-9,
+    cap_depth: float,
+) -> Vector3:
+    """Find Crunch's 217-vertex pistol grip and centroid its upper cap.
+
+    Compiled VT2 geometry duplicates vertices at UV seams and hard normals.
+    Weld coincident positions only for component identity, while retaining the
+    original coordinates for the centroid. The component's authored count is
+    therefore stable in both the 4,916-point FBX and compiled vertex streams.
+    """
+    if coordinate_tolerance <= 0.0 or cap_depth <= 0.0:
+        raise AssertionError("semantic grip tolerances must be positive")
+    weld_keys = [
+        tuple(round(value / coordinate_tolerance) for value in point)
+        for point in points
+    ]
+    representative: dict[tuple[int, int, int], int] = {}
+    welded_index: list[int] = []
+    welded_points: list[Vector3] = []
+    for point, key in zip(points, weld_keys):
+        if key not in representative:
+            representative[key] = len(welded_points)
+            welded_points.append(point)
+        welded_index.append(representative[key])
+    welded_triangles = tuple(
+        tuple(welded_index[index] for index in triangle) for triangle in triangles
+    )
+    matches = [
+        component
+        for component in connected_vertex_components(
+            len(welded_points), welded_triangles
+        )
+        if len(component) == 217
+    ]
+    if len(matches) != 1:
+        raise AssertionError(
+            f"launcher expected one connected 217-vertex pistol grip, got {len(matches)}"
+        )
+    grip = matches[0]
+    maximum_up = max(welded_points[index][1] for index in grip)
+    cap = [
+        welded_points[index]
+        for index in grip
+        if welded_points[index][1] >= maximum_up - cap_depth
+    ]
+    if not cap:
+        raise AssertionError("launcher pistol grip has no upper-cap vertices")
+    return tuple(sum(point[axis] for point in cap) / len(cap) for axis in range(3))
+
+
+def source_points_to_engine(points: tuple[Vector3, ...]) -> tuple[Vector3, ...]:
+    """Convert canonical FBX centimetres to VT2 unit-resource coordinates.
+
+    ``canonical_geometry_points`` is ordered (right, up, front). Stingray's
+    compiled vertex/world-matrix result is (right, -front, up), in metres.
+    """
+    return tuple((x / 100.0, -z / 100.0, y / 100.0) for x, y, z in points)
+
+
+def engine_points_to_source(points: tuple[Vector3, ...]) -> tuple[Vector3, ...]:
+    """Convert VT2 unit-resource coordinates to canonical FBX centimetres."""
+    return tuple((x * 100.0, z * 100.0, -y * 100.0) for x, y, z in points)
 
 
 def material_names(fbx: BinaryFbx) -> set[str]:
@@ -495,6 +1126,20 @@ class CompiledSceneNode:
     parent_type: int
     parent_index: int
     name_hash: int
+    world_transform: Matrix4
+
+
+@dataclass(frozen=True)
+class CompiledMeshGeometry:
+    positions: tuple[Vector3, ...]
+    triangles: tuple[Triangle, ...]
+
+
+@dataclass(frozen=True)
+class CompiledMeshObject:
+    name_hash: int
+    node_index: int
+    geometry_index: int
 
 
 @dataclass(frozen=True)
@@ -502,6 +1147,8 @@ class CompiledUnitStructure:
     nodes: tuple[CompiledSceneNode, ...]
     mesh_node_indices: tuple[int, ...]
     actors: tuple[tuple[int, int], ...]  # (name hash, node hash)
+    geometries: tuple[CompiledMeshGeometry, ...]
+    meshes: tuple[CompiledMeshObject, ...]
 
 
 class PackedCursor:
@@ -531,8 +1178,15 @@ class PackedCursor:
         self.skip(4)
         return value
 
-    def byte_array(self) -> None:
-        self.skip(self.u32())
+    def take(self, size: int) -> bytes:
+        if size < 0 or self.offset + size > len(self.payload):
+            raise AssertionError("compiled unit prefix overrun")
+        result = self.payload[self.offset : self.offset + size]
+        self.offset += size
+        return result
+
+    def byte_array(self) -> bytes:
+        return self.take(self.u32())
 
     def u32_array(self) -> None:
         self.skip(self.u32() * 4)
@@ -550,13 +1204,59 @@ def compiled_unit_structure(payload: bytes) -> CompiledUnitStructure:
     if version != 189:
         raise AssertionError(f"compiled unit version must be 189, got {version}")
 
+    geometries: list[CompiledMeshGeometry] = []
     for _ in range(cursor.u32()):  # MeshGeometryVT2[]
+        streams: list[tuple[bytes, int, int, int, int]] = []
         for _ in range(cursor.u32()):  # streams
-            cursor.byte_array()
-            cursor.skip(16)  # validity, stream type, vertex count, stride
-        cursor.skip(cursor.u32() * 17)  # vertex declaration channels
-        cursor.skip(16)  # index stream header
-        cursor.byte_array()
+            data = cursor.byte_array()
+            streams.append(
+                (data, cursor.u32(), cursor.u32(), cursor.u32(), cursor.u32())
+            )  # data, validity, stream type, vertex count, stride
+        channels = tuple(
+            (cursor.u32(), cursor.u32(), cursor.u32(), cursor.u32(), cursor.u8())
+            for _ in range(cursor.u32())
+        )  # component, type, set, stream, is_instance
+        positions = [channel for channel in channels if channel[0] == 0]
+        if len(positions) != 1:
+            raise AssertionError(
+                f"compiled geometry expected one position channel, got {len(positions)}"
+            )
+        component, channel_type, _set, stream_index, is_instance = positions[0]
+        if component != 0 or channel_type != 17 or is_instance != 0:
+            raise AssertionError("compiled positions must be non-instanced Half4")
+        if stream_index >= len(streams):
+            raise AssertionError("compiled position channel refers to a missing stream")
+        position_data, validity, stream_type, vertex_count, stride = streams[stream_index]
+        if validity != 0 or stream_type != 0 or stride != 8:
+            raise AssertionError("compiled position stream must be static Half4 array data")
+        if len(position_data) != vertex_count * stride:
+            raise AssertionError("compiled position stream byte count does not match metadata")
+        position_points = tuple(
+            tuple(float(value) for value in values[:3])
+            for values in struct.iter_unpack("<eeee", position_data)
+        )
+        if any(not math.isfinite(value) for point in position_points for value in point):
+            raise AssertionError("compiled position stream contains non-finite coordinates")
+
+        index_validity = cursor.u32()
+        index_stream_type = cursor.u32()
+        index_format = cursor.u32()
+        index_count = cursor.u32()
+        index_data = cursor.byte_array()
+        if index_validity != 0 or index_stream_type != 0 or index_format not in (0, 1):
+            raise AssertionError("compiled index stream has unsupported metadata")
+        index_size = 2 if index_format == 0 else 4
+        if len(index_data) != index_count * index_size or index_count % 3:
+            raise AssertionError("compiled index stream is not a complete triangle list")
+        index_code = "H" if index_format == 0 else "I"
+        indices = struct.unpack(f"<{index_count}{index_code}", index_data)
+        triangles = tuple(
+            tuple(indices[offset : offset + 3])
+            for offset in range(0, index_count, 3)
+        )
+        if triangles and max(max(triangle) for triangle in triangles) >= len(position_points):
+            raise AssertionError("compiled index stream exceeds its position stream")
+        geometries.append(CompiledMeshGeometry(position_points, triangles))
         cursor.skip(cursor.u32() * 16)  # batch ranges
         cursor.skip(28)  # bounding volume
         cursor.skip(cursor.u32() * 4)  # material IDString32s
@@ -574,18 +1274,34 @@ def compiled_unit_structure(payload: bytes) -> CompiledUnitStructure:
 
     node_count = cursor.u32()
     cursor.skip(node_count * 60)  # local rotation, position, scale
-    cursor.skip(node_count * 64)  # world matrices
+    world_transforms = []
+    for _ in range(node_count):
+        values = struct.unpack("<16f", cursor.take(64))
+        # Stingray serializes matrices column-major; the helpers above consume
+        # row-major tuples.
+        world_transforms.append(
+            tuple(
+                tuple(values[column * 4 + row] for column in range(4))
+                for row in range(4)
+            )
+        )
     parent_data = [(cursor.u16(), cursor.u16()) for _ in range(node_count)]
     nodes = tuple(
-        CompiledSceneNode(parent_type, parent_index, cursor.u32())
-        for parent_type, parent_index in parent_data
+        CompiledSceneNode(parent_type, parent_index, cursor.u32(), world_transform)
+        for (parent_type, parent_index), world_transform in zip(
+            parent_data, world_transforms
+        )
     )
 
     mesh_node_indices: list[int] = []
+    meshes: list[CompiledMeshObject] = []
     for _ in range(cursor.u32()):  # MeshObject[]
-        cursor.skip(4)  # renderable name hash
-        mesh_node_indices.append(cursor.u32())
-        cursor.skip(12)  # geometry index, skin index, flags
+        name_hash = cursor.u32()
+        node_index = cursor.u32()
+        geometry_index = cursor.u32()
+        cursor.skip(8)  # skin index, flags
+        mesh_node_indices.append(node_index)
+        meshes.append(CompiledMeshObject(name_hash, node_index, geometry_index))
         cursor.skip(28)  # bounding volume
 
     actors: list[tuple[int, int]] = []
@@ -607,7 +1323,13 @@ def compiled_unit_structure(payload: bytes) -> CompiledUnitStructure:
             raise AssertionError("compiled actor enabled flag is not boolean")
         actors.append((actor_name, actor_node))
 
-    return CompiledUnitStructure(nodes, tuple(mesh_node_indices), tuple(actors))
+    return CompiledUnitStructure(
+        nodes,
+        tuple(mesh_node_indices),
+        tuple(actors),
+        tuple(geometries),
+        tuple(meshes),
+    )
 
 
 def idstring32(value: str) -> int:
@@ -620,6 +1342,29 @@ def compiled_node_index(structure: CompiledUnitStructure, name: str) -> int:
     if len(matches) != 1:
         raise AssertionError(f"compiled unit expected one scene node {name!r}, got {matches}")
     return matches[0]
+
+
+def compiled_renderable_geometry(
+    structure: CompiledUnitStructure, name: str
+) -> tuple[tuple[Vector3, ...], tuple[Triangle, ...]]:
+    """Return one compiled renderable's vertices in unit-root coordinates."""
+    expected = idstring32(name)
+    matches = [mesh for mesh in structure.meshes if mesh.name_hash == expected]
+    if len(matches) != 1:
+        raise AssertionError(f"compiled unit expected one mesh {name!r}, got {len(matches)}")
+    mesh = matches[0]
+    if not 0 <= mesh.node_index < len(structure.nodes):
+        raise AssertionError(f"compiled mesh {name!r} refers to a missing scene node")
+    # MeshGeometry indices in UnitResource v189 are one-based; zero is the
+    # sentinel for a MeshObject without geometry.
+    if not 1 <= mesh.geometry_index <= len(structure.geometries):
+        raise AssertionError(f"compiled mesh {name!r} refers to missing geometry")
+    geometry = structure.geometries[mesh.geometry_index - 1]
+    world = structure.nodes[mesh.node_index].world_transform
+    return (
+        tuple(transform_point(world, point) for point in geometry.positions),
+        geometry.triangles,
+    )
 
 
 def node_inherits(nodes: tuple[CompiledSceneNode, ...], node: int, ancestor: int) -> bool:
@@ -701,6 +1446,7 @@ class CrunchWeaponProvenanceTests(unittest.TestCase):
             "texture_zip": Path.home() / "Downloads" / "zxnu2hjyuovl4rhx.zip",
             "launcher_fbx": ART_ROOT / "warlock_rocketlauncher.fbx",
             "rocket_fbx": ART_ROOT / "warlock_rocket.fbx",
+            "tube_fbx": ART_ROOT / "warlock_tube.fbx",
         }
         for name, path in sources.items():
             with self.subTest(source=name):
@@ -724,6 +1470,56 @@ class CrunchWeaponProvenanceTests(unittest.TestCase):
                 self.assertEqual(signature[:2], (vertex_count, face_count))
                 self.assertEqual(signature, CRUNCH_EXPORT_GEOMETRY["launcher" if name == "launcher_fbx" else "rocket"])
                 self.assertEqual(material_names(fbx), {material})
+
+    def test_unrigged_short_conduit_is_distinct_and_deferred(self) -> None:
+        """Do not confuse the weapon-local conduit with the backpack tether."""
+        path = ART_ROOT / "warlock_tube.fbx"
+        if not path.is_file():
+            self.skipTest("Crunch isolated tube export is not present")
+        tube = BinaryFbx(path)
+        self.assertEqual(
+            set(geometry_manifest(tube).values()),
+            {(198, 384, "a4ff8a9513a796f6735c5167a65f9ae345883581bfdaf7a287db21b4eef0359f")},
+        )
+        self.assertEqual(material_names(tube), {"DoomRocket_Pipe"})
+        self.assertNotIn("SM_Skaven_WarlockBombardier_Tube", model_names(BinaryFbx(ROCKET_UNIT_DIR / "pRocketLauncher.fbx")))
+
+    def test_full_launcher_has_exact_closed_mvp_and_backpack_tether_split(self) -> None:
+        """Pin the source cut that removes only the deferred two-metre tether."""
+        path = ART_ROOT / "warlock_rocketlauncher.fbx"
+        if not path.is_file():
+            self.skipTest("Crunch isolated launcher export is not present")
+        source = BinaryFbx(path)
+        geometry = geometry_by_vertex_count(source, FULL_LAUNCHER_VERTEX_COUNT)
+        triangles = triangulated_fbx_faces(geometry)
+        mvp = local_triangle_subset(triangles, 0, MVP_LAUNCHER_VERTEX_COUNT)
+        tether = local_triangle_subset(
+            triangles, MVP_LAUNCHER_VERTEX_COUNT, FULL_LAUNCHER_VERTEX_COUNT
+        )
+        self.assertEqual(len(mvp), MVP_LAUNCHER_TRIANGLE_COUNT)
+        self.assertEqual(len(tether), DEFERRED_HOSE_TRIANGLE_COUNT)
+        self.assertEqual(
+            triangle_topology_sha256(mvp),
+            CRUNCH_LAUNCHER_SPLIT_TOPOLOGY["mvp"],
+        )
+        self.assertEqual(
+            triangle_topology_sha256(tether),
+            CRUNCH_LAUNCHER_SPLIT_TOPOLOGY["backpack_tether"],
+        )
+        self.assertEqual(
+            tuple(
+                sorted(
+                    map(
+                        len,
+                        connected_vertex_components(
+                            DEFERRED_HOSE_VERTEX_COUNT, tether
+                        ),
+                    ),
+                    reverse=True,
+                )
+            ),
+            DEFERRED_HOSE_COMPONENT_SIZES,
+        )
 
     def test_exporter_pins_crunch_source_and_immutable_legacy_blobs(self) -> None:
         source = (REPO_ROOT / "tools" / "prepare_warlock_weapon_fbx.py").read_text(
@@ -754,6 +1550,22 @@ class CrunchWeaponProvenanceTests(unittest.TestCase):
         self.assertIn("legacy launcher input must not be overwritten", source)
         self.assertIn("legacy projectile input must not be overwritten", source)
         self.assertIn("loaded_rocket.parent = launcher", source)
+        self.assertIn("MVP_LAUNCHER_VERTEX_COUNT = 3308", source)
+        self.assertIn("DEFERRED_HOSE_VERTEX_COUNT = 1608", source)
+        self.assertIn('SOURCE_TUBE = "SM_Skaven_WarlockBombardier_Tube"', source)
+        self.assertIn("require_deferred_tube_contract(source_tube)", source)
+        for contract in (
+            "source.parent is not None",
+            "source.modifiers",
+            "source.vertex_groups",
+            "source.constraints",
+            "source.animation_data is not None",
+            "source.data.shape_keys is not None",
+            "source.rigid_body is not None",
+            "source.rigid_body_constraint is not None",
+        ):
+            with self.subTest(deferred_tube_contract=contract):
+                self.assertIn(contract, source)
 
 
 class CrunchWeaponFbxTests(unittest.TestCase):
@@ -761,6 +1573,17 @@ class CrunchWeaponFbxTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.launcher = BinaryFbx(ROCKET_UNIT_DIR / "pRocketLauncher.fbx")
         cls.projectile = BinaryFbx(ROCKET_UNIT_DIR / "SM_Rocket.fbx")
+        legacy_blob = OLD_DALO_FBX_BLOBS["pRocketLauncher.fbx"]
+        legacy_payload = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "cat-file", "blob", legacy_blob],
+            check=True,
+            capture_output=True,
+        ).stdout
+        if sha256(legacy_payload) != OLD_DALO_FBX_SHA256["pRocketLauncher.fbx"]:
+            raise AssertionError("known-good launcher Git blob failed its SHA-256 pin")
+        cls.legacy_launcher = BinaryFbx.from_bytes(
+            legacy_payload, f"git-blob-{legacy_blob}.fbx"
+        )
 
     def test_launcher_contains_crunch_launcher_and_loaded_rocket_meshes(self) -> None:
         signatures = set(geometry_manifest(self.launcher).values())
@@ -778,13 +1601,23 @@ class CrunchWeaponFbxTests(unittest.TestCase):
             "rocket": BinaryFbx(ART_ROOT / "warlock_rocket.fbx"),
         }
         shipping = {
-            "launcher": (self.launcher, 4916),
+            "launcher": (self.launcher, MVP_LAUNCHER_VERTEX_COUNT),
             "rocket_loaded": (self.launcher, 622),
             "rocket_projectile": (self.projectile, 622),
         }
         for name, (fbx, count) in shipping.items():
             source_name = "launcher" if name == "launcher" else "rocket"
-            expected = shape_profile(geometry_by_vertex_count(sources[source_name], count))
+            if source_name == "launcher":
+                full_source = geometry_by_vertex_count(
+                    sources[source_name], FULL_LAUNCHER_VERTEX_COUNT
+                )
+                expected = shape_profile_points(
+                    raw_geometry_points(full_source)[:MVP_LAUNCHER_VERTEX_COUNT]
+                )
+            else:
+                expected = shape_profile(
+                    geometry_by_vertex_count(sources[source_name], count)
+                )
             actual = shape_profile(geometry_by_vertex_count(fbx, count))
             self.assertEqual(len(actual), len(expected))
             self.assertLess(
@@ -794,12 +1627,28 @@ class CrunchWeaponFbxTests(unittest.TestCase):
             )
 
     def test_crunch_uv_coordinate_banks_are_preserved_exactly(self) -> None:
-        launcher_uv = uv_signature(geometry_by_vertex_count(self.launcher, 4916))
+        launcher_geometry = geometry_by_vertex_count(
+            self.launcher, MVP_LAUNCHER_VERTEX_COUNT
+        )
+        launcher_uv = uv_signature(launcher_geometry)
         loaded_uv = uv_signature(geometry_by_vertex_count(self.launcher, 622))
         projectile_uv = uv_signature(geometry_by_vertex_count(self.projectile, 622))
-        self.assertEqual(launcher_uv, (12668, CRUNCH_UV_SHA256["launcher"]))
+        self.assertEqual(launcher_uv, MVP_LAUNCHER_UV)
         self.assertEqual(loaded_uv, (1744, CRUNCH_UV_SHA256["rocket"]))
         self.assertEqual(projectile_uv, loaded_uv)
+
+        source_path = ART_ROOT / "warlock_rocketlauncher.fbx"
+        if source_path.is_file():
+            source_geometry = geometry_by_vertex_count(
+                BinaryFbx(source_path), FULL_LAUNCHER_VERTEX_COUNT
+            )
+            self.assertEqual(
+                uv_sets_by_vertex(
+                    source_geometry, MVP_LAUNCHER_VERTEX_COUNT
+                ),
+                uv_sets_by_vertex(launcher_geometry),
+                "MVP launcher UV mapping is not the retained subset of Crunch art",
+            )
 
     def test_launcher_preserves_all_runtime_attachment_nodes(self) -> None:
         required = {"root_point", "handle", "p_fx", "a_barrel"}
@@ -851,6 +1700,149 @@ class CrunchWeaponFbxTests(unittest.TestCase):
                 actual = local_translation(model_node(self.launcher, name, "LimbNode"))
                 for actual_axis, expected_axis in zip(actual, translation):
                     self.assertAlmostEqual(actual_axis, expected_axis, places=5)
+
+    def test_weapon_root_frame_matches_known_good_after_axis_normalization(self) -> None:
+        """Maya Y-up and Blender Z-up metadata may differ, not the runtime frame."""
+        expected_root = model_node(self.legacy_launcher, "root_point", "Null")
+        actual_root = model_node(self.launcher, "root_point", "Null")
+        expected = normalized_axes(
+            matrix_multiply(
+                global_axis_matrix(self.legacy_launcher),
+                model_world_matrix(self.legacy_launcher, expected_root),
+            )
+        )
+        actual = normalized_axes(
+            matrix_multiply(
+                global_axis_matrix(self.launcher),
+                model_world_matrix(self.launcher, actual_root),
+            )
+        )
+        for axis, (expected_vector, actual_vector) in enumerate(zip(expected, actual)):
+            with self.subTest(axis=axis):
+                self.assertLess(
+                    max(
+                        abs(expected_value - actual_value)
+                        for expected_value, actual_value in zip(
+                            expected_vector, actual_vector
+                        )
+                    ),
+                    2e-5,
+                )
+
+    def test_launcher_attachment_origin_remains_inside_effective_mesh_envelope(self) -> None:
+        """Catch a rigid mesh baked away from node 0 even when its nodes survive."""
+        expected = canonical_geometry_points(self.legacy_launcher, 1586)
+        actual = canonical_geometry_points(
+            self.launcher, MVP_LAUNCHER_VERTEX_COUNT
+        )
+        expected_gap = normalized_origin_envelope_gap(expected)
+        actual_gap = normalized_origin_envelope_gap(actual)
+        self.assertLess(expected_gap, 1e-6, "known-good attachment origin left its mesh")
+        self.assertLessEqual(
+            actual_gap,
+            expected_gap + 0.05,
+            "launcher is baked away from the attachment origin: "
+            f"normalized envelope gap={actual_gap:.6f}, allowed={expected_gap + 0.05:.6f}",
+        )
+
+    def test_launcher_grip_surface_stays_near_known_good_attachment_origin(self) -> None:
+        """An AABB containing node 0 is insufficient when the mesh surrounds empty space."""
+        expected_geometry = geometry_by_vertex_count(self.legacy_launcher, 1586)
+        actual_geometry = geometry_by_vertex_count(
+            self.launcher, MVP_LAUNCHER_VERTEX_COUNT
+        )
+        expected = origin_surface_proximity(
+            canonical_geometry_points(self.legacy_launcher, 1586),
+            triangulated_fbx_faces(expected_geometry),
+        )
+        actual = origin_surface_proximity(
+            canonical_geometry_points(self.launcher, MVP_LAUNCHER_VERTEX_COUNT),
+            triangulated_fbx_faces(actual_geometry),
+        )
+        self.assertLessEqual(
+            expected[0],
+            1.5,
+            f"known-good launcher surface moved {expected[0]:.3f} cm from node 0",
+        )
+        self.assertLessEqual(
+            actual[0],
+            5.0,
+            "launcher grip surface is too far from its attachment origin: "
+            f"distance={actual[0]:.3f} cm, normalized={actual[1]:.6f}",
+        )
+        self.assertLessEqual(
+            actual[1],
+            0.08,
+            "launcher grip surface proximity exceeds the normalized root-space limit: "
+            f"distance={actual[0]:.3f} cm, normalized={actual[1]:.6f}",
+        )
+
+    def test_launcher_semantic_pistol_grip_is_calibrated_to_attachment_origin(self) -> None:
+        """Prevent a stock or decorative surface from satisfying the proximity gate."""
+        geometry = geometry_by_vertex_count(
+            self.launcher, MVP_LAUNCHER_VERTEX_COUNT
+        )
+        centroid = semantic_grip_cap_centroid(
+            canonical_geometry_points(self.launcher, MVP_LAUNCHER_VERTEX_COUNT),
+            triangulated_fbx_faces(geometry),
+            coordinate_tolerance=1e-6,
+            cap_depth=1.0,
+        )
+        expected = (0.000002565, 1.108044386, 0.0)
+        for axis, (actual, target) in enumerate(zip(centroid, expected)):
+            with self.subTest(axis=axis):
+                self.assertAlmostEqual(
+                    actual,
+                    target,
+                    delta=0.1,
+                    msg=(
+                        "semantic pistol-grip cap is not calibrated to the "
+                        f"known-good attachment landmark: actual={centroid} cm, "
+                        f"expected={expected} cm"
+                    ),
+                )
+    def test_launcher_effective_long_axis_matches_known_good_attachment_axis(self) -> None:
+        """Catch a 90-degree DCC-axis bake without requiring identical geometry."""
+        expected = principal_axis(
+            canonical_geometry_points(self.legacy_launcher, 1586)
+        )
+        actual = principal_axis(
+            canonical_geometry_points(self.launcher, MVP_LAUNCHER_VERTEX_COUNT)
+        )
+        alignment = abs(sum(left * right for left, right in zip(expected, actual)))
+        self.assertGreaterEqual(
+            alignment,
+            0.85,
+            "launcher principal axis diverged from known-good attachment frame: "
+            f"abs(dot)={alignment:.6f}, required>=0.850000",
+        )
+
+    def test_loaded_warhead_points_toward_the_legacy_muzzle_direction(self) -> None:
+        """Use a signed landmark so a 180-degree mesh flip cannot pass abs(axis)."""
+        root = canonical_model_origin(
+            self.launcher, model_node(self.launcher, "root_point", "Null")
+        )
+        muzzle = canonical_model_origin(
+            self.launcher, model_node(self.launcher, "p_fx", "LimbNode")
+        )
+        rocket_centroid = point_centroid(
+            canonical_geometry_points(self.launcher, 622)
+        )
+        muzzle_direction = _subtract(muzzle, root)
+        rocket_direction = _subtract(rocket_centroid, root)
+        expected_muzzle = (0.0, 5.999980, -85.000015)
+        for axis, (actual, expected) in enumerate(
+            zip(muzzle_direction, expected_muzzle)
+        ):
+            with self.subTest(metric="p_fx", axis=axis):
+                self.assertAlmostEqual(actual, expected, delta=0.001)
+        alignment = directed_cosine(muzzle_direction, rocket_direction)
+        self.assertGreaterEqual(
+            alignment,
+            0.9,
+            "loaded pRocket points away from the legacy p_fx muzzle direction: "
+            f"signed cosine={alignment:.6f}, required>=0.900000",
+        )
 
     def test_loaded_warhead_is_rigid_child_of_actor_owned_launcher(self) -> None:
         require_loaded_rocket_actor_hierarchy(self.launcher)
@@ -1211,6 +2203,124 @@ class CrunchWeaponCompiledBundleTests(unittest.TestCase):
         self.assertEqual(rp_dropped, [idstring32("pRocketLauncher")])
         for renderable_node in structure.mesh_node_indices:
             self.assertTrue(node_inherits(structure.nodes, renderable_node, launcher_node))
+
+    def test_compiled_loaded_warhead_points_toward_p_fx(self) -> None:
+        """Preserve the source's signed muzzle direction through compilation."""
+        payload = self.require_one("unit", "units/rocket/pRocketLauncher")
+        structure = compiled_unit_structure(payload)
+        root_node = structure.nodes[compiled_node_index(structure, "root_point")]
+        muzzle_node = structure.nodes[compiled_node_index(structure, "p_fx")]
+        root = transform_point(root_node.world_transform, (0.0, 0.0, 0.0))
+        muzzle = transform_point(muzzle_node.world_transform, (0.0, 0.0, 0.0))
+        rocket_points, _triangles = compiled_renderable_geometry(
+            structure, "pRocket"
+        )
+        alignment = directed_cosine(
+            _subtract(muzzle, root),
+            _subtract(point_centroid(rocket_points), root),
+        )
+        self.assertGreaterEqual(
+            alignment,
+            0.9,
+            "compiled loaded pRocket points away from p_fx: "
+            f"signed cosine={alignment:.6f}, required>=0.900000",
+        )
+
+    def test_compiled_launcher_geometry_matches_final_source_root_space(self) -> None:
+        """Reject a stale bundle even when the corrected source FBX tests pass."""
+        payload = self.require_one("unit", "units/rocket/pRocketLauncher")
+        structure = compiled_unit_structure(payload)
+        actual_points, actual_triangles = compiled_renderable_geometry(
+            structure, "pRocketLauncher"
+        )
+
+        source = BinaryFbx(ROCKET_UNIT_DIR / "pRocketLauncher.fbx")
+        source_geometry = geometry_by_vertex_count(
+            source, MVP_LAUNCHER_VERTEX_COUNT
+        )
+        expected_points = source_points_to_engine(
+            canonical_geometry_points(source, MVP_LAUNCHER_VERTEX_COUNT)
+        )
+        expected_triangles = triangulated_fbx_faces(source_geometry)
+
+        expected_bounds = tuple(
+            (min(point[axis] for point in expected_points),
+             max(point[axis] for point in expected_points))
+            for axis in range(3)
+        )
+        actual_bounds = tuple(
+            (min(point[axis] for point in actual_points),
+             max(point[axis] for point in actual_points))
+            for axis in range(3)
+        )
+        for axis, (expected, actual) in enumerate(zip(expected_bounds, actual_bounds)):
+            with self.subTest(metric="bounds", axis=axis):
+                self.assertLessEqual(
+                    max(abs(left - right) for left, right in zip(expected, actual)),
+                    0.005,
+                    "compiled launcher bounds do not match the final source FBX "
+                    f"(axis={axis}, source={expected}, compiled={actual})",
+                )
+
+        expected_axis = principal_axis(expected_points)
+        actual_axis = principal_axis(actual_points)
+        alignment = abs(sum(
+            left * right for left, right in zip(expected_axis, actual_axis)
+        ))
+        self.assertGreaterEqual(
+            alignment,
+            0.98,
+            "compiled launcher orientation does not match the final source FBX: "
+            f"abs(dot)={alignment:.6f}",
+        )
+
+        expected_proximity = origin_surface_proximity(
+            expected_points, expected_triangles
+        )
+        actual_proximity = origin_surface_proximity(actual_points, actual_triangles)
+        self.assertLessEqual(
+            abs(expected_proximity[0] - actual_proximity[0]),
+            0.005,
+            "compiled launcher grip distance does not match the final source FBX: "
+            f"source={expected_proximity[0]:.6f} m, "
+            f"compiled={actual_proximity[0]:.6f} m",
+        )
+        self.assertLessEqual(
+            actual_proximity[0],
+            0.05,
+            "compiled launcher grip surface is more than 5 cm from node 0: "
+            f"distance={actual_proximity[0]:.6f} m, "
+            f"normalized={actual_proximity[1]:.6f}",
+        )
+        self.assertLessEqual(
+            actual_proximity[1],
+            0.08,
+            "compiled launcher grip surface exceeds the normalized root-space limit: "
+            f"distance={actual_proximity[0]:.6f} m, "
+            f"normalized={actual_proximity[1]:.6f}",
+        )
+
+        compiled_grip = semantic_grip_cap_centroid(
+            engine_points_to_source(actual_points),
+            actual_triangles,
+            coordinate_tolerance=0.025,
+            cap_depth=1.0,
+        )
+        expected_grip = (0.000002565, 1.108044386, 0.0)
+        for axis, (actual, expected) in enumerate(
+            zip(compiled_grip, expected_grip)
+        ):
+            with self.subTest(metric="semantic_grip", axis=axis):
+                self.assertAlmostEqual(
+                    actual,
+                    expected,
+                    delta=0.1,
+                    msg=(
+                        "compiled pistol-grip cap is not at the known-good "
+                        f"attachment landmark: actual={compiled_grip} cm, "
+                        f"expected={expected_grip} cm"
+                    ),
+                )
 
 
 if __name__ == "__main__":

@@ -7,10 +7,13 @@ Run with Blender 5.2 while opening Crunch's source scene::
       --launcher-output .build/weapon_candidate/pRocketLauncher.fbx \
       --projectile-output .build/weapon_candidate/SM_Rocket.fbx
 
-The launcher is a rigid MVP.  It is transformed from the source character's
-world/rest pose into ``j_leftweaponattach`` rest space.  The legacy four-node
-weapon armature remains authoritative, so Lua attachment links and the muzzle
-lookup keep resolving.  The loaded ``pRocket`` is parented below the
+The launcher is a rigid MVP. Crunch supplied two unrigged, unparented prop
+objects whose object-world rotation agrees with the legacy weapon frame, but
+whose presentation-space origin is not a grip locator. Their object transform
+is baked with a measured semantic grip translation, without applying a
+character-bone inverse. The legacy four-node weapon armature remains
+authoritative, so Lua attachment links and the muzzle lookup keep resolving.
+The loaded ``pRocket`` is parented below the
 physics-owned ``pRocketLauncher`` mesh: when AIInventoryExtension activates
 only ``rp_dropped`` on death, both rigid meshes therefore follow that actor.
 The separate projectile is mapped into the legacy ``pRocket`` mesh frame and
@@ -20,6 +23,7 @@ keeps that node's transform/forward convention.
 from __future__ import annotations
 
 import argparse
+import bmesh
 import hashlib
 import subprocess
 import sys
@@ -35,9 +39,37 @@ from mathutils.kdtree import KDTree
 SOURCE_SHA256 = "AB6EBC9EF45CEA6E402BBD0415C2D40716824552C2AB514947902D1EAC06C1B2"
 SOURCE_LAUNCHER = "SM_Skaven_WarlockBombardier_RcoketLauncher"  # authored typo
 SOURCE_ROCKET = "SM_Skaven_WarlockBombardier_Rocket"
+SOURCE_TUBE = "SM_Skaven_WarlockBombardier_Tube"
 SOURCE_ARMATURE = "armature object.008"
 ATTACH_BONE = "j_leftweaponattach"
 EXPECTED_WEAPON_BONES = {"root_point", "handle", "p_fx", "a_barrel"}
+# Crunch's launcher contains a 1,608-vertex segmented backpack tether appended
+# after the 3,308 rigid-weapon vertices.  The tether has no deformation or
+# physics rig, and one end matches the backpack outlet in presentation space.
+# Baking it into the hand-space launcher therefore makes a two-metre rigid hose
+# float above the Warlock.  Flexible tubing was explicitly deferred beyond the
+# rigid MVP; exclude only this exact, reviewed tail block.  The scene also has
+# a distinct 198-vertex short conduit object, likewise unrigged and deferred.
+# The SHA-pinned .blend and these topology gates make the split fail closed if
+# Crunch supplies revised art instead of silently deleting an arbitrary range.
+MVP_LAUNCHER_VERTEX_COUNT = 3308
+MVP_LAUNCHER_POLYGON_COUNT = 3365
+DEFERRED_HOSE_VERTEX_COUNT = 1608
+DEFERRED_HOSE_POLYGON_COUNT = 1608
+DEFERRED_TUBE_VERTEX_COUNT = 198
+DEFERRED_TUBE_POLYGON_COUNT = 192
+# Crunch's final launcher is an unrigged scene prop, so it has no exported
+# grip locator.  Forensics identified its disconnected 217-vertex pistol-grip
+# component and measured the centroid of that component's upper 10 mm cap in
+# source world space.  Translate that semantic grip landmark onto the
+# SHA-pinned Dalo weapon root's reviewed 1.108044386 cm surface clearance.
+# This is intentionally translation-only: the canonical principal-axis audit
+# proves the source object's authored rotation already matches the old runtime
+# frame.  Never substitute a generic nearest-surface snap; the uncalibrated
+# nearest surface is the rear stock, not the grip.
+LAUNCHER_GRIP_TRANSLATION = Vector(
+    (-0.00002098033, -0.91097664833, 0.06153465062)
+)
 LEGACY_BASELINES = {
     "launcher": {
         "blob": "4afd3ff155889b44760ff41500bca7e1bf6ccafa",
@@ -114,6 +146,99 @@ def copy_transformed_mesh(source: bpy.types.Object, transform: Matrix) -> bpy.ty
     return mesh
 
 
+def copy_mvp_launcher_mesh(
+    source: bpy.types.Object, transform: Matrix
+) -> bpy.types.Mesh:
+    """Copy the rigid launcher while excluding the reviewed future hose.
+
+    The retained and deferred sections are disconnected in Crunch's pinned
+    source.  Validate that boundary before deleting the tail so a reordered or
+    revised source cannot turn this into an unsafe index-based art edit.
+    """
+    if source.type != "MESH":
+        raise RuntimeError(f"{source.name} is not a mesh")
+    mesh = source.data
+    expected_total = MVP_LAUNCHER_VERTEX_COUNT + DEFERRED_HOSE_VERTEX_COUNT
+    if len(mesh.vertices) != expected_total:
+        raise RuntimeError(
+            f"Crunch launcher expected {expected_total} vertices, got "
+            f"{len(mesh.vertices)}"
+        )
+    retained_polygons = 0
+    deferred_polygons = 0
+    for polygon in mesh.polygons:
+        retained = all(index < MVP_LAUNCHER_VERTEX_COUNT for index in polygon.vertices)
+        deferred = all(index >= MVP_LAUNCHER_VERTEX_COUNT for index in polygon.vertices)
+        if retained:
+            retained_polygons += 1
+        elif deferred:
+            deferred_polygons += 1
+        else:
+            raise RuntimeError(
+                "Crunch launcher hose is no longer disconnected at the reviewed "
+                f"vertex boundary; polygon {polygon.index} crosses it"
+            )
+    if (
+        retained_polygons != MVP_LAUNCHER_POLYGON_COUNT
+        or deferred_polygons != DEFERRED_HOSE_POLYGON_COUNT
+    ):
+        raise RuntimeError(
+            "Crunch launcher MVP/hose topology changed: "
+            f"retained={retained_polygons}, deferred={deferred_polygons}"
+        )
+
+    result = mesh.copy()
+    result.transform(transform)
+    editable = bmesh.new()
+    editable.from_mesh(result)
+    editable.verts.ensure_lookup_table()
+    bmesh.ops.delete(
+        editable,
+        geom=list(editable.verts[MVP_LAUNCHER_VERTEX_COUNT:]),
+        context="VERTS",
+    )
+    editable.to_mesh(result)
+    editable.free()
+    result.update()
+    if (
+        len(result.vertices) != MVP_LAUNCHER_VERTEX_COUNT
+        or len(result.polygons) != MVP_LAUNCHER_POLYGON_COUNT
+    ):
+        raise RuntimeError(
+            "launcher MVP extraction changed retained topology: "
+            f"vertices={len(result.vertices)}, polygons={len(result.polygons)}"
+        )
+    return result
+
+
+def require_deferred_tube_contract(source: bpy.types.Object) -> None:
+    """Prove the separate future tube remains unrigged and unexported."""
+    if source.type != "MESH":
+        raise RuntimeError(f"{SOURCE_TUBE} is not a mesh")
+    if (
+        len(source.data.vertices) != DEFERRED_TUBE_VERTEX_COUNT
+        or len(source.data.polygons) != DEFERRED_TUBE_POLYGON_COUNT
+    ):
+        raise RuntimeError(
+            f"{SOURCE_TUBE} topology changed; review its rig before exporting"
+        )
+    if (
+        source.parent is not None
+        or source.modifiers
+        or source.vertex_groups
+        or source.constraints
+        or source.animation_data is not None
+        or source.data.shape_keys is not None
+        or source.rigid_body is not None
+        or source.rigid_body_constraint is not None
+    ):
+        raise RuntimeError(
+            f"{SOURCE_TUBE} gained parenting, deformation, animation, or physics; "
+            "review its lifecycle instead of silently deferring it"
+        )
+    require_material(source.data, "DoomRocket_Pipe")
+
+
 def require_material(mesh: bpy.types.Mesh, expected: str) -> None:
     names = [material.name if material else None for material in mesh.materials]
     normalized = [name.rsplit(".", 1)[0] if name and name.rsplit(".", 1)[-1].isdigit() else name for name in names]
@@ -184,7 +309,6 @@ def mesh_bounds(mesh: bpy.types.Mesh) -> tuple[Vector, Vector]:
 def build_launcher(
     source_launcher: bpy.types.Object,
     source_rocket: bpy.types.Object,
-    source_armature: bpy.types.Object,
     legacy_path: Path,
     output_path: Path,
 ) -> None:
@@ -207,17 +331,21 @@ def build_launcher(
                 bpy.data.meshes.remove(old_data)
     force_exact_id_name(weapon_rig, "root_point")
 
-    attach_bone = source_armature.data.bones.get(ATTACH_BONE)
-    if attach_bone is None:
-        raise RuntimeError(f"source armature has no {ATTACH_BONE}")
-    # This is the critical placement equation.  Source props are in the full
-    # character's world/rest pose; weapon-unit coordinates begin at the hand.
-    hand_inverse = (source_armature.matrix_world @ attach_bone.matrix_local).inverted()
-
-    launcher_mesh = copy_transformed_mesh(
-        source_launcher, hand_inverse @ source_launcher.matrix_world
+    # Crunch's launcher and rocket are unparented presentation props, not
+    # meshes placed on the character rig. Their object-world rotation matches
+    # the SHA-pinned Dalo weapon-root convention, but their origin does not
+    # identify the grip. Applying
+    # inverse(j_leftweaponattach) here was the v0.1.53/v0.1.54 regression: it
+    # injected the character bone's ~1 m translation and arbitrary rest
+    # rotation into otherwise root-space geometry.  Bake only the authored
+    # object transform into the immutable legacy attachment frame.
+    grip_translation = Matrix.Translation(LAUNCHER_GRIP_TRANSLATION)
+    launcher_mesh = copy_mvp_launcher_mesh(
+        source_launcher, grip_translation @ source_launcher.matrix_world
     )
-    rocket_mesh = copy_transformed_mesh(source_rocket, hand_inverse @ source_rocket.matrix_world)
+    rocket_mesh = copy_transformed_mesh(
+        source_rocket, grip_translation @ source_rocket.matrix_world
+    )
     require_material(launcher_mesh, "DoomRocket_Weapon")
     require_material(rocket_mesh, "DoomRocket_Rocket")
 
@@ -340,9 +468,21 @@ def verify_reimport(path: Path, expected_meshes: dict[str, tuple[int, str]], exp
 
 
 def maximum_position_error(
-    expected: bpy.types.Object, actual: bpy.types.Object
+    expected: bpy.types.Object,
+    actual: bpy.types.Object,
+    expected_world_adjustment: Matrix = Matrix.Identity(4),
+    expected_vertex_count: int | None = None,
 ) -> float:
-    expected_positions = [expected.matrix_world @ vertex.co for vertex in expected.data.vertices]
+    expected_vertex_count = expected_vertex_count or len(expected.data.vertices)
+    expected_positions = [
+        expected_world_adjustment @ expected.matrix_world @ vertex.co
+        for vertex in expected.data.vertices[:expected_vertex_count]
+    ]
+    if len(actual.data.vertices) != expected_vertex_count:
+        raise RuntimeError(
+            f"{actual.name}: expected {expected_vertex_count} round-trip vertices, "
+            f"got {len(actual.data.vertices)}"
+        )
     tree = KDTree(len(expected_positions))
     for index, position in enumerate(expected_positions):
         tree.insert(position, index)
@@ -353,9 +493,8 @@ def maximum_position_error(
     )
 
 
-def verify_launcher_alignment(
+def verify_launcher_root_alignment(
     imported: list[bpy.types.Object],
-    source_armature: bpy.types.Object,
     source_launcher: bpy.types.Object,
     source_rocket: bpy.types.Object,
 ) -> None:
@@ -367,20 +506,31 @@ def verify_launcher_alignment(
     ]
     if len(rigs) != 1:
         raise RuntimeError("could not identify reimported weapon armature")
-    attach_world = source_armature.matrix_world @ source_armature.data.bones[ATTACH_BONE].matrix_local
-    rigs[0].matrix_world = attach_world
-    bpy.context.view_layer.update()
+    # These unrigged props use presentation-space object transforms. A
+    # successful FBX round trip must reproduce those points plus the measured
+    # grip calibration at the imported weapon root. Placing that root on the
+    # character hand would hide an erroneous inverse-hand bake by applying the
+    # opposite transform.
     checks = (
-        (source_launcher, expected_named_object(imported, "pRocketLauncher", "MESH")),
-        (source_rocket, expected_named_object(imported, "pRocket", "MESH")),
+        (
+            source_launcher,
+            expected_named_object(imported, "pRocketLauncher", "MESH"),
+            MVP_LAUNCHER_VERTEX_COUNT,
+        ),
+        (source_rocket, expected_named_object(imported, "pRocket", "MESH"), None),
     )
-    for expected, actual in checks:
-        error = maximum_position_error(expected, actual)
+    for expected, actual, expected_vertex_count in checks:
+        error = maximum_position_error(
+            expected,
+            actual,
+            Matrix.Translation(LAUNCHER_GRIP_TRANSLATION),
+            expected_vertex_count,
+        )
         if error > 0.0001:
             raise RuntimeError(
-                f"{actual.name}: hand-space round-trip placement error {error:.8f} m"
+                f"{actual.name}: weapon-root round-trip placement error {error:.8f} m"
             )
-        print(f"[weapon-export] alignment {actual.name} max_error={error:.8f}m")
+        print(f"[weapon-export] root alignment {actual.name} max_error={error:.8f}m")
 
 
 def main() -> None:
@@ -388,11 +538,16 @@ def main() -> None:
     opened_source = source_path()
     source_launcher = bpy.data.objects.get(SOURCE_LAUNCHER)
     source_rocket = bpy.data.objects.get(SOURCE_ROCKET)
+    source_tube = bpy.data.objects.get(SOURCE_TUBE)
     source_armature = bpy.data.objects.get(SOURCE_ARMATURE)
-    if None in (source_launcher, source_rocket, source_armature):
-        raise RuntimeError("Crunch launcher, rocket, or armature is missing from the source scene")
+    if None in (source_launcher, source_rocket, source_tube, source_armature):
+        raise RuntimeError(
+            "Crunch launcher, rocket, deferred tube, or armature is missing from "
+            "the source scene"
+        )
     if len(source_launcher.data.vertices) != 4916 or len(source_rocket.data.vertices) != 622:
         raise RuntimeError("Crunch source mesh vertex baseline changed")
+    require_deferred_tube_contract(source_tube)
 
     if args.legacy_launcher and args.legacy_launcher.resolve() == args.launcher_output.resolve():
         raise RuntimeError("legacy launcher input must not be overwritten")
@@ -407,7 +562,6 @@ def main() -> None:
         build_launcher(
             source_launcher,
             source_rocket,
-            source_armature,
             legacy_launcher,
             args.launcher_output,
         )
@@ -420,13 +574,13 @@ def main() -> None:
     launcher_import = verify_reimport(
         args.launcher_output,
         {
-            "pRocketLauncher": (4916, "DoomRocket_Weapon"),
+            "pRocketLauncher": (MVP_LAUNCHER_VERTEX_COUNT, "DoomRocket_Weapon"),
             "pRocket": (622, "DoomRocket_Rocket"),
         },
         EXPECTED_WEAPON_BONES,
     )
-    verify_launcher_alignment(
-        launcher_import, source_armature, source_launcher, source_rocket
+    verify_launcher_root_alignment(
+        launcher_import, source_launcher, source_rocket
     )
     verify_reimport(
         args.projectile_output,

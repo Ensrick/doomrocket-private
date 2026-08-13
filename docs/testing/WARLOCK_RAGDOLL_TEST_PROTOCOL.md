@@ -14,8 +14,10 @@ fix that forbids sleep optimization until `monitor_complete`, but received no
 runtime capture. v0.1.53 carried that fix forward, added mandatory
 `pose_writes`/`sleep_skips` evidence, and passed four host deaths on 2026-08-12:
 every callback wrote a pose, no sleep callback was skipped, and all four
-five-second traces passed the drift gate. v0.1.54 keeps that proven body path
-unchanged while correcting the loaded-warhead drop hierarchy. Visual signoff and remote-client
+five-second traces passed the drift gate. v0.1.54 kept that proven body path
+unchanged and passed three more host traces while correcting the loaded-warhead
+drop hierarchy; its launcher art was nevertheless misplaced. v0.1.55 changes
+only the rigid launcher's internal mesh placement. Visual signoff and remote-client
 `source=husk` coverage also remain required.
 
 ## Before launching
@@ -33,14 +35,16 @@ unchanged while correcting the loaded-warhead drop hierarchy. Visual signoff and
 5. Confirm the console contains the exact hardened candidate banner and record
    its Workshop manifest ID:
 
-       [doomrocket:LOAD] v0.1.54-dev
+       [doomrocket:LOAD] v0.1.55-dev
 
    `[doomrocket:LOAD] v0.1.50-dev` identifies the original baseline.
    `[doomrocket:LOAD] v0.1.51-dev` identifies the known pre-monitor
    sleep-suppression regression. `[doomrocket:LOAD] v0.1.52-dev` is the
    uploaded but uncaptured predecessor and lacks the final counter gate.
    `[doomrocket:LOAD] v0.1.53-dev` identifies the four-corpse host pass with
-   the floating-warhead defect. None is a valid v0.1.54 candidate run.
+   the floating-warhead defect. `[doomrocket:LOAD] v0.1.54-dev` identifies the
+   three-corpse host pass with corrected warhead-drop physics but displaced
+   launcher art. None is a valid v0.1.55 candidate run.
 
 ## Capture matrix
 
@@ -125,7 +129,7 @@ recorded video remains the authoritative carrier-identity check.
 
 Analyze a captured console log with:
 
-    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.54-dev
+    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.55-dev
 
 The analyzer must print `[ragdoll-log] OK`. `--expected-version` is mandatory
 for acceptance; omitting it is supported only for historical-log triage.

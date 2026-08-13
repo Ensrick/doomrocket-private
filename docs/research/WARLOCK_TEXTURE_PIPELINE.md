@@ -57,11 +57,15 @@ sampling:
 | `SM_Skaven_WarlockBombardier_Tube` | `DoomRocket_Pipe` | 4 | liquid warpstone | 512 |
 
 The shipping character FBX includes set 01 and 02 as the `DoomRocket_Armor`
-and `DoomRocket_Backpack` slots. The v0.1.53 rigid prop candidate uses Crunch's
-4,916-vertex launcher and 622-vertex rocket with their `DoomRocket_Weapon` and
-`DoomRocket_Rocket` slots. The carried unit includes one loaded rocket; the
-projectile unit uses the same rocket mesh independently. The flexible tube is
-not part of this candidate.
+and `DoomRocket_Backpack` slots. Crunch's 4,916-vertex presentation launcher
+contains a terminal 1,608-vertex backpack-tether block that has no flexible
+rig, so the rigid MVP derives and ships the exact retained 3,308-vertex gun.
+The 622-vertex rocket keeps its `DoomRocket_Rocket` slot. The carried unit
+includes one loaded rocket; the projectile unit uses the same rocket mesh
+independently. Neither the deferred long tether nor the distinct 198-vertex
+weapon-local conduit is part of this candidate. See
+`docs/research/WARLOCK_WEAPON_PIPELINE.md` for the pinned split and topology
+gates.
 
 ## UV orientation: do not flip anything
 
@@ -219,25 +223,46 @@ verifies their reviewed SHA-256 values before importing them. Explicit
 `--legacy-launcher` and `--legacy-projectile` inputs are accepted only when
 their hashes match those baselines, and input/output aliasing is rejected.
 
-The carried meshes use the source character's rest-space hand frame:
+### Carried-weapon placement summary
+
+The authoritative attachment, coordinate, semantic-grip, projectile, physics,
+offline-test, and runtime-acceptance contract is
+`docs/research/WARLOCK_WEAPON_PIPELINE.md`. This texture document retains only
+the placement summary needed to avoid rebuilding the correct art with a stale
+transform rule.
+
+Crunch's final launcher and loaded rocket are unrigged, unparented
+presentation-space props. Their object-world rotation agrees with the pinned
+legacy weapon frame after FBX axis normalization, but their object origin is
+not a grip locator. The carried-mesh rule is:
 
 ```text
-v_hand = inverse(source_armature_world * j_leftweaponattach_rest)
-         * source_object_world * v_source
+v_weapon = Translation(delta_grip) * source_object_world * v_source
+delta_grip = (-0.00002098033, -0.91097664833, +0.06153465062) m
 ```
 
-The launcher is parented under the preserved legacy `root_point` rig without a
-second object transform. The loaded rocket keeps the same baked hand-space
-geometry but is parented beneath `pRocketLauncher`. This is required because
-the death-drop `rp_dropped` actor owns only `pRocketLauncher`: a sibling rocket
-would remain at the unlink pose while the launcher fell. Do not add an
-independent loaded-warhead actor; the two pieces are one rigid carried prop.
-The standalone projectile starts from that same hand
-frame, rotates the authored rocket nose into legacy mesh-local `+Y`, centers it
-in the old `pRocket` mesh bounds, and retains the old `pRocket` node matrix and
-`throw` actor convention. The exporter reimports both outputs and rejects more
-than 0.1 mm of carried-mesh alignment error; the reviewed run measured 0.00038
-mm for the launcher and 0.00049 mm for the loaded rocket.
+The translation maps the upper 10 mm cap of Crunch's unique disconnected
+217-vertex pistol-grip component onto the reviewed Dalo attachment landmark.
+It is applied equally to launcher and loaded rocket and is translation-only.
+Do not restore the rejected v0.1.54
+`inverse(source_armature_world * j_leftweaponattach_rest)` carried-mesh bake,
+and do not use a generic nearest-surface snap: the uncalibrated nearest surface
+is the rear stock, not the grip.
+
+The launcher remains under the preserved legacy `root_point` rig. The loaded
+rocket remains a direct child of actor-owned `pRocketLauncher`, because the
+death-drop `rp_dropped` actor owns only that launcher node. Do not add an
+independent loaded-warhead actor. The fired `SM_Rocket` is a separate legacy
+projectile-frame normalization path and must not inherit the carried prop's
+semantic translation by assumption.
+
+v0.1.54 passed its self-inverting Blender hand-space round trip while appearing
+displaced in both hand and back attachments. The weapon pipeline therefore
+normalizes Maya/Blender axis metadata, checks the complete model/geometry
+chain, identifies the semantic grip rather than an arbitrary surface, and
+verifies the final compiled unit is not a stale pre-calibration bundle. Those
+placement gates, measurements, and failure signatures live only in the
+authoritative weapon document.
 
 Extract, hash-check, and validate all five donor payloads without changing a
 built bundle:
