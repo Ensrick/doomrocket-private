@@ -21,8 +21,10 @@ committed.
 The body-material work changes texture inputs and compiled child bindings only.
 The later v0.1.53 prop pass also replaces the Dalo launcher/projectile render
 geometry while preserving the established unit, attachment, muzzle, and
-projectile-node contracts. Neither pass changes the character skeleton,
-animation, or ragdoll ownership.
+projectile-node contracts. v0.1.54 corrects one rigid-prop hierarchy defect:
+the loaded `pRocket` is a child of the physics-owned `pRocketLauncher`, so the
+two remain together when AI inventory drops the weapon on death. Neither pass
+changes the character skeleton, animation, or body-ragdoll ownership.
 
 ## Authoritative sources
 
@@ -224,8 +226,13 @@ v_hand = inverse(source_armature_world * j_leftweaponattach_rest)
          * source_object_world * v_source
 ```
 
-They are then parented under the preserved legacy `root_point` rig without a
-second object transform. The standalone projectile starts from that same hand
+The launcher is parented under the preserved legacy `root_point` rig without a
+second object transform. The loaded rocket keeps the same baked hand-space
+geometry but is parented beneath `pRocketLauncher`. This is required because
+the death-drop `rp_dropped` actor owns only `pRocketLauncher`: a sibling rocket
+would remain at the unlink pose while the launcher fell. Do not add an
+independent loaded-warhead actor; the two pieces are one rigid carried prop.
+The standalone projectile starts from that same hand
 frame, rotates the authored rocket nose into legacy mesh-local `+Y`, centers it
 in the old `pRocket` mesh bounds, and retains the old `pRocket` node matrix and
 `throw` actor convention. The exporter reimports both outputs and rejects more
@@ -260,6 +267,9 @@ enemies. Verify:
 - the carried launcher is Crunch's final shape with a loaded rocket, uses the
   set-03/set-04 appearance, stays in the left hand, and emits/fires from the
   existing muzzle location;
+- after a loaded enemy dies, the launcher and its loaded warhead fall as one
+  rigid object; the warhead must neither float at the death pose nor become a
+  second independent physics body;
 - the fired projectile is Crunch's rocket, travels on the existing forward
   axis, and retains its collision/explosion behavior.
 

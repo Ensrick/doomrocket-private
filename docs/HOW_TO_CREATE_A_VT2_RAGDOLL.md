@@ -384,7 +384,7 @@ powershell -NoProfile -File tools/Test-WarlockPipeline.ps1
 Analyze a runtime log:
 
 ```powershell
-py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.53-dev
+py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.54-dev
 ```
 
 Supply the exact candidate version for every acceptance capture. The option is

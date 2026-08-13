@@ -10,8 +10,11 @@ Run with Blender 5.2 while opening Crunch's source scene::
 The launcher is a rigid MVP.  It is transformed from the source character's
 world/rest pose into ``j_leftweaponattach`` rest space.  The legacy four-node
 weapon armature remains authoritative, so Lua attachment links and the muzzle
-lookup keep resolving.  The separate projectile is mapped into the legacy
-``pRocket`` mesh frame and keeps that node's transform/forward convention.
+lookup keep resolving.  The loaded ``pRocket`` is parented below the
+physics-owned ``pRocketLauncher`` mesh: when AIInventoryExtension activates
+only ``rp_dropped`` on death, both rigid meshes therefore follow that actor.
+The separate projectile is mapped into the legacy ``pRocket`` mesh frame and
+keeps that node's transform/forward convention.
 """
 
 from __future__ import annotations
@@ -224,10 +227,19 @@ def build_launcher(
     force_exact_id_name(loaded_rocket, "pRocket")
     bpy.context.scene.collection.objects.link(launcher)
     bpy.context.scene.collection.objects.link(loaded_rocket)
-    for obj in (launcher, loaded_rocket):
-        obj.parent = weapon_rig
-        obj.matrix_parent_inverse = Matrix.Identity(4)
-        obj.matrix_local = Matrix.Identity(4)
+    launcher.parent = weapon_rig
+    launcher.matrix_parent_inverse = Matrix.Identity(4)
+    launcher.matrix_local = Matrix.Identity(4)
+
+    # AIInventoryExtension.drop_single_item creates only the launcher's
+    # `rp_dropped` actor.  A sibling loaded rocket therefore stays frozen at
+    # the unlink pose while the launcher falls.  Keep its already hand-space-
+    # baked geometry at identity, but make it a rigid child of the actor-owned
+    # launcher so it inherits the dropped actor transform without adding a
+    # second body to the solver.
+    loaded_rocket.parent = launcher
+    loaded_rocket.matrix_parent_inverse = Matrix.Identity(4)
+    loaded_rocket.matrix_local = Matrix.Identity(4)
 
     export_selected(output_path, [weapon_rig, launcher, loaded_rocket])
 

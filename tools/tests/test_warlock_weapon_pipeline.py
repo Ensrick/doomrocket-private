@@ -351,6 +351,25 @@ def model_parent_ids(fbx: BinaryFbx) -> dict[int, int]:
     return result
 
 
+def require_loaded_rocket_actor_hierarchy(
+    fbx: BinaryFbx, parents: dict[int, int] | None = None
+) -> None:
+    """Require the loaded warhead to inherit the launcher's dropped actor.
+
+    VT2's AIInventoryExtension unlinks a death-dropped inventory unit and
+    creates only its ``rp_dropped`` actor.  Doomrocket binds that actor to the
+    ``pRocketLauncher`` node, so a sibling ``pRocket`` freezes at the unlink
+    pose instead of following physics.
+    """
+    launcher = model_node(fbx, "pRocketLauncher", "Mesh")
+    loaded_rocket = model_node(fbx, "pRocket", "Mesh")
+    parents = model_parent_ids(fbx) if parents is None else parents
+    if parents.get(loaded_rocket.properties[0]) != launcher.properties[0]:
+        raise AssertionError(
+            "loaded pRocket must be a direct child of actor-owned pRocketLauncher"
+        )
+
+
 def local_translation(node: FbxNode) -> tuple[float, float, float]:
     blocks = [child for child in node.children if child.name == "Properties70"]
     if len(blocks) != 1:
@@ -409,6 +428,211 @@ def named_block(source: str, name: str) -> str:
             if depth == 0:
                 return source[start:offset]
     raise AssertionError(f"unterminated {name} block")
+
+
+def named_array(source: str, name: str) -> str:
+    match = re.search(rf"\b{re.escape(name)}\s*=\s*\[", source)
+    if not match:
+        raise AssertionError(f"missing {name} array")
+    start = match.end()
+    depth = 1
+    in_string = False
+    escaped = False
+    for offset, character in enumerate(source[start:], start):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+        elif character == '"':
+            in_string = True
+        elif character == "[":
+            depth += 1
+        elif character == "]":
+            depth -= 1
+            if depth == 0:
+                return source[start:offset]
+    raise AssertionError(f"unterminated {name} array")
+
+
+def anonymous_blocks(source: str) -> list[str]:
+    """Return top-level anonymous table entries from a named array body."""
+    result: list[str] = []
+    depth = 0
+    start: int | None = None
+    in_string = False
+    escaped = False
+    for offset, character in enumerate(source):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+        elif character == '"':
+            in_string = True
+        elif character == "{":
+            if depth == 0:
+                start = offset + 1
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                result.append(source[start:offset])
+                start = None
+            elif depth < 0:
+                raise AssertionError("unbalanced anonymous table")
+    if depth != 0:
+        raise AssertionError("unterminated anonymous table")
+    return result
+
+
+@dataclass(frozen=True)
+class CompiledSceneNode:
+    parent_type: int
+    parent_index: int
+    name_hash: int
+
+
+@dataclass(frozen=True)
+class CompiledUnitStructure:
+    nodes: tuple[CompiledSceneNode, ...]
+    mesh_node_indices: tuple[int, ...]
+    actors: tuple[tuple[int, int], ...]  # (name hash, node hash)
+
+
+class PackedCursor:
+    """Small dependency-free cursor for the VT2 v189 unit prefix."""
+
+    def __init__(self, payload: bytes):
+        self.payload = payload
+        self.offset = 0
+
+    def skip(self, size: int) -> None:
+        if size < 0 or self.offset + size > len(self.payload):
+            raise AssertionError("compiled unit prefix overrun")
+        self.offset += size
+
+    def u8(self) -> int:
+        value = struct.unpack_from("<B", self.payload, self.offset)[0]
+        self.skip(1)
+        return value
+
+    def u16(self) -> int:
+        value = struct.unpack_from("<H", self.payload, self.offset)[0]
+        self.skip(2)
+        return value
+
+    def u32(self) -> int:
+        value = struct.unpack_from("<I", self.payload, self.offset)[0]
+        self.skip(4)
+        return value
+
+    def byte_array(self) -> None:
+        self.skip(self.u32())
+
+    def u32_array(self) -> None:
+        self.skip(self.u32() * 4)
+
+
+def compiled_unit_structure(payload: bytes) -> CompiledUnitStructure:
+    """Parse scene graph, renderables and actors from a VT2 v189 unit.
+
+    This is the same packed prefix consumed by Bitsquid Blender Tools'
+    UnitResourceVT2 parser, kept local so this regression runs under ordinary
+    Python without importing Blender's ``bpy``/``mathutils`` modules.
+    """
+    cursor = PackedCursor(payload)
+    version = cursor.u32()
+    if version != 189:
+        raise AssertionError(f"compiled unit version must be 189, got {version}")
+
+    for _ in range(cursor.u32()):  # MeshGeometryVT2[]
+        for _ in range(cursor.u32()):  # streams
+            cursor.byte_array()
+            cursor.skip(16)  # validity, stream type, vertex count, stride
+        cursor.skip(cursor.u32() * 17)  # vertex declaration channels
+        cursor.skip(16)  # index stream header
+        cursor.byte_array()
+        cursor.skip(cursor.u32() * 16)  # batch ranges
+        cursor.skip(28)  # bounding volume
+        cursor.skip(cursor.u32() * 4)  # material IDString32s
+
+    for _ in range(cursor.u32()):  # SkinData[]
+        cursor.skip(cursor.u32() * 64)  # inverse bind matrices
+        cursor.u32_array()  # node indices
+        for _ in range(cursor.u32()):
+            cursor.u32_array()  # matrix index set
+
+    cursor.byte_array()  # simple animation
+    for _ in range(cursor.u32()):  # simple animation groups
+        cursor.skip(4)  # name IDString32
+        cursor.u32_array()
+
+    node_count = cursor.u32()
+    cursor.skip(node_count * 60)  # local rotation, position, scale
+    cursor.skip(node_count * 64)  # world matrices
+    parent_data = [(cursor.u16(), cursor.u16()) for _ in range(node_count)]
+    nodes = tuple(
+        CompiledSceneNode(parent_type, parent_index, cursor.u32())
+        for parent_type, parent_index in parent_data
+    )
+
+    mesh_node_indices: list[int] = []
+    for _ in range(cursor.u32()):  # MeshObject[]
+        cursor.skip(4)  # renderable name hash
+        mesh_node_indices.append(cursor.u32())
+        cursor.skip(12)  # geometry index, skin index, flags
+        cursor.skip(28)  # bounding volume
+
+    actors: list[tuple[int, int]] = []
+    shape_extra_sizes = {0: 4, 1: 12, 2: 8, 3: 0, 4: 0, 5: 21, 6: 12}
+    for _ in range(cursor.u32()):  # ActorResource[]
+        actor_name = cursor.u32()
+        cursor.skip(4)  # actor template
+        actor_node = cursor.u32()
+        cursor.skip(4)  # mass
+        for _ in range(cursor.u32()):
+            shape_type = cursor.u32()
+            if shape_type not in shape_extra_sizes:
+                raise AssertionError(f"unknown compiled actor shape {shape_type}")
+            cursor.skip(8 + 64)  # material, template, local matrix
+            cursor.byte_array()
+            cursor.skip(4 + shape_extra_sizes[shape_type])  # shape node + data
+        cursor.skip(24)  # touch/trigger events
+        if cursor.u8() not in (0, 1):
+            raise AssertionError("compiled actor enabled flag is not boolean")
+        actors.append((actor_name, actor_node))
+
+    return CompiledUnitStructure(nodes, tuple(mesh_node_indices), tuple(actors))
+
+
+def idstring32(value: str) -> int:
+    return murmur64a(value.encode()) >> 32
+
+
+def compiled_node_index(structure: CompiledUnitStructure, name: str) -> int:
+    expected = idstring32(name)
+    matches = [index for index, node in enumerate(structure.nodes) if node.name_hash == expected]
+    if len(matches) != 1:
+        raise AssertionError(f"compiled unit expected one scene node {name!r}, got {matches}")
+    return matches[0]
+
+
+def node_inherits(nodes: tuple[CompiledSceneNode, ...], node: int, ancestor: int) -> bool:
+    visited: set[int] = set()
+    while node not in visited and 0 <= node < len(nodes):
+        if node == ancestor:
+            return True
+        visited.add(node)
+        parent = nodes[node]
+        if parent.parent_type != 1:  # ParentType.INTERNAL
+            return False
+        node = parent.parent_index
+    return False
 
 
 def compiled_bundle_resources() -> dict[tuple[int, int], list[tuple[Path, bytes]]]:
@@ -529,6 +753,7 @@ class CrunchWeaponProvenanceTests(unittest.TestCase):
                 self.assertEqual(sha256(payload), expected_sha)
         self.assertIn("legacy launcher input must not be overwritten", source)
         self.assertIn("legacy projectile input must not be overwritten", source)
+        self.assertIn("loaded_rocket.parent = launcher", source)
 
 
 class CrunchWeaponFbxTests(unittest.TestCase):
@@ -627,12 +852,28 @@ class CrunchWeaponFbxTests(unittest.TestCase):
                 for actual_axis, expected_axis in zip(actual, translation):
                     self.assertAlmostEqual(actual_axis, expected_axis, places=5)
 
-    def test_launcher_meshes_and_attachment_nodes_keep_one_weapon_root(self) -> None:
+    def test_loaded_warhead_is_rigid_child_of_actor_owned_launcher(self) -> None:
+        require_loaded_rocket_actor_hierarchy(self.launcher)
+
+    def test_hierarchy_guard_rejects_historical_sibling_warhead(self) -> None:
+        launcher = model_node(self.launcher, "pRocketLauncher", "Mesh")
+        loaded_rocket = model_node(self.launcher, "pRocket", "Mesh")
+        root = model_node(self.launcher, "root_point", "Null")
+        parents = model_parent_ids(self.launcher)
+        self.assertEqual(parents[loaded_rocket.properties[0]], launcher.properties[0])
+
+        # Recreate the v0.1.53 failure in memory: both meshes are siblings under
+        # root_point, while rp_dropped drives only pRocketLauncher.
+        historical_sibling = dict(parents)
+        historical_sibling[loaded_rocket.properties[0]] = root.properties[0]
+        with self.assertRaisesRegex(AssertionError, "direct child of actor-owned"):
+            require_loaded_rocket_actor_hierarchy(self.launcher, historical_sibling)
+
+    def test_launcher_and_attachment_nodes_keep_one_weapon_root(self) -> None:
         root = model_node(self.launcher, "root_point", "Null")
         parents = model_parent_ids(self.launcher)
         for name, kind in (
             ("pRocketLauncher", "Mesh"),
-            ("pRocket", "Mesh"),
             ("root_point", "LimbNode"),
             ("handle", "LimbNode"),
             ("p_fx", "LimbNode"),
@@ -843,6 +1084,48 @@ class CrunchWeaponUnitContractTests(unittest.TestCase):
         self.assertIn('name = "rp_dropped"', physics)
         self.assertIn('template = "pickup"', physics)
 
+    def test_death_drop_actor_drives_every_launcher_renderable(self) -> None:
+        inventory = without_comments((
+            REPO_ROOT / "scripts" / "mods" / "doomrocket" / "breeds" /
+            "skaven_doomrocket_inventory.lua"
+        ).read_text(encoding="utf-8"))
+        weapon_item = named_block(inventory, "rocket_glaive_1")
+        self.assertRegex(named_block(weapon_item, "drop_reasons"), r"\bdeath\s*=\s*true\b")
+
+        physics = without_comments(
+            (ROCKET_UNIT_DIR / "pRocketLauncher.physics").read_text(encoding="utf-8")
+        )
+        actor_matches = [
+            block for block in anonymous_blocks(named_array(physics, "actors"))
+            if re.search(r'\bname\s*=\s*"rp_dropped"', block)
+        ]
+        self.assertEqual(len(actor_matches), 1)
+        actor_nodes = re.findall(r'\bnode\s*=\s*"([^"]+)"', actor_matches[0])
+        self.assertEqual(actor_nodes, ["pRocketLauncher"])
+
+        unit = without_comments(
+            (ROCKET_UNIT_DIR / "pRocketLauncher.unit").read_text(encoding="utf-8")
+        )
+        renderables = set(re.findall(
+            r"(?m)^\s*(\w+)\s*=\s*\{", named_block(unit, "renderables")
+        ))
+        self.assertEqual(renderables, {"pRocketLauncher", "pRocket"})
+        launcher_fbx = BinaryFbx(ROCKET_UNIT_DIR / "pRocketLauncher.fbx")
+        require_loaded_rocket_actor_hierarchy(launcher_fbx)
+        parents = model_parent_ids(launcher_fbx)
+        actor = model_node(launcher_fbx, actor_nodes[0], "Mesh")
+        for renderable in renderables:
+            node = model_node(launcher_fbx, renderable, "Mesh")
+            current = node.properties[0]
+            visited: set[int] = set()
+            while current != actor.properties[0] and current not in visited:
+                visited.add(current)
+                current = parents.get(current, -1)
+            self.assertEqual(
+                current, actor.properties[0],
+                f"{renderable} does not inherit the only death-drop actor",
+            )
+
     def test_behavior_and_network_paths_stay_on_stable_units(self) -> None:
         inventory = (
             REPO_ROOT / "scripts" / "mods" / "doomrocket" / "breeds" / "skaven_doomrocket_inventory.lua"
@@ -908,6 +1191,26 @@ class CrunchWeaponCompiledBundleTests(unittest.TestCase):
             for old_slot in ("lambert2", "lambert3", "lambert4"):
                 old_short = murmur64a(old_slot.encode()) >> 32
                 self.assertNotIn(struct.pack("<I", old_short), payload)
+
+    def test_compiled_loaded_warhead_inherits_rp_dropped_actor(self) -> None:
+        launcher = self.require_one("unit", "units/rocket/pRocketLauncher")
+        structure = compiled_unit_structure(launcher)
+        launcher_node = compiled_node_index(structure, "pRocketLauncher")
+        rocket_node = compiled_node_index(structure, "pRocket")
+        self.assertEqual(
+            structure.nodes[rocket_node].parent_index,
+            launcher_node,
+            "compiled loaded pRocket must be a direct child of pRocketLauncher",
+        )
+        self.assertEqual(structure.nodes[rocket_node].parent_type, 1)
+        self.assertEqual(set(structure.mesh_node_indices), {launcher_node, rocket_node})
+        rp_dropped = [
+            node_hash for name_hash, node_hash in structure.actors
+            if name_hash == idstring32("rp_dropped")
+        ]
+        self.assertEqual(rp_dropped, [idstring32("pRocketLauncher")])
+        for renderable_node in structure.mesh_node_indices:
+            self.assertTrue(node_inherits(structure.nodes, renderable_node, launcher_node))
 
 
 if __name__ == "__main__":
