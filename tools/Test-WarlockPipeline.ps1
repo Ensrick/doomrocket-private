@@ -13,6 +13,12 @@ function Assert-True {
 
 # --- Source layout invariants ----------------------------------------------
 
+$itemConfig = Get-Content (Join-Path $repoRoot "itemV2.cfg") -Raw
+Assert-True ($itemConfig -match '(?m)^published_id\s*=\s*3771657344L;\s*$') `
+    "itemV2.cfg must retain the established Doomrocket Workshop item ID"
+Assert-True ($itemConfig -match '(?m)^visibility\s*=\s*"public";\s*$') `
+    "itemV2.cfg must retain public visibility for the current Crunch/friends playtest"
+
 $unitDir = Join-Path $repoRoot "units\warlock_bombardier"
 foreach ($required in @(
         "warlock_bombardier_3p.fbx", "warlock_bombardier_3p.unit",
