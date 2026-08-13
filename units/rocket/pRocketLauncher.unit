@@ -1,35 +1,15 @@
 materials = {
-	lambert2 = "materials/rocket/rocket_neutral"
-	lambert3 = "materials/rocket/rocket_neutral"
-	lambert4 = "materials/rocket/rocket_red"
+	DoomRocket_Weapon = "materials/rocket/rocket_neutral"
+	DoomRocket_Rocket = "materials/rocket/rocket_red"
 }
 
 data = {
     unit_template = "interaction_unit"
 
 	mat_slots = {
-        slot1 = "lambert2"
-		slot2 = "lambert3"
-        slot3 = "lambert4"
+		slot1 = "DoomRocket_Weapon"
+		slot2 = "DoomRocket_Rocket"
     }
-	mat_to_use = "units/weapons/player/wpn_emp_sword_02_t1/wpn_emp_sword_02_t1_3p"
-
-    colors = {
-        slot1 = "textures/default_col"
-		slot2 = "textures/default_col"
-		slot3 = "textures/rocket_red"
-    }
-    normals = {
-        slot1 = "textures/default_normal"
-		slot2 = "textures/default_normal"
-		slot3 = "textures/default_normal"
-    }
-
-    color_slot = "texture_map_c0ba2942"
-    norm_slot = "texture_map_59cd86b9"
-	MAB_slot = "texture_map_0205ba86"
-	emis_col_slot = "texture_map_71d74d4d"
-	emis_det_slot = "texture_map_ee282ea2"
 }
 
 renderables = {

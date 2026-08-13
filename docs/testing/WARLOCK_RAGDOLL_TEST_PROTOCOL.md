@@ -9,10 +9,12 @@ Recorded status: uploaded v0.1.50 passed an 11-corpse, five-second host
 telemetry baseline on 2026-08-12. Uploaded v0.1.51 failed its first host death:
 hips drift reached 2.505 m at 5 s despite 602 callbacks, while deformation and
 performance metrics remained normal. The v0.1.51 sleep gate cached/consulted
-actors during the monitor and suppressed pose transfer. v0.1.52 is a fix
-candidate that forbids sleep optimization until `monitor_complete`; it has no
-runtime pass yet. Visual signoff and remote-client `source=husk` coverage also
-remain required.
+actors during the monitor and suppressed pose transfer. v0.1.52 introduced the
+fix that forbids sleep optimization until `monitor_complete`, but received no
+runtime capture. v0.1.53 carries that fix forward and adds mandatory
+`pose_writes`/`sleep_skips` evidence so a callback-only false pass cannot recur.
+It is the current runtime candidate. Visual signoff and remote-client
+`source=husk` coverage also remain required.
 
 ## Before launching
 
@@ -29,11 +31,13 @@ remain required.
 5. Confirm the console contains the exact hardened candidate banner and record
    its Workshop manifest ID:
 
-       [doomrocket:LOAD] v0.1.52-dev
+       [doomrocket:LOAD] v0.1.53-dev
 
    `[doomrocket:LOAD] v0.1.50-dev` identifies the original baseline.
    `[doomrocket:LOAD] v0.1.51-dev` identifies the known pre-monitor
-   sleep-suppression regression. Neither is a valid v0.1.52 candidate run.
+   sleep-suppression regression. `[doomrocket:LOAD] v0.1.52-dev` is the
+   uploaded but uncaptured predecessor and lacks the final counter gate. None
+   is a valid v0.1.53 candidate run.
 
 ## Capture matrix
 
@@ -97,7 +101,11 @@ satisfy all of the following:
   `anchor_max_drift <= 0.5` m;
 - `bounds_ratio` and `max_bone_radius_ratio` each remain within 0.5–2.0×;
 - `wall_gap_ms <= 250` ms. This is the maximum callback gap observed since
-  the previous checkpoint, not merely the frame immediately before logging.
+  the previous checkpoint, not merely the frame immediately before logging;
+- `pose_writes` is a positive integer and strictly increases at every sample;
+- `sleep_skips=0` at every sample and at the monitor-complete stop;
+- the stop record has `callbacks=pose_writes`, proving no callback in the
+  pre-monitor window returned without transferring the pose.
 
 During those seven checkpoints, pose transfer is mandatory on every
 owner-world callback. The implementation must not enumerate/cache actors or
@@ -114,11 +122,13 @@ recorded video remains the authoritative carrier-identity check.
 
 Analyze a captured console log with:
 
-    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log"
+    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.53-dev
 
-The analyzer must print `[ragdoll-log] OK`. Attach the original console log and
-the corresponding video to the issue; do not paste only selected lines because
-concurrent corpse IDs and load/version evidence must remain auditable.
+The analyzer must print `[ragdoll-log] OK`. `--expected-version` is mandatory
+for acceptance; omitting it is supported only for historical-log triage.
+Attach the original console log and the corresponding video to the issue; do
+not paste only selected lines because concurrent corpse IDs and load/version
+evidence must remain auditable.
 
 ## Failure triage
 

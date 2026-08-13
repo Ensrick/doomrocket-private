@@ -1,52 +1,28 @@
 parent_material = "core/stingray_renderer/shader_import/standard"
 
+textures = {
+	color_map = "textures/rocket/wb_weapon_df"
+	normal_map = "textures/rocket/wb_weapon_nm"
+	roughness_map = "textures/rocket/wb_weapon_r"
+	metallic_map = "textures/rocket/wb_weapon_m"
+	ao_map = "textures/rocket/wb_weapon_ao"
+	emissive_map = "textures/rocket/wb_weapon_e"
+}
+
 material_contexts = {
 	surface_material = ""
 }
 
 variables = {
-	base_color = {
-		type = "vector3"
-		value = [
-		0.08
-		0.09
-		0.08
-		]
-	}
-	emissive = {
-		type = "vector3"
-		value = [
-		0
-		0
-		0
-		]
-	}
-	metallic = {
-		type = "scalar"
-		value = 0.65
-	}
-	roughness = {
-		type = "scalar"
-		value = 0.55
-	}
-	use_color_map = {
-		type = "scalar"
-		value = 0
-	}
-	use_emissive_map = {
-		type = "scalar"
-		value = 0
-	}
-	use_metallic_map = {
-		type = "scalar"
-		value = 0
-	}
-	use_normal_map = {
-		type = "scalar"
-		value = 0
-	}
-	use_roughness_map = {
-		type = "scalar"
-		value = 0
-	}
+	base_color = { type = "vector3" value = [ 1 1 1 ] }
+	emissive = { type = "vector3" value = [ 1 1 1 ] }
+	metallic = { type = "scalar" value = 1 }
+	roughness = { type = "scalar" value = 1 }
+	emissive_intensity = { type = "scalar" value = 1 }
+	use_color_map = { type = "scalar" value = 1 }
+	use_emissive_map = { type = "scalar" value = 1 }
+	use_metallic_map = { type = "scalar" value = 1 }
+	use_normal_map = { type = "scalar" value = 1 }
+	use_roughness_map = { type = "scalar" value = 1 }
+	use_ao_map = { type = "scalar" value = 1 }
 }

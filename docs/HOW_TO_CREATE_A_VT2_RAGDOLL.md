@@ -384,8 +384,12 @@ powershell -NoProfile -File tools/Test-WarlockPipeline.ps1
 Analyze a runtime log:
 
 ```powershell
-py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log"
+py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.53-dev
 ```
+
+Supply the exact candidate version for every acceptance capture. The option is
+deliberately not a default requirement so old logs remain analyzable, but a
+release result without a matching `[doomrocket:LOAD]` banner is not valid.
 
 The complete scenario matrix and thresholds are in
 `docs/testing/WARLOCK_RAGDOLL_TEST_PROTOCOL.md`.
@@ -444,7 +448,7 @@ calibration preflight, or fail-closed visibility hooks. Those changes require
 a uniquely versioned host/client runtime pass. The result also does not replace
 visual inspection and contains no `source=husk` client coverage.
 
-### v0.1.51 sleep-gate regression and v0.1.52 candidate
+### v0.1.51 sleep-gate regression and the v0.1.52/v0.1.53 fix
 
 The v0.1.51 log
 `console-2026-08-12-22.42.49-d1eaa659-0dcc-4c1d-bebd-1789887d36d9.log`
@@ -456,9 +460,11 @@ reveals, hierarchy changes, scale changes, or non-hips translation changes were
 reported. The visual pose was being suppressed, not deformed or stalled.
 
 v0.1.51 had discovered/consulted sleeping actors before the monitor completed
-and skipped the transfer while the native ragdoll moved. The v0.1.52 candidate
-forces pose writes for the full monitor and delays sleep optimization until
-afterward. This is a fix design, not a runtime success claim.
+and skipped the transfer while the native ragdoll moved. v0.1.52 moved sleep
+optimization behind the completed monitor. v0.1.53 carries that fix forward
+and requires the log to prove `callbacks=pose_writes` and `sleep_skips=0` over
+the full acceptance window. This remains a fix design until runtime visuals
+and telemetry pass.
 
 ## 8. Failure signatures and their causes
 
@@ -471,7 +477,7 @@ afterward. This is a fix design, not a runtime success claim.
 | Stable ratling corpse appears | Carrier meshes were revealed as a shortcut | Keep all carrier meshes hidden; visible model identity is an acceptance gate |
 | Manual pose looks correct in logs but diverges after rendering | Animation writes later in the frame | Set bone mode `ignore` and apply from the post-animation safe callback |
 | Several pose callbacks per rendered frame | Safe callback self-requeued and was drained by multiple worlds | Enqueue once after the exact owner-world animation pass |
-| Hips and anchor drift grow while callbacks, frame gaps, deformation ratios, and mutation counters remain normal | Sleep detection suppressed pose writes during the monitor; v0.1.51 reached 2.505 m hips drift despite 602 callbacks | Forbid actor discovery, sleep caching, and sleep-based suppression until `monitor_complete`; validate the v0.1.52 candidate in runtime |
+| Hips and anchor drift grow while callbacks, frame gaps, deformation ratios, and mutation counters remain normal | Sleep detection suppressed pose writes during the monitor; v0.1.51 reached 2.505 m hips drift despite 602 callbacks | Forbid actor discovery, sleep caching, and sleep-based suppression until `monitor_complete`; require `callbacks=pose_writes` and `sleep_skips=0` in the current runtime candidate |
 | Corpse detaches only after five seconds or after a later impact | Monitor completion removed the driver, or sleep/wake detection failed to resume it | Keep the driver registered for unit lifetime; reproduce with the post-monitor wake test |
 | A paused test reaches checkpoints or a hitch disappears from telemetry | Monitor used wall time, or only the final pre-sample gap was logged | Use game time for checkpoint lifetime and accumulate the worst wall gap per interval |
 

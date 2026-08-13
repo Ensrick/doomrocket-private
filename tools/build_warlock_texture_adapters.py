@@ -26,7 +26,11 @@ from PIL import Image
 SETS = {
     "armor": ("01", "2048"),
     "backpack": ("02", "2048"),
+    "weapon": ("03", "1024"),
+    "rocket": ("04", "512"),
 }
+
+PROP_SETS = {"weapon", "rocket"}
 
 
 def digest(path: Path) -> str:
@@ -51,7 +55,7 @@ def save_rgba(image: Image.Image, path: Path) -> None:
     image.save(path, format="PNG", optimize=False, compress_level=9)
 
 
-def build(source_root: Path, output_root: Path) -> None:
+def build(source_root: Path, output_root: Path, prop_output_root: Path) -> None:
     for target, (index, resolution) in SETS.items():
         source_dir = source_root / resolution
         prefix = f"T_Skaven_WarlockBombardier_"
@@ -59,6 +63,7 @@ def build(source_root: Path, output_root: Path) -> None:
         nr_path = source_dir / f"{prefix}NR_{index}.png"
         mase_path = source_dir / f"{prefix}MASE_{index}.png"
         mase_fix_path = source_dir / f"{prefix}MASE_{index}_Fix.png"
+        emissive_path = source_dir / f"{prefix}E_{index}.png"
         require_mode(bc_path, "RGBA")
         require_mode(nr_path, "RGBA")
         require_mode(mase_path, "RGBA")
@@ -91,13 +96,43 @@ def build(source_root: Path, output_root: Path) -> None:
                     "backpack: localized emission alpha must contain zero and "
                     "non-zero pixels"
                 )
-        save_rgba(bc, output_root / f"wb_{target}_df.png")
-        save_rgba(nr, output_root / f"wb_{target}_nm.png")
-        save_rgba(mask, output_root / f"wb_{target}_ma.png")
+        target_root = prop_output_root if target in PROP_SETS else output_root
+        save_rgba(bc, target_root / f"wb_{target}_df.png")
+        save_rgba(nr, target_root / f"wb_{target}_nm.png")
+        if target not in PROP_SETS:
+            save_rgba(mask, target_root / f"wb_{target}_ma.png")
+
+        if target in PROP_SETS:
+            require_mode(emissive_path, "RGB")
+            emissive = open_rgba(emissive_path).convert("RGB")
+            if emissive.size != bc.size:
+                raise ValueError(f"{target}: emissive image size differs")
+
+            # Static standard materials do not expose packed-channel routing.
+            # Split each scalar into RGB so every standard sampler receives the
+            # same authored value regardless of which channel its parent reads.
+            def scalar_rgb(channel: Image.Image) -> Image.Image:
+                return Image.merge("RGB", (channel, channel, channel))
+
+            save_rgba(emissive.convert("RGBA"), target_root / f"wb_{target}_e.png")
+            save_rgba(
+                scalar_rgb(nr.getchannel("A")).convert("RGBA"),
+                target_root / f"wb_{target}_r.png",
+            )
+            save_rgba(
+                scalar_rgb(mase_fix.getchannel("R")).convert("RGBA"),
+                target_root / f"wb_{target}_m.png",
+            )
+            save_rgba(
+                scalar_rgb(mase_fix.getchannel("G")).convert("RGBA"),
+                target_root / f"wb_{target}_ao.png",
+            )
 
     for name in SETS:
-        for suffix in ("df", "nm", "ma"):
-            path = output_root / f"wb_{name}_{suffix}.png"
+        suffixes = ("df", "nm", "e", "r", "m", "ao") if name in PROP_SETS else ("df", "nm", "ma")
+        for suffix in suffixes:
+            target_root = prop_output_root if name in PROP_SETS else output_root
+            path = target_root / f"wb_{name}_{suffix}.png"
             print(f"[texture-adapter] {path.name} sha256={digest(path)}")
 
 
@@ -114,9 +149,20 @@ def main() -> None:
         "--output-root",
         type=Path,
         default=repo_root / "textures" / "warlock_bombardier",
+        help="runtime directory for body set-01/02 adapters",
+    )
+    parser.add_argument(
+        "--prop-output-root",
+        type=Path,
+        default=repo_root / "textures" / "rocket",
+        help="runtime directory for weapon set-03/04 adapters",
     )
     args = parser.parse_args()
-    build(args.source_root.resolve(), args.output_root.resolve())
+    build(
+        args.source_root.resolve(),
+        args.output_root.resolve(),
+        args.prop_output_root.resolve(),
+    )
 
 
 if __name__ == "__main__":

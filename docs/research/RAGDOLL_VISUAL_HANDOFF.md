@@ -2,9 +2,10 @@
 
 Status: **the original offset-corrected v0.1.50 handoff passed a five-second
 host baseline on 2026-08-12. v0.1.51 failed because its new sleep gate
-suppressed pose transfer before the monitor completed. v0.1.52 is a fix
-candidate with no runtime pass yet; visual signoff and remote-client husk
-coverage also remain required**.
+suppressed pose transfer before the monitor completed. v0.1.52 introduced the
+fix but received no runtime capture. v0.1.53 carries it forward with explicit
+pose-write/sleep-skip telemetry and is the current candidate; visual signoff
+and remote-client husk coverage also remain required**.
 
 This note separates three things that previous builds conflated:
 
@@ -257,8 +258,9 @@ treated as awake and retried.
 v0.1.51 violated this ordering rule. It consulted and cached transition-time
 actors before monitor completion, allowing an apparently sleeping actor set to
 suppress the pose transfer while the actual native ragdoll advanced. The
-v0.1.52 candidate moves the entire sleep optimization behind
-`monitor_complete`; that change remains runtime-unvalidated.
+v0.1.52 moved the entire sleep optimization behind `monitor_complete`.
+v0.1.53 retains that ordering and additionally makes every skipped/write
+callback observable; the change remains runtime-unvalidated.
 
 The zero-based range follows VT2's complete-enumeration code in
 `foundation/scripts/util/script_unit.lua:146-149`,
@@ -330,9 +332,10 @@ zero. The visual skeleton was effectively frozen at handoff while the native
 carrier pose moved away. Source review ties that signature to the pre-monitor
 sleep cache/suppression added in v0.1.51.
 
-v0.1.52 is only a fix candidate: it forces the transfer through the entire
-monitor and delays actor discovery/sleep suppression until afterward. Static
-coverage does not establish runtime success.
+v0.1.52 was only an uncaptured fix candidate. v0.1.53 retains its transfer
+ordering and rejects a trace unless every pre-monitor callback wrote the pose
+and no sleep skip occurred. Static coverage does not establish runtime
+success.
 
 Concurrent findings outside the ragdoll result remain open: every spawn logged
 three material lookup warnings before the later runtime material assignment;
@@ -345,8 +348,9 @@ kills; telemetry continued normally, so that is a separate integration bug.
 ## Runtime acceptance gates
 
 Use a fresh game restart and require the fix-candidate `[doomrocket:LOAD]
-v0.1.52-dev` banner. v0.1.50 is only the original baseline, and v0.1.51 is the
-known pre-monitor sleep-suppression failure.
+v0.1.53-dev` banner. v0.1.50 is only the original baseline, v0.1.51 is the
+known pre-monitor sleep-suppression failure, and v0.1.52 is the uncaptured
+predecessor without the final counter gate.
 Accept only when both runtime visuals and post-animation logs agree:
 
 - at least 10 valid non-gibbing deaths, including single deaths, multiple rapid

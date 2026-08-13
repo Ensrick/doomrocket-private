@@ -32,6 +32,7 @@ except ImportError as exc:  # Make a missing build dependency actionable.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOLS_DIR = REPO_ROOT / "tools"
 TEXTURE_DIR = REPO_ROOT / "textures" / "warlock_bombardier"
+PROP_TEXTURE_DIR = REPO_ROOT / "textures" / "rocket"
 ART_ROOT = REPO_ROOT.parent / "_warlock_bombardier_art" / "crunch_textures"
 
 sys.path.insert(0, str(TOOLS_DIR))
@@ -125,15 +126,24 @@ class WarlockSourceTextureTests(unittest.TestCase):
     def test_adapter_rebuild_matches_committed_outputs(self) -> None:
         """Exercise the adapter itself without mutating the working tree."""
         with tempfile.TemporaryDirectory() as temporary:
-            output = Path(temporary)
+            output = Path(temporary) / "body"
+            prop_output = Path(temporary) / "props"
             with redirect_stdout(io.StringIO()):
-                build_adapters(ART_ROOT, output)
+                build_adapters(ART_ROOT, output, prop_output)
             for name in EXPECTED_RGBA:
                 with self.subTest(texture=name):
                     self.assertEqual(
                         rgba(output / f"{name}.png").tobytes(),
                         rgba(TEXTURE_DIR / f"{name}.png").tobytes(),
                     )
+            for target in ("weapon", "rocket"):
+                for suffix in ("df", "nm", "e", "r", "m", "ao"):
+                    name = f"wb_{target}_{suffix}.png"
+                    with self.subTest(texture=name):
+                        self.assertEqual(
+                            rgba(prop_output / name).tobytes(),
+                            rgba(PROP_TEXTURE_DIR / name).tobytes(),
+                        )
 
 
 class WarlockTextureDescriptorTests(unittest.TestCase):
@@ -371,8 +381,8 @@ class WarlockMaterialSpliceTests(unittest.TestCase):
 
 class RocketSourceMaterialCoverageTests(unittest.TestCase):
     EXPECTED_SLOTS = {
-        "pRocketLauncher.unit": {"lambert2", "lambert3", "lambert4"},
-        "SM_Rocket.unit": {"lambert3", "lambert4"},
+        "pRocketLauncher.unit": {"DoomRocket_Weapon", "DoomRocket_Rocket"},
+        "SM_Rocket.unit": {"DoomRocket_Rocket"},
     }
 
     def test_every_fbx_slot_has_a_valid_source_material_fallback(self) -> None:

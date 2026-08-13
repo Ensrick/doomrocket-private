@@ -480,10 +480,11 @@ local function stop_warlock_death_driver(driver, reason)
 		local now = warlock_game_time()
 		local owner_alive = driver.owner and Unit.alive(driver.owner) or false
 		local outfit_alive = driver.outfit and Unit.alive(driver.outfit) or false
-		printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=%.1f owner_alive=%s outfit_alive=%s reason=%s callbacks=%d",
+		printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=%.1f owner_alive=%s outfit_alive=%s reason=%s callbacks=%d pose_writes=%d sleep_skips=%d",
 			driver.id, driver.source, (now - driver.created_game_at) * 1000,
 			tostring(owner_alive), tostring(outfit_alive), tostring(reason),
-			driver.callback_count or 0)
+			driver.callback_count or 0, driver.pose_write_callbacks or 0,
+			driver.sleep_skip_callbacks or 0)
 	end
 end
 
@@ -813,7 +814,7 @@ mod._prepare_warlock_death = function(owner_unit, source)
 	local created_wall_at = Application.time_since_launch()
 	local outfit_unit = mod._warlock_outfits[owner_unit]
 	local function reject_calibration(reason)
-		printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=0 owner_alive=%s outfit_alive=%s reason=%s callbacks=0",
+		printf("[doomrocket:RAGDOLL] phase=stop id=%s source=%s elapsed_ms=0 owner_alive=%s outfit_alive=%s reason=%s callbacks=0 pose_writes=0 sleep_skips=0",
 			id, source, tostring(owner_unit and Unit.alive(owner_unit) or false),
 			tostring(outfit_unit and Unit.alive(outfit_unit) or false), reason)
 		return nil

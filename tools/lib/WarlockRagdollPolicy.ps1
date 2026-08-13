@@ -369,7 +369,7 @@ function Test-WarlockRagdollPolicy {
             'nodes', 'custom_actors', 'carrier_reveals', 'parent_mismatch', 'root_delta',
             'named_root_drift', 'hips_delta', 'hips_drift', 'anchor_max_drift',
             'scale_mutations', 'nonhips_translation_mutations',
-            'bounds_ratio', 'max_bone_radius_ratio'
+            'bounds_ratio', 'max_bone_radius_ratio', 'pose_writes', 'sleep_skips'
         )
         $missingSampleFields = @($requiredSampleFields | Where-Object {
                 $field = $_
@@ -382,11 +382,25 @@ function Test-WarlockRagdollPolicy {
         $hasGameTimeMonitor =
             $hooksWithStrings -match 'Managers\.time\s+and\s+Managers\.time\s*:\s*time\s*\(\s*["'']game["'']\s*\)' -and
             $deathTokens -match 'created_game_at'
+        $stopFormats = @($ragdollFormats | Where-Object { $_ -match '\bphase=stop\b' })
+        $hasIncompleteStopCounters = @($stopFormats | Where-Object {
+                $_ -notmatch '\bcallbacks=' -or
+                $_ -notmatch '\bpose_writes=' -or
+                $_ -notmatch '\bsleep_skips='
+            }).Count -gt 0
+        $hasCounterLifecycle =
+            $deathTokens -match 'callback_count\s*=\s*0' -and
+            $deathTokens -match 'pose_write_callbacks\s*=\s*0' -and
+            $deathTokens -match 'sleep_skip_callbacks\s*=\s*0' -and
+            $deathTokens -match 'driver\.callback_count\s*=\s*driver\.callback_count\s*\+\s*1' -and
+            $deathTokens -match 'driver\.pose_write_callbacks\s*=\s*driver\.pose_write_callbacks\s*\+\s*1' -and
+            $deathTokens -match 'driver\.sleep_skip_callbacks\s*=\s*driver\.sleep_skip_callbacks\s*\+\s*1'
         if ($ragdollFormats.Count -eq 0 -or $hasUnkeyedFormat -or
                 $hasCorePhases -contains $false -or $missingSampleFields.Count -gt 0 -or
+                $hasIncompleteStopCounters -or -not $hasCounterLifecycle -or
                 -not $hasWorstGapAccumulator -or -not $hasGameTimeMonitor) {
             Add-WarlockPolicyViolation $violations 'WR-RAG-008' `
-                'ragdoll telemetry lacks correlation, core phases, required fields, or worst-gap accumulation'
+                'ragdoll telemetry lacks correlation, core phases, pose/sleep counters, required fields, or worst-gap accumulation'
         }
 
         $hasCarrierMeshFallback =

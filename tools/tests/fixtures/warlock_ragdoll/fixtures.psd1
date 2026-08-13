@@ -42,6 +42,7 @@
         @{
             Name = 'structured five-second stable trace'
             Log = 'structured_pass.log'
+            Arguments = @('--expected-version', '0.1.52-dev')
             ExpectedExit = 0
             ExpectedText = 'OK'
         }
@@ -104,6 +105,93 @@
             Log = 'v0149_legacy_fail.log'
             ExpectedExit = 1
             ExpectedText = 'telemetry missing phase, id'
+        }
+    )
+
+    # Runtime-schema mutations start from the passing v0.1.52 trace. Keeping
+    # geometry and timing stable isolates counter/banner failures from the
+    # historical deformation fixtures above.
+    AnalyzerMutations = @(
+        @{
+            Name = 'pre-monitor sleep suppression'
+            Source = 'structured_pass.log'
+            Search = 'elapsed_ms=250 pose_writes=31 sleep_skips=0'
+            Replace = 'elapsed_ms=250 pose_writes=31 sleep_skips=1'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'sleep_skips=1, expected 0 during the pre-monitor window'
+        }
+        @{
+            Name = 'pose writes stalled between checkpoints'
+            Source = 'structured_pass.log'
+            Search = 'elapsed_ms=250 pose_writes=31 sleep_skips=0'
+            Replace = 'elapsed_ms=250 pose_writes=13 sleep_skips=0'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'pose_writes=13 did not increase'
+        }
+        @{
+            Name = 'callback completed without pose write'
+            Source = 'structured_pass.log'
+            Search = 'callbacks=601 pose_writes=601 sleep_skips=0'
+            Replace = 'callbacks=601 pose_writes=600 sleep_skips=0'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'every pre-monitor callback must write the pose'
+        }
+        @{
+            Name = 'sample pose counter omitted'
+            Source = 'structured_pass.log'
+            Search = 'elapsed_ms=250 pose_writes=31 sleep_skips=0'
+            Replace = 'elapsed_ms=250 sleep_skips=0'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'sample missing pose_writes'
+        }
+        @{
+            Name = 'sample sleep counter omitted'
+            Source = 'structured_pass.log'
+            Search = 'elapsed_ms=250 pose_writes=31 sleep_skips=0'
+            Replace = 'elapsed_ms=250 pose_writes=31'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'sample missing sleep_skips'
+        }
+        @{
+            Name = 'stop pose counter omitted'
+            Source = 'structured_pass.log'
+            Search = 'callbacks=601 pose_writes=601 sleep_skips=0'
+            Replace = 'callbacks=601 sleep_skips=0'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'stop missing pose_writes'
+        }
+        @{
+            Name = 'stop sleep counter omitted'
+            Source = 'structured_pass.log'
+            Search = 'callbacks=601 pose_writes=601 sleep_skips=0'
+            Replace = 'callbacks=601 pose_writes=601'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'stop missing sleep_skips'
+        }
+        @{
+            Name = 'stale build version banner'
+            Source = 'structured_pass.log'
+            Search = '[doomrocket:LOAD] v0.1.52-dev'
+            Replace = '[doomrocket:LOAD] v0.1.51-dev'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'version banner mismatch: expected v0.1.52-dev, found v0.1.51-dev'
+        }
+        @{
+            Name = 'missing build version banner'
+            Source = 'structured_pass.log'
+            Search = '[doomrocket:LOAD] v0.1.52-dev'
+            Replace = '[unrelated:LOAD] v0.1.52-dev'
+            Arguments = @('--expected-version', '0.1.52-dev')
+            ExpectedExit = 1
+            ExpectedText = 'expected [doomrocket:LOAD] v0.1.52-dev banner, found none'
         }
     )
 }

@@ -96,6 +96,7 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 | v0.1.50 (host baseline passed 2026-08-12) | Hidden native ratling remains the sole physics owner; custom outfit captures its final living world/rest calibration in death `pre_start`, switches to bone mode `ignore`, and receives a topology-ordered world-delta/local-parent conversion once per carrier-world animation frame. Five-second per-corpse telemetry has unique unit/husk IDs | 11/11 host corpses completed seven checkpoints through 5 s with both units alive. Maximum hips drift 0.133 m, bone-radius ratio 1.469×, and largest checkpoint-adjacent callback gap 19.6 ms; zero carrier reveals, custom actors, parent changes, scale changes, non-hips translations, assertions, or solver anomalies | Passed the original five-second host transform/lifetime lane. That build stopped pose driving at monitor completion and did not accumulate the interval's worst gap, so it did not validate persistent corpse lifetime or hitch detection. Visual identity and remote-client `source=husk` also remain untested. Workshop item `3771657344`, ManifestID `2137195637454965122` |
 | v0.1.51-dev hardening (runtime failed 2026-08-12) | The first host death began normally with 90 mapped nodes, then the custom visual stopped following the native carrier. At 5 s, `hips_drift=2.505` m and `anchor_max_drift=3.567` m despite 602 callbacks. `root_delta=0`, bone-radius ratio stayed about 0.998, mutations/reveals/custom actors stayed zero, and the largest wall gap was only 11.1 ms: this was pose suppression, not deformation, solver instability, or a performance stall | The new sleep optimization ran before `monitor_complete`, cached/interpreted transition-time dynamic actors as sleeping, and suppressed the 90-bone transfer while the native ragdoll continued moving | Sleep detection, actor caching, and pose-write suppression are forbidden during the complete 0–5000 ms monitor. Log: `console-2026-08-12-22.42.49-d1eaa659-0dcc-4c1d-bebd-1789887d36d9.log`; Workshop ManifestID `813553378698087677` |
 | v0.1.52-dev fix candidate (uploaded; runtime pending) | Preserve the v0.1.51 preflight, lifecycle, visibility, and telemetry hardening, but force pose transfer on every owner-world callback until `monitor_complete`. Discover and consult native dynamic actors only after the monitor has closed | This restores the proven v0.1.50 behavior during the acceptance window while retaining post-monitor sleep/wake optimization. Clean build, exact material splice, full pipeline, ragdoll regressions, and 17 texture tests passed | Friends-only Workshop item `3771657344`, ManifestID `2963729984774018388`. Static and mutation tests are necessary but insufficient. Do not claim runtime success until a uniquely versioned v0.1.52 host log and visual test pass; remote-client `source=husk` and post-monitor wake remain required |
+| v0.1.53-dev combined tester candidate | Carries the v0.1.52 sleep-order fix forward and logs `pose_writes` plus `sleep_skips` at every checkpoint/stop. Acceptance now requires `callbacks=pose_writes` and zero pre-monitor sleep skips. Replaces the Dalo placeholder launcher and projectile geometry with Crunch's final set-03/set-04 meshes and texture inputs while preserving the established `root_point`/`handle`/`p_fx`/`a_barrel` and `pRocket` runtime contracts | This is the first uniquely identifiable runtime build for both changes. Offline gates prove provenance, node names, geometry, texture channels, and known ragdoll safety invariants; they do not prove in-game appearance or physics | Require the exact v0.1.53 banner, tester visuals, analyzer pass, and post-monitor wake result before promotion. The flexible tube and chimney particles are deliberately deferred |
 | v0.1.47 | User report "No ragdoll" (2026-08-03) was a STALE BUILD: the 22:21 session log shows `[doomrocket:LOAD] v0.1.41-dev` + the v0.1.41 spawn-audit line | v0.1.42-46 were deployed locally but NEVER uploaded; the user's Steam restart (pulling an unrelated gt update) re-synced item 3771657344 back to the 07-27 v0.1.41 manifest - the exact clobber class in `feedback_local_deploy_clobbered_must_upload` | v0.1.47-dev republishes the current tree (identical code to v0.1.46 + version/title bump), upload log-confirmed ManifestID 3747860009260434476. NOTE: launcher v0.5.7+ refuses direct `upload` (publication receipt required); the out-of-monorepo doomrocket flow uses the v0.5.6 baseline binary `vmb-launcher-baseline-056-20260726` |
 
 ## Uncatchable crash classes (pcall is useless)
@@ -109,14 +110,16 @@ NEVER `vmblauncher all` (it would upload the unspliced bundle).
 - `Unit.node()` on a missing node (why the old bridge pruned via
   `Unit.has_node`).
 
-## Current native-carrier visual handoff (v0.1.52 fix candidate pending)
+## Current native-carrier visual handoff (v0.1.53 runtime candidate pending)
 
 The hidden native ratling unit owns the ragdoll, and the custom Warlock unit
 owns no physics. The core carrier-to-visual transfer has a v0.1.50 host
 baseline. v0.1.51 then proved that lifecycle hardening can regress that transfer
 if sleep state is consulted during the transition: its visual accumulated
-2.505 m of hips drift while the callback continued normally. v0.1.52 is a fix
-candidate, not a runtime pass. Offline parsing of the compiled resources found:
+2.505 m of hips drift while the callback continued normally. v0.1.52 introduced
+the ordering fix but received no runtime capture. v0.1.53 carries it forward
+with counter-complete telemetry and is not yet a runtime pass. Offline parsing
+of the compiled resources found:
 
 - custom: 142 scene nodes, 138 state-machine bones, 1 skin, 0 actors and no
   physics scene;
@@ -149,7 +152,7 @@ native dynamic actors sleep and queue again when any actor wakes. It is removed
 only when either unit dies or on explicit state/mod teardown. Checkpoints use
 game time, while wall-clock callback gaps are accumulated as the worst gap
 between samples. Mesh reveal attempts are changed to `false`; whole-unit reveal
-attempts are followed by a complete carrier-mesh re-hide. The v0.1.52 candidate
+attempts are followed by a complete carrier-mesh re-hide. The v0.1.53 candidate
 still needs visual inspection, post-monitor wake/cleanup, and remote-client husk
 coverage. See `docs/HOW_TO_CREATE_A_VT2_RAGDOLL.md` for the practical procedure
 and `docs/research/RAGDOLL_VISUAL_HANDOFF.md` for the forensic derivation.
@@ -225,20 +228,28 @@ names == SM ragdolls block == .bones entries and joints == actors-1.
   death clips plus state-machine events using the ratling vocabulary. Treat
   the older passive-idle-only notes above as pipeline history, not a present
   blocker. Add new clips only when a new gameplay state actually needs one.
-- **Texture conversion: implemented offline, awaiting runtime approval.** Armor
+- **Texture conversion: implemented and body appearance user-approved.** Armor
   and backpack now use source BC RGBA, NR RGBA, and
   `MASE_Fix.rgb + MASE.a` through the exact Ratling 0488 three-map child.
   Skin/fur/whiskers use the exact source-native Stormvermin children. UV
   comparison proves no flip or resampling is required. The 17-test texture
   regression suite and deterministic donor-payload validation pass; the
-  verified build/splice is uploaded and its in-game visual check remains. See
+  verified build/splice was uploaded and its body appearance passed the user's
+  in-game check. Launcher/rocket set-03/set-04 adapters are part of v0.1.53 and
+  still require their own visual check. See
   `docs/research/WARLOCK_TEXTURE_PIPELINE.md`.
 - **Native-carrier visual handoff**: v0.1.50 passed the original five-second
   host baseline. v0.1.51 is a known pre-monitor sleep-suppression failure; the
-  fix candidate is identified as `v0.1.52-dev`. Reject logs from either older
+  current fix candidate is identified as `v0.1.53-dev`; v0.1.52 was uploaded
+  but never runtime-captured. Reject logs from any older
   build. Do not promote the candidate until visual identity, bounded monitor
   drift, a post-five-second sleep/wake interaction, ordinary cleanup, pause
   behavior, and a remote-client `source=husk` run pass.
   Never reveal the native ratling meshes as a fallback.
-- Launcher/rocket/tube props still placeholders (exports staged in
-  `_warlock_bombardier_art/`).
+- **Launcher/projectile:** v0.1.53 replaces the Dalo placeholder meshes with
+  Crunch's final launcher plus loaded rocket and standalone rocket, using
+  authored set 03/04 textures. The existing rigid attachment, muzzle, and
+  projectile node contracts remain unchanged. Runtime placement and appearance
+  remain the tester gate.
+- **Flexible tube and chimney particles:** deferred from the MVP so neither can
+  confound the weapon/ragdoll test. Author and validate them as separate changes.

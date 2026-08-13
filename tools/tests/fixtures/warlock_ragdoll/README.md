@@ -33,6 +33,9 @@ The implementation-contract rules add:
 - `WR-RAG-008`: every ragdoll record has `phase`, unique `id`, and `source`;
   callbacks use game time for checkpoints, accumulate the worst wall-clock gap
   between checkpoints, and the source defines begin/sample/stop records.
+  Samples and stops expose cumulative `pose_writes` and `sleep_skips`; stops
+  also expose `callbacks`, so the analyzer can prove every callback in the
+  acceptance window wrote the pose.
 - `WR-RAG-009`: calibration checks named source/target nodes before lookup,
   requires unique targets, exactly 90 mapped nodes and one hips pair, and
   validates source inverses plus every required target-parent matrix before
@@ -51,8 +54,12 @@ Run both source mutations and the production contract:
 Analyze a runtime capture separately:
 
 ```powershell
-py -3 ./tools/analyze_warlock_ragdoll_log.py C:\path\to\console.log
+py -3 ./tools/analyze_warlock_ragdoll_log.py C:\path\to\console.log --expected-version 0.1.53-dev
 ```
+
+`--expected-version` is mandatory for a release acceptance capture. It rejects
+missing, stale, and mixed `[doomrocket:LOAD]` banners. It remains opt-in only so
+the same analyzer can triage historical logs that predate versioned telemetry.
 
 A default passing trace has exactly one sample at each required checkpoint
 (`0`, `100`, `250`, `500`, `1000`, `2000`, and `5000` ms), then a stop record.
@@ -60,5 +67,7 @@ It also needs monotonic lifetime, matching `id=<source>-<digits>` /
 `source=unit|husk`, no visibility or hierarchy incidents, root delta at most
 0.25 m, hips separation and drift at most 0.25 m, maximum anchor drift at most
 0.5 m, deformation ratios within 0.5–2× baseline, and no callback gap above
-250 ms. Video is still required to prove the visible corpse is the Warlock
-model.
+250 ms. Each sample must have a positive, strictly increasing `pose_writes`
+counter and zero `sleep_skips`; the monitor-complete stop requires
+`callbacks=pose_writes` and `sleep_skips=0`. Video is still required to prove
+the visible corpse is the Warlock model.

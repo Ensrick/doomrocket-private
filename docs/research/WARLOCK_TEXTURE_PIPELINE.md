@@ -6,6 +6,7 @@ This document records the evidence and conversion contract for the Warlock
 Bombardier model. The production implementation uses:
 
 - Crunch texture sets 01 and 02 for the custom armor and backpack;
+- Crunch texture sets 03 and 04 for the rigid launcher and rocket;
 - the exact dark-pact Ratling `mtr_outfit` compiled child as the skinned
   three-map adapter for those two custom parts;
 - the exact Stormvermin skin, fur, and whisker children already used by the
@@ -17,9 +18,11 @@ The conversion and binary splice are implemented by
 `.build/splice`; they derive from installed Fatshark game data and are not
 committed.
 
-This work changes materials and texture inputs only. It does not alter the
-model skeleton, animation, ragdoll, rocket units, mod version, or publication
-workflow.
+The body-material work changes texture inputs and compiled child bindings only.
+The later v0.1.53 prop pass also replaces the Dalo launcher/projectile render
+geometry while preserving the established unit, attachment, muzzle, and
+projectile-node contracts. Neither pass changes the character skeleton,
+animation, or ragdoll ownership.
 
 ## Authoritative sources
 
@@ -27,7 +30,9 @@ workflow.
 - Crunch archive: `C:\Users\danjo\Downloads\zxnu2hjyuovl4rhx.zip`
 - Extracted masters:
   `C:\Users\danjo\source\repos\_warlock_bombardier_art\crunch_textures`
-- Shipping FBX: `units/warlock_bombardier/warlock_bombardier_3p.fbx`
+- Shipping character FBX: `units/warlock_bombardier/warlock_bombardier_3p.fbx`
+- Shipping launcher/projectile FBXs: `units/rocket/pRocketLauncher.fbx` and
+  `units/rocket/SM_Rocket.fbx`
 - Installed VT2 bundles under the game's `bundle` directory
 
 The archive SHA-256 is
@@ -49,9 +54,12 @@ sampling:
 | `SM_Skaven_WarlockBombardier_Rocket` | `DoomRocket_Rocket` | 3 | 04 | 512 |
 | `SM_Skaven_WarlockBombardier_Tube` | `DoomRocket_Pipe` | 4 | liquid warpstone | 512 |
 
-The shipping character FBX currently includes set 01 and 02 as the
-`DoomRocket_Armor` and `DoomRocket_Backpack` slots. Launcher, rocket, and tube
-are separate future prop work and are not silently folded into this pass.
+The shipping character FBX includes set 01 and 02 as the `DoomRocket_Armor`
+and `DoomRocket_Backpack` slots. The v0.1.53 rigid prop candidate uses Crunch's
+4,916-vertex launcher and 622-vertex rocket with their `DoomRocket_Weapon` and
+`DoomRocket_Rocket` slots. The carried unit includes one loaded rocket; the
+projectile unit uses the same rocket mesh independently. The flexible tube is
+not part of this candidate.
 
 ## UV orientation: do not flip anything
 
@@ -101,11 +109,18 @@ alpha 255 would destroy emission localization.
 
 ## Exact adapter conversion
 
-For sets 01 and 02, build the following without resampling:
+For all four sets, build the following without resampling:
 
 1. `wb_*_df.png` = source `BC` RGBA byte-for-byte.
 2. `wb_*_nm.png` = source `NR` RGBA byte-for-byte.
-3. `wb_*_ma.png` = `MASE_Fix.rgb + original MASE.a`.
+3. `wb_*_ma.png` = `MASE_Fix.rgb + original MASE.a` for the skinned set-01/02
+   adapter.
+
+The rigid standard shader used for sets 03/04 has separate samplers. Preserve
+BC and NR, and split the authored channels without resampling: NR alpha to
+roughness, `MASE_Fix` R to metallic, `MASE_Fix` G to AO, and E RGB to emission.
+These files live under `textures/rocket`; the body adapters remain under
+`textures/warlock_bombardier`.
 
 Texture descriptors must use:
 
@@ -181,6 +196,42 @@ Generate texture adapters:
 py -3 tools/build_warlock_texture_adapters.py
 ```
 
+Rebuild the rigid props from Crunch's hash-pinned Blender scene with
+`tools/prepare_warlock_weapon_fbx.py`. Its output must keep the exact runtime
+names `pRocketLauncher`, `pRocket`, `root_point`, `handle`, `p_fx`, and
+`a_barrel`; Blender numeric suffixes are a hard failure. The regression suite
+also compares every output shape, topology and UV bank with Crunch's isolated
+exports and rejects the old Dalo payload hashes.
+
+```powershell
+& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' `
+  --background 'C:\Users\danjo\Downloads\xud4soo5fg7g8qd4.blend' `
+  --python tools/prepare_warlock_weapon_fbx.py -- `
+  --launcher-output .build/weapon_candidate/pRocketLauncher.fbx `
+  --projectile-output .build/weapon_candidate/SM_Rocket.fbx
+```
+
+Do not use a shipping FBX as both `--legacy-*` input and output. By default the
+exporter obtains the immutable old node-frame FBXs from pinned Git blobs and
+verifies their reviewed SHA-256 values before importing them. Explicit
+`--legacy-launcher` and `--legacy-projectile` inputs are accepted only when
+their hashes match those baselines, and input/output aliasing is rejected.
+
+The carried meshes use the source character's rest-space hand frame:
+
+```text
+v_hand = inverse(source_armature_world * j_leftweaponattach_rest)
+         * source_object_world * v_source
+```
+
+They are then parented under the preserved legacy `root_point` rig without a
+second object transform. The standalone projectile starts from that same hand
+frame, rotates the authored rocket nose into legacy mesh-local `+Y`, centers it
+in the old `pRocket` mesh bounds, and retains the old `pRocket` node matrix and
+`throw` actor convention. The exporter reimports both outputs and rejects more
+than 0.1 mm of carried-mesh alignment error; the reviewed run measured 0.00038
+mm for the launcher and 0.00049 mm for the loaded rocket.
+
 Extract, hash-check, and validate all five donor payloads without changing a
 built bundle:
 
@@ -206,6 +257,11 @@ enemies. Verify:
 - material assignment reports 5/5 slots and all six custom armor/backpack
   textures resident;
 - no magenta missing-resource material appears.
+- the carried launcher is Crunch's final shape with a loaded rocket, uses the
+  set-03/set-04 appearance, stays in the left hand, and emits/fires from the
+  existing muzzle location;
+- the fired projectile is Crunch's rocket, travels on the existing forward
+  axis, and retains its collision/explosion behavior.
 
 Visual approval remains a runtime test. The source graph, UV orientation,
 texture conversion, donor lineage, binary bindings, and package residency are

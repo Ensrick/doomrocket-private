@@ -40,6 +40,11 @@ $textureRegression = Join-Path $PSScriptRoot 'tests\test_warlock_texture_pipelin
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("texture/material regression suite failed (exit $LASTEXITCODE)")
 }
+$weaponRegression = Join-Path $PSScriptRoot 'tests\test_warlock_weapon_pipeline.py'
+& py -3 $weaponRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("weapon source/runtime regression suite failed (exit $LASTEXITCODE)")
+}
 
 # Every animation referenced by the state machine must exist as clip + recipe
 # and every .animation recipe must target the unit's own skeleton.

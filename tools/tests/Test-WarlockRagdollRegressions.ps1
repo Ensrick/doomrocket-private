@@ -191,6 +191,41 @@ $contractMutations = @(
         ExpectedRules = @('WR-RAG-008')
     }
     @{
+        Name = 'sample pose-write telemetry removed'
+        Text = $candidateText.Replace(
+            'max_bone_radius_ratio=%.3f pose_writes=%d sleep_skips=%d',
+            'max_bone_radius_ratio=%.3f sleep_skips=%d')
+        ExpectedRules = @('WR-RAG-008')
+    }
+    @{
+        Name = 'sample sleep-skip telemetry removed'
+        Text = $candidateText.Replace(
+            'max_bone_radius_ratio=%.3f pose_writes=%d sleep_skips=%d',
+            'max_bone_radius_ratio=%.3f pose_writes=%d')
+        ExpectedRules = @('WR-RAG-008')
+    }
+    @{
+        Name = 'stop counter telemetry removed'
+        Text = $candidateText.Replace(
+            'callbacks=%d pose_writes=%d sleep_skips=%d',
+            'callbacks=%d')
+        ExpectedRules = @('WR-RAG-008')
+    }
+    @{
+        Name = 'pose-write counter increment removed'
+        Text = $candidateText.Replace(
+            'driver.pose_write_callbacks = driver.pose_write_callbacks + 1',
+            'driver.pose_write_callbacks = 0')
+        ExpectedRules = @('WR-RAG-008')
+    }
+    @{
+        Name = 'sleep-skip counter increment removed'
+        Text = $candidateText.Replace(
+            'driver.sleep_skip_callbacks = driver.sleep_skip_callbacks + 1',
+            'driver.sleep_skip_callbacks = 0')
+        ExpectedRules = @('WR-RAG-008')
+    }
+    @{
         Name = 'worst callback gap accumulator removed'
         Text = $candidateText.Replace(
             'driver.max_wall_gap_ms = math.max(driver.max_wall_gap_ms or 0, wall_gap_ms)',
@@ -327,13 +362,48 @@ if (-not $python) {
 
         foreach ($case in $manifest.AnalyzerCases) {
             $logPath = Join-Path $fixtureRoot $case.Log
-            $output = (& $python.Source @pythonPrefix $analyzerPath $logPath 2>&1 | Out-String).Trim()
+            $analyzerArguments = if ($case.ContainsKey('Arguments')) {
+                @($case.Arguments)
+            } else { @() }
+            $output = (& $python.Source @pythonPrefix $analyzerPath $logPath @analyzerArguments 2>&1 | Out-String).Trim()
             $exitCode = $LASTEXITCODE
             if ($exitCode -ne [int]$case.ExpectedExit) {
                 Add-TestFailure "analyzer '$($case.Name)' exited $exitCode, expected $($case.ExpectedExit): $output"
             }
             if ($output -notmatch [regex]::Escape([string]$case.ExpectedText)) {
                 Add-TestFailure "analyzer '$($case.Name)' output omitted '$($case.ExpectedText)': $output"
+            }
+        }
+
+        foreach ($mutation in $manifest.AnalyzerMutations) {
+            $sourcePath = Join-Path $fixtureRoot $mutation.Source
+            $sourceText = Get-Content -LiteralPath $sourcePath -Raw
+            $mutatedText = $sourceText.Replace(
+                [string]$mutation.Search, [string]$mutation.Replace)
+            if ($mutatedText -eq $sourceText) {
+                Add-TestFailure "analyzer mutation '$($mutation.Name)' did not change its source fixture"
+                continue
+            }
+
+            $tempLog = Join-Path ([IO.Path]::GetTempPath()) `
+                ("doomrocket-ragdoll-{0}.log" -f [guid]::NewGuid().ToString('N'))
+            try {
+                [IO.File]::WriteAllText($tempLog, $mutatedText)
+                $analyzerArguments = if ($mutation.ContainsKey('Arguments')) {
+                    @($mutation.Arguments)
+                } else { @() }
+                $output = (& $python.Source @pythonPrefix $analyzerPath $tempLog @analyzerArguments 2>&1 | Out-String).Trim()
+                $exitCode = $LASTEXITCODE
+                if ($exitCode -ne [int]$mutation.ExpectedExit) {
+                    Add-TestFailure "analyzer mutation '$($mutation.Name)' exited $exitCode, expected $($mutation.ExpectedExit): $output"
+                }
+                if ($output -notmatch [regex]::Escape([string]$mutation.ExpectedText)) {
+                    Add-TestFailure "analyzer mutation '$($mutation.Name)' output omitted '$($mutation.ExpectedText)': $output"
+                }
+            } finally {
+                if (Test-Path -LiteralPath $tempLog -PathType Leaf) {
+                    Remove-Item -LiteralPath $tempLog -Force
+                }
             }
         }
     } finally {

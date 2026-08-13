@@ -7,11 +7,16 @@ correlatable, visible, and spatially coherent for the observation window.
 
 Telemetry schema (one whitespace-delimited record per line)::
 
+    [doomrocket:LOAD] v0.1.53-dev
     [doomrocket:RAGDOLL] phase=begin id=unit-0017 source=unit ...
-    [doomrocket:RAGDOLL] phase=sample id=unit-0017 source=unit elapsed_ms=16 hips_drift=0.01 ...
+    [doomrocket:RAGDOLL] phase=sample id=unit-0017 source=unit elapsed_ms=16 pose_writes=1 sleep_skips=0 ...
+    [doomrocket:RAGDOLL] phase=stop id=unit-0017 source=unit callbacks=300 pose_writes=300 sleep_skips=0 ...
 
 Every marked line needs ``id`` and ``source``.  ``id`` is globally unique in a
 capture and therefore cannot silently switch between the unit and husk lanes.
+Use ``--expected-version`` for acceptance runs so a stale Workshop payload
+cannot satisfy the current telemetry contract.  Omitting it intentionally
+keeps historical-log triage possible.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from typing import Iterable
 
 
 MARKER = "[doomrocket:RAGDOLL]"
+LOAD_RE = re.compile(r"\[doomrocket:LOAD\]\s+v([^\s]+)")
 FIELD_RE = re.compile(
     r"\b([A-Za-z_][A-Za-z0-9_]*)=(\"(?:\\.|[^\"])*\"|'(?:\\.|[^'])*'|[^\s]+)"
 )
@@ -42,7 +48,6 @@ ZERO_COUNTERS = (
     "parent_mismatch",
     "scale_mutations",
     "nonhips_translation_mutations",
-    "sleep_skips",
 )
 FALSE_FLAGS = ("carrier_visible", "solver_explosion", "physics_anomaly", "escape")
 REQUIRED_SAMPLE_FIELDS = (
@@ -61,6 +66,8 @@ REQUIRED_SAMPLE_FIELDS = (
     "nonhips_translation_mutations",
     "bounds_ratio",
     "max_bone_radius_ratio",
+    "pose_writes",
+    "sleep_skips",
 )
 
 
@@ -80,6 +87,8 @@ class CorpseTrace:
     stop: Record | None = None
     last_elapsed_seconds: float = -math.inf
     node_count: int | None = None
+    last_sample_pose_writes: int = 0
+    last_sample_sleep_skips: int = 0
 
 
 def parse_fields(payload: str) -> dict[str, str]:
@@ -109,6 +118,13 @@ def finite_float(value: str) -> float | None:
     return parsed if math.isfinite(parsed) else None
 
 
+def integer_value(value: str, *, minimum: int = 0) -> int | None:
+    parsed = finite_float(value)
+    if parsed is None or not parsed.is_integer() or parsed < minimum:
+        return None
+    return int(parsed)
+
+
 def elapsed_seconds(record: Record) -> float | None:
     if "elapsed_ms" in record.fields:
         value = finite_float(record.fields["elapsed_ms"])
@@ -130,6 +146,7 @@ def analyze(
     max_hips_delta: float,
     max_anchor_drift: float,
     expected_nodes: int,
+    expected_version: str | None = None,
 ) -> tuple[list[str], dict[str, object]]:
     errors: list[str] = []
     records: list[Record] = []
@@ -139,8 +156,12 @@ def analyze(
     legacy_max_hips_delta: tuple[float, int] | None = None
     legacy_carrier_reveals: list[int] = []
     legacy_disappearances: list[int] = []
+    load_versions: list[str] = []
 
     for line_number, text in enumerate(lines, 1):
+        load_match = LOAD_RE.search(text)
+        if load_match:
+            load_versions.append(load_match.group(1).rstrip(","))
         if MARKER not in text:
             continue
         payload = text.split(MARKER, 1)[1]
@@ -307,11 +328,41 @@ def analyze(
                 )
 
             pose_writes_text = record.fields.get("pose_writes")
-            pose_writes = finite_float(pose_writes_text) if pose_writes_text is not None else None
-            if pose_writes_text is not None and (
-                pose_writes is None or pose_writes <= 0 or not pose_writes.is_integer()
-            ):
+            pose_writes = (
+                integer_value(pose_writes_text, minimum=1)
+                if pose_writes_text is not None
+                else None
+            )
+            if pose_writes_text is not None and pose_writes is None:
                 errors.append(f"line {line_number}: pose_writes must be a positive integer")
+            elif pose_writes is not None:
+                if pose_writes <= trace.last_sample_pose_writes:
+                    errors.append(
+                        f"line {line_number}: pose_writes={pose_writes} did not increase "
+                        f"from {trace.last_sample_pose_writes} at the prior sample"
+                    )
+                trace.last_sample_pose_writes = pose_writes
+
+            sleep_skips_text = record.fields.get("sleep_skips")
+            sleep_skips = (
+                integer_value(sleep_skips_text)
+                if sleep_skips_text is not None
+                else None
+            )
+            if sleep_skips_text is not None and sleep_skips is None:
+                errors.append(f"line {line_number}: sleep_skips must be a non-negative integer")
+            elif sleep_skips is not None:
+                if sleep_skips < trace.last_sample_sleep_skips:
+                    errors.append(
+                        f"line {line_number}: sleep_skips={sleep_skips} regressed from "
+                        f"{trace.last_sample_sleep_skips} at the prior sample"
+                    )
+                if sleep_skips != 0:
+                    errors.append(
+                        f"line {line_number}: sleep_skips={sleep_skips}, expected 0 "
+                        "during the pre-monitor window"
+                    )
+                trace.last_sample_sleep_skips = sleep_skips
 
             nodes_text = record.fields.get("nodes")
             nodes_value = finite_float(nodes_text) if nodes_text is not None else None
@@ -389,6 +440,65 @@ def analyze(
                     f"{max_hips_drift:g} m"
                 )
 
+        if phase == "stop":
+            for counter_name in ("callbacks", "pose_writes", "sleep_skips"):
+                if counter_name not in record.fields:
+                    errors.append(f"line {line_number}: stop missing {counter_name}")
+
+            callbacks_text = record.fields.get("callbacks")
+            callbacks = (
+                integer_value(callbacks_text)
+                if callbacks_text is not None
+                else None
+            )
+            pose_writes_text = record.fields.get("pose_writes")
+            pose_writes = (
+                integer_value(pose_writes_text)
+                if pose_writes_text is not None
+                else None
+            )
+            sleep_skips_text = record.fields.get("sleep_skips")
+            sleep_skips = (
+                integer_value(sleep_skips_text)
+                if sleep_skips_text is not None
+                else None
+            )
+            if callbacks_text is not None and callbacks is None:
+                errors.append(f"line {line_number}: callbacks must be a non-negative integer")
+            if pose_writes_text is not None and pose_writes is None:
+                errors.append(f"line {line_number}: pose_writes must be a non-negative integer")
+            if sleep_skips_text is not None and sleep_skips is None:
+                errors.append(f"line {line_number}: sleep_skips must be a non-negative integer")
+
+            reason = record.fields.get("reason")
+            # A stop record is emitted only before the monitor closes or at
+            # monitor completion. Therefore every callback represented by it
+            # belongs to the mandatory-write window, even if a malformed log
+            # changes/omits reason=monitor_complete.
+            if sleep_skips is not None and sleep_skips != 0:
+                errors.append(
+                    f"line {line_number}: sleep_skips={sleep_skips}, expected 0 "
+                    "before monitor completion"
+                )
+            if callbacks is not None and pose_writes is not None and callbacks != pose_writes:
+                errors.append(
+                    f"line {line_number}: callbacks={callbacks} but pose_writes={pose_writes}; "
+                    "every pre-monitor callback must write the pose"
+                )
+            if reason == "monitor_complete":
+                if callbacks is not None and callbacks <= 0:
+                    errors.append(f"line {line_number}: monitor completed without callbacks")
+                if pose_writes is not None and pose_writes <= 0:
+                    errors.append(f"line {line_number}: monitor completed without pose writes")
+                if (
+                    pose_writes is not None
+                    and pose_writes < trace.last_sample_pose_writes
+                ):
+                    errors.append(
+                        f"line {line_number}: stop pose_writes={pose_writes} is below "
+                        f"the final sample value {trace.last_sample_pose_writes}"
+                    )
+
     schema_errors: list[str] = []
     for missing, line_numbers in missing_schema.items():
         first_lines = ", ".join(str(number) for number in line_numbers[:5])
@@ -413,6 +523,20 @@ def analyze(
             f"(first: {legacy_disappearances[0]})"
         )
     errors = schema_errors + errors
+
+    if expected_version is not None:
+        normalized_expected_version = expected_version.removeprefix("v")
+        unique_versions = sorted(set(load_versions))
+        if not unique_versions:
+            errors.append(
+                f"expected [doomrocket:LOAD] v{normalized_expected_version} banner, found none"
+            )
+        elif unique_versions != [normalized_expected_version]:
+            rendered_versions = ", ".join(f"v{version}" for version in unique_versions)
+            errors.append(
+                f"version banner mismatch: expected v{normalized_expected_version}, "
+                f"found {rendered_versions}"
+            )
 
     if not records:
         errors.append(f"no {MARKER} telemetry records found")
@@ -487,6 +611,8 @@ def analyze(
         "max_hips_delta_m": max_hips_delta,
         "max_anchor_drift_m": max_anchor_drift,
         "expected_nodes": expected_nodes,
+        "expected_version": expected_version.removeprefix("v") if expected_version else None,
+        "load_versions": sorted(set(load_versions)),
         "passed": not errors,
     }
     return errors, summary
@@ -504,6 +630,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-hips-delta", type=float, default=0.25, metavar="METERS")
     parser.add_argument("--max-anchor-drift", type=float, default=0.5, metavar="METERS")
     parser.add_argument("--expected-nodes", type=int, default=EXPECTED_NODE_COUNT, metavar="COUNT")
+    parser.add_argument(
+        "--expected-version",
+        metavar="VERSION",
+        help="require the exact [doomrocket:LOAD] version banner (leading v optional)",
+    )
     parser.add_argument("--json", action="store_true", help="emit a machine-readable summary")
     return parser
 
@@ -520,6 +651,7 @@ def main(argv: list[str] | None = None) -> int:
         or args.max_hips_delta < 0
         or args.max_anchor_drift < 0
         or args.expected_nodes < 1
+        or (args.expected_version is not None and not args.expected_version.removeprefix("v"))
     ):
         raise SystemExit("thresholds must be non-negative and --min-samples must be at least 1")
     try:
@@ -539,6 +671,7 @@ def main(argv: list[str] | None = None) -> int:
         max_hips_delta=args.max_hips_delta,
         max_anchor_drift=args.max_anchor_drift,
         expected_nodes=args.expected_nodes,
+        expected_version=args.expected_version,
     )
     if args.json:
         summary["errors"] = errors
