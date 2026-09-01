@@ -14,10 +14,22 @@ function Assert-True {
 # --- Source layout invariants ----------------------------------------------
 
 $itemConfig = Get-Content (Join-Path $repoRoot "itemV2.cfg") -Raw
-Assert-True ($itemConfig -match '(?m)^published_id\s*=\s*3771657344L;\s*$') `
-    "itemV2.cfg must retain the established Doomrocket Workshop item ID"
 Assert-True ($itemConfig -match '(?m)^visibility\s*=\s*"public";\s*$') `
-    "itemV2.cfg must retain public visibility for the current Crunch/friends playtest"
+    "both public-alpha and TEST Workshop builds must remain publicly visible"
+
+$isDevelopmentWorkshop = $itemConfig -match '(?m)^title\s*=\s*"[^"]*\bTEST\b[^"]*";\s*$'
+$publishedIdMatch = [regex]::Match($itemConfig, '(?m)^published_id\s*=\s*(\d+)L;\s*$')
+if ($isDevelopmentWorkshop) {
+    Assert-True ($publishedIdMatch.Success -and $publishedIdMatch.Groups[1].Value -eq '3794172730') `
+        "TEST build must target development Workshop item 3794172730, never public-alpha item 3771657344"
+    Assert-True ($itemConfig -match 'DEVELOPMENT TEST BUILD') `
+        "TEST Workshop description must begin with an explicit development-build warning"
+    Assert-True ($itemConfig -match 'Do not enable it together with the public') `
+        "TEST Workshop description must warn users not to enable both builds"
+} else {
+    Assert-True ($publishedIdMatch.Success -and $publishedIdMatch.Groups[1].Value -eq '3771657344') `
+        "public-alpha itemV2.cfg must retain Workshop item 3771657344"
+}
 
 $unitDir = Join-Path $repoRoot "units\warlock_bombardier"
 foreach ($required in @(
@@ -50,6 +62,21 @@ $weaponRegression = Join-Path $PSScriptRoot 'tests\test_warlock_weapon_pipeline.
 & py -3 $weaponRegression
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("weapon source/runtime regression suite failed (exit $LASTEXITCODE)")
+}
+$combatRegression = Join-Path $PSScriptRoot 'tests\test_warlock_combat_contract.py'
+& py -3 $combatRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("combat survivability/shove regression suite failed (exit $LASTEXITCODE)")
+}
+$ballisticRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_ballistic_aim.py'
+& py -3 $ballisticRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("ballistic visual-aim/launch regression suite failed (exit $LASTEXITCODE)")
+}
+$soundRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_sound_contract.py'
+& py -3 $soundRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("Doomrocket sound-bank/runtime regression suite failed (exit $LASTEXITCODE)")
 }
 
 # Every animation referenced by the state machine must exist as clip + recipe
@@ -188,9 +215,9 @@ Assert-True ($doomrocketLua -match 'skaven_ratlinggunner/skin_1001/third_person/
 Assert-True ($doomrocketLua -match 'resource_packages/breeds/skaven_storm_vermin') `
     "doomrocket.lua must force-load the native Stormvermin skin/fur/whisker package"
 foreach ($lifecyclePattern in @(
-        'on_game_state_changed[\s\S]*?status\s*==\s*"exit"[\s\S]*?state\s*==\s*"StateIngame"[\s\S]*?reset_warlock_runtime_state\(\)',
-        'function\s+mod\.on_disabled\(\)[\s\S]*?reset_warlock_runtime_state\(\)',
-        'function\s+mod\.on_unload\(\)[\s\S]*?reset_warlock_runtime_state\(\)')) {
+        'on_game_state_changed[\s\S]*?status\s*==\s*"exit"[\s\S]*?state\s*==\s*"StateIngame"[\s\S]*?reset_warlock_runtime_state\(\s*"state_ingame_exit"\s*,\s*false\s*\)',
+        'function\s+mod\.on_disabled\(\)[\s\S]*?reset_warlock_runtime_state\(\s*"mod_disabled"\s*,\s*true\s*\)',
+        'function\s+mod\.on_unload\(\)[\s\S]*?reset_warlock_runtime_state\(\s*"mod_unload"\s*,\s*true\s*\)')) {
     Assert-True ($doomrocketLua -match $lifecyclePattern) `
         "doomrocket.lua must reset persistent Warlock death drivers on every lifecycle exit"
 }

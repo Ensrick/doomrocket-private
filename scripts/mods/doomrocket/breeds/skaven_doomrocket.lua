@@ -34,6 +34,11 @@ end
 
 
 Breeds.skaven_doomrocket = table.clone(Breeds.skaven_ratling_gunner)
+-- Keep the proven Ratling carrier/rig, but use Stormvermin durability.  Clone
+-- max_health because difficulty/mutator code may modify breed health tables in
+-- place; sharing the donor table would let either breed contaminate the other.
+Breeds.skaven_doomrocket.max_health = table.clone(Breeds.skaven_storm_vermin.max_health)
+Breeds.skaven_doomrocket.armor_category = Breeds.skaven_storm_vermin.armor_category
 Breeds.skaven_doomrocket.aim_template = "doomrocket"
 Breeds.skaven_doomrocket.behavior = "skaven_doomrocket"
 Breeds.skaven_doomrocket.threat_value = 7
@@ -63,6 +68,9 @@ Breeds.skaven_doomrocket.default_inventory_template = "doomrocket_inventory"
 -- identity comes from the breed's behavior tree, inventory and aim template, not from the
 -- extension list.
 Breeds.skaven_doomrocket.death_reaction = "doomrocket"
+-- The cloned Ratling death event would overlap the custom Warlock takes below. Death
+-- playback is selected per corpse in the custom unit/husk reaction instead.
+Breeds.skaven_doomrocket.death_sound_event = nil
 
 -- The bombardier unit carries its own state machine, which lacks the hit_reaction_*
 -- events; fall back to the ratling gunner machine so the reaction can play. Vanilla
@@ -84,6 +92,16 @@ BreedActions.skaven_doomrocket = table.clone(BreedActions.skaven_ratling_gunner)
 BreedActions.skaven_doomrocket.fire_rocket = table.clone(BreedActions.skaven_doomrocket.shoot_ratling_gun)
 BreedActions.skaven_doomrocket.shoot_ratling_gun = nil
 BreedActions.skaven_doomrocket.fire_rocket.light_weight_projectile_template_name = "doomrocket"
+
+-- Reuse the Stormvermin's zero-damage shove and utility/cooldown tuning, but
+-- not its animation callback node.  The living Doomrocket uses the Ratling
+-- state machine and the visible outfit only shares attack_shoot_align; the
+-- custom action applies the shove once from a timer instead of waiting for the
+-- unavailable anim_cb_stormvermin_push event.
+BreedActions.skaven_doomrocket.push_attack = table.clone(BreedActions.skaven_storm_vermin.push_attack)
+BreedActions.skaven_doomrocket.push_attack.attack_anim = "attack_shoot_align"
+BreedActions.skaven_doomrocket.push_attack.impact_time = 0.65
+BreedActions.skaven_doomrocket.push_attack.duration = 1.2
 
 BreedActions.skaven_doomrocket.switch_weapons = {
     switch_animation = "idle",

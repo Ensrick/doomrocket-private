@@ -1,0 +1,74 @@
+name: Development bug report
+description: Report a reproducible problem in the Doomrocket development build.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use the public repository for bugs affecting the public alpha. This form is for the TEST Workshop build.
+  - type: input
+    id: mod_version
+    attributes:
+      label: Mod version
+      description: Copy the `[doomrocket:LOAD]` version from the console log.
+      placeholder: v0.1.60-dev
+    validations:
+      required: true
+  - type: input
+    id: game_build
+    attributes:
+      label: Vermintide 2 build
+      description: Include the game build or patch shown in the log.
+    validations:
+      required: true
+  - type: dropdown
+    id: network_role
+    attributes:
+      label: Network role
+      options:
+        - Listen host
+        - Remote client
+        - Solo/offline
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Give the exact spawn, combat, death, or level sequence.
+      placeholder: |
+        1. Launch...
+        2. Spawn...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs and evidence
+      description: Attach the complete, unedited console log and any continuous video or screenshots. Do not paste only the final crash popup.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I restarted the game after the Workshop update and verified the exact `[doomrocket:LOAD]` version.
+          required: true
+        - label: Every player used the same build, and the public and TEST versions were not enabled together.
+          required: true

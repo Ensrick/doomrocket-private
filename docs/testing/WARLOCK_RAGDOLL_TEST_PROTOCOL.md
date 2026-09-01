@@ -41,7 +41,7 @@ long-lived cleanup coverage remain required.
 5. Confirm the console contains the exact tested-build banner and record
    its Workshop manifest ID:
 
-       [doomrocket:LOAD] v0.1.55-dev
+       [doomrocket:LOAD] v0.1.58-dev
 
    `[doomrocket:LOAD] v0.1.50-dev` identifies the original baseline.
    `[doomrocket:LOAD] v0.1.51-dev` identifies the known pre-monitor
@@ -50,7 +50,9 @@ long-lived cleanup coverage remain required.
    `[doomrocket:LOAD] v0.1.53-dev` identifies the four-corpse host pass with
    the floating-warhead defect. `[doomrocket:LOAD] v0.1.54-dev` identifies the
    three-corpse host pass with corrected warhead-drop physics but displaced
-   launcher art. None is a valid v0.1.55 test run.
+   launcher art. `[doomrocket:LOAD] v0.1.55-dev` identifies the accepted public
+   host MVP before the survivability/shove change. None is a valid v0.1.58 test
+   run.
 6. For a public multiplayer test, every participant must subscribe to and
    enable the same Workshop item/version. The host controls spawning. Preserve
    the host log and at least one remote-client log so `source=unit` and
@@ -150,7 +152,7 @@ recorded video remains the authoritative carrier-identity check.
 
 Analyze a captured console log with:
 
-    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.55-dev
+    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.58-dev
 
 The analyzer must print `[ragdoll-log] OK`. `--expected-version` is mandatory
 for acceptance; omitting it is supported only for historical-log triage.
@@ -160,7 +162,7 @@ evidence must remain auditable.
 
 For the separate dense-overlap stress capture only, use:
 
-    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\stress-console.log" --expected-version 0.1.55-dev --dense-stress
+    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\stress-console.log" --expected-version 0.1.58-dev --dense-stress
 
 This is additive stress evidence. It never replaces the ordinary strict host
 capture, remote-client capture, or video.

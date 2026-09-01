@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.55-dev"
+local MOD_VERSION = "0.1.60-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -20,6 +20,7 @@ Managers.package:load("units/beings/player/dark_pact_skins/skaven_ratlinggunner/
 mod:dofile("scripts/mods/doomrocket/breeds/skaven_doomrocket")
 mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_interaction")
 mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_pickup")
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_audio")
 mod:dofile("scripts/mods/doomrocket/extensions/projectile_rocket")
 mod:dofile("scripts/mods/doomrocket/extensions/anim_emitter")
 -- Vanilla snapshots its threat_values table at boot, before this mod registers its breed,
@@ -35,6 +36,8 @@ for breed_name, data in pairs(Breeds) do
 end
 
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/generated/bt_selector_skaven_doomrocket")
+mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_shove_action")
+mod:dofile("scripts/mods/doomrocket/utils/doomrocket_ballistics")
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_launch_action")
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_reload_action")
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/trees/skaven/skaven_doomrocket_behavior")
@@ -57,7 +60,11 @@ ExplosionTemplates["doomrocket_explosion"] = {
 		max_damage_radius = 1.5,
 		always_hurt_players = true,
 		alert_enemies_radius = 15,
-		sound_event_name = "Play_enemy_combat_warpfire_backpack_explode",
+		-- Resolve the custom event only when Wwise actually registered it. The v0.1.59
+		-- bank resource loaded without registering its events; leaving that unavailable
+		-- event here helped turn an unrelated world-ownership mistake into a native crash.
+		-- The vanilla Warpfire explosion is a safe audible fallback on every peer.
+		sound_event_name = mod._doomrocket_select_impact_event(),
 		damage_profile = "warpfire_thrower_explosion",
 		effect_name = "fx/chr_warp_fire_explosion_01",
 		damage_type = "grenade",
@@ -191,9 +198,13 @@ function mod.update(dt)
 	for unit,anim_emitter in pairs(mod.anim_emitters) do
 		anim_emitter:update(unit, dt)
 	end
+
+	mod._update_warlock_backpack_sounds()
 end
 
-local function reset_warlock_runtime_state()
+local function reset_warlock_runtime_state(reason, unload_bank)
+	mod._shutdown_doomrocket_audio(reason or "runtime_reset", unload_bank == true)
+
 	if mod._reset_warlock_death_drivers then
 		mod._reset_warlock_death_drivers()
 	end
@@ -201,16 +212,16 @@ end
 
 function mod.on_game_state_changed(status, state)
 	if status == "exit" and state == "StateIngame" then
-		reset_warlock_runtime_state()
+		reset_warlock_runtime_state("state_ingame_exit", false)
 	end
 end
 
 function mod.on_disabled()
-	reset_warlock_runtime_state()
+	reset_warlock_runtime_state("mod_disabled", true)
 end
 
 function mod.on_unload()
-	reset_warlock_runtime_state()
+	reset_warlock_runtime_state("mod_unload", true)
 end
 
 mod:dofile("scripts/settings/breeds")

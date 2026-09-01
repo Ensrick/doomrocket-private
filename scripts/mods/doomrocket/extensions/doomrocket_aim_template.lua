@@ -13,10 +13,27 @@ AimTemplates.doomrocket = {
 			local unit_position = POSITION_LOOKUP[unit]
 			local aim_target = nil
 			local attack_pattern_data = data.blackboard.attack_pattern_data
+			local ballistic_direction_box = attack_pattern_data and attack_pattern_data.ballistic_aim_direction_box
 
-			if attack_pattern_data and attack_pattern_data.shoot_direction_box then
-				local shoot_direction = attack_pattern_data.shoot_direction_box:unbox()
-				aim_target = unit_position + Vector3.normalize(shoot_direction) * 5
+			if not ballistic_direction_box and data.blackboard.doomrocket_ballistic_aim_hold_direction_box then
+				if t <= (data.blackboard.doomrocket_ballistic_aim_hold_until or -math.huge) then
+					ballistic_direction_box = data.blackboard.doomrocket_ballistic_aim_hold_direction_box
+				else
+					data.blackboard.doomrocket_ballistic_aim_hold_direction_box = nil
+					data.blackboard.doomrocket_ballistic_aim_hold_until = nil
+				end
+			end
+
+			if attack_pattern_data and (ballistic_direction_box or attack_pattern_data.shoot_direction_box) then
+				local direction_box = ballistic_direction_box or attack_pattern_data.shoot_direction_box
+				local shoot_direction = direction_box:unbox()
+
+				if Vector3.is_valid(shoot_direction) and Vector3.length_squared(shoot_direction) > 0.000001 then
+					aim_target = unit_position + Vector3.normalize(shoot_direction) * 5
+				else
+					local look_direction = Quaternion.forward(Unit.local_rotation(unit, 0))
+					aim_target = unit_position + look_direction * 5
+				end
 			else
 				local look_direction = Quaternion.forward(Unit.local_rotation(unit, 0))
 				aim_target = unit_position + look_direction * 5

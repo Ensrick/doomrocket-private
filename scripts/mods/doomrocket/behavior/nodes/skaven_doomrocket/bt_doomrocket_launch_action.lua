@@ -2,28 +2,31 @@ local mod = get_mod("doomrocket")
 require("scripts/entity_system/systems/behaviour/nodes/bt_node")
 math.randomseed(os.time())
 
+local BALLISTICS = mod.doomrocket_ballistics
+
+assert(BALLISTICS and BALLISTICS.solve_launch_velocity, "Doomrocket ballistic solver must load before the launch action")
+
 BTDoomrocketLaunchAction = class(BTDoomrocketLaunchAction, BTNode)
 local PI = math.pi
 local TWO_PI = PI * 2
+local RADIANS_TO_DEGREES = 180 / PI
 local BOT_THREAT_UPDATE_TIME = 1
+local BALLISTIC_AIM_HOLD_TIME = 0.2
 CLIENT_CONTROLLED_RATLING_GUN = true
 
--- Rocket flight tuning. The rocket is a physics projectile
--- (explosive_pickup_projectile_unit), so once launched it is purely ballistic under
--- the engine's -9.82 gravity. We solve for the launch velocity that lands on the
--- target after FLIGHT_TIME seconds, which is what makes the shot a slow, high lob
--- instead of the near-flat dart it used to be.
---
--- Raise FLIGHT_TIME for a slower, higher, easier-to-dodge arc; lower it to flatten
--- and speed the shot up. Apex height is roughly (0.5 * G * T)^2 / (2 * G), so
--- T = 2.6 peaks around 8 m above the firing line.
-local ROCKET = {
-	GRAVITY = 9.82,
-	-- Flight time scales with range so short shots are not absurdly lofted.
-	SECONDS_PER_METRE = 0.13,
-	MIN_FLIGHT_TIME = 1.7,
-	MAX_FLIGHT_TIME = 3.4,
-}
+local function direction_error_degrees(first, second)
+	if not first or not second or not Vector3.is_valid(first) or not Vector3.is_valid(second) then
+		return -1
+	end
+
+	if Vector3.length_squared(first) <= 0.000001 or Vector3.length_squared(second) <= 0.000001 then
+		return -1
+	end
+
+	local dot = Vector3.dot(Vector3.normalize(first), Vector3.normalize(second))
+
+	return math.acos(math.clamp(dot, -1, 1)) * RADIANS_TO_DEGREES
+end
 
 BTDoomrocketLaunchAction.init = function (self, ...)
 	BTDoomrocketLaunchAction.super.init(self, ...)
@@ -105,7 +108,19 @@ BTDoomrocketLaunchAction.leave = function (self, unit, blackboard, t, reason, de
 	drawer:reset()
 
 	local data = blackboard.attack_pattern_data
+
+	if not destroy and reason == "done" and data.shots_fired and data.shots_fired > 0 and data.ballistic_aim_direction_box then
+		-- The next vanilla BT child replaces attack_pattern_data in this same AI tick.
+		-- Keep the launch-frame hold on the unit blackboard so AimSystem can still see it.
+		blackboard.doomrocket_ballistic_aim_hold_direction_box = Vector3Box(data.ballistic_aim_direction_box:unbox())
+		blackboard.doomrocket_ballistic_aim_hold_until = t + BALLISTIC_AIM_HOLD_TIME
+	else
+		blackboard.doomrocket_ballistic_aim_hold_direction_box = nil
+		blackboard.doomrocket_ballistic_aim_hold_until = nil
+	end
+
 	data.shoot_direction_box = nil
+	data.ballistic_aim_direction_box = nil
 	data.aim_position_box = nil
 	data.current_aim_rotation = nil
 	data.shoot_duration = nil
@@ -429,6 +444,9 @@ BTDoomrocketLaunchAction._start_align_towards_target = function (self, unit, bla
 	data.align_speed = 0
 	data.aim_position_box = nil
 	data.current_aim_rotation = nil
+	data.ballistic_aim_direction_box = nil
+	blackboard.doomrocket_ballistic_aim_hold_direction_box = nil
+	blackboard.doomrocket_ballistic_aim_hold_until = nil
 	blackboard.anim_cb_attack_shoot_random_shot = nil
 
 	Managers.state.network:anim_event(unit, "attack_shoot_align")
@@ -441,6 +459,7 @@ BTDoomrocketLaunchAction._end_align_towards_target = function (self, unit, data)
 	data.align_speed = nil
 	data.aim_position_box = Vector3Box()
 	data.current_aim_rotation = QuaternionBox(Quaternion.look(data.shoot_direction_box:unbox(), Vector3.up()))
+	data.ballistic_aim_direction_box = Vector3Box(data.shoot_direction_box:unbox())
 
 	Managers.state.network:anim_event(unit, "attack_shoot_start")
 end
@@ -453,6 +472,7 @@ local ACCELERATION = PI * 12
 local DECELERATION = PI * 6
 local STOP_ANGLE = PI / 32
 local AIM_PIVOT_HEIGHT = 0.7
+local PROJECTILE_TARGET_HEIGHT = 0.25
 
 BTDoomrocketLaunchAction._update_align_towards_target = function (self, unit, blackboard, t, dt)
 	local data = blackboard.attack_pattern_data
@@ -522,13 +542,36 @@ BTDoomrocketLaunchAction._aim_at_target = function (self, unit, blackboard, t, d
 	local aim_position = pivot + Quaternion.forward(lerped_rotation) * Vector3.length(wanted_aim_position_offset)
 
 	data.current_aim_rotation:store(lerped_rotation)
+	data.aim_position_box:store(aim_position)
+	data.shoot_direction_box:store(aim_position - pivot)
+
+	-- Preserve the direct line above for Ratling target acquisition and raycast behavior,
+	-- but drive the visible launcher through a separate direction solved from the exact
+	-- legacy spawn point and endpoint used by _shoot.
+	local fire_position = self:_fire_from_position_direction(blackboard, data)
+	local projectile_target_position = self:_projectile_target_position(data)
+	local wanted_launch_velocity = BALLISTICS.solve_launch_velocity(fire_position, projectile_target_position)
+
+	if not wanted_launch_velocity then
+		data.ballistic_aim_direction_box:store(data.shoot_direction_box:unbox())
+
+		return true
+	end
+
+	-- Physics receives the velocity through the network quantizer even on the owner.
+	-- Round-trip it here so the constraint follows the velocity the actor actually gets,
+	-- not an unquantized direction that can differ by a fraction of a degree.
+	local network_launch_velocity = AiAnimUtils.velocity_network_scale(wanted_launch_velocity, true)
+	local replicated_launch_velocity = AiAnimUtils.velocity_network_scale(network_launch_velocity)
+	local ballistic_aim_direction = Vector3.normalize(replicated_launch_velocity) * Vector3.length(wanted_aim_position_offset)
+	local ballistic_aim_position = pivot + ballistic_aim_direction
+
+	data.ballistic_aim_direction_box:store(ballistic_aim_direction)
 
 	local lerped_rot, angle_left = self:_rotate_from_to(current_rotation, wanted_rotation, action.radial_speed_feet_shooting, dt)
 	local locomotion_extension = blackboard.locomotion_extension
 
 	locomotion_extension:set_wanted_rotation(lerped_rot)
-	data.aim_position_box:store(aim_position)
-	data.shoot_direction_box:store(aim_position - pivot)
 
 	local owner_unit_id, owner_is_level_unit = Managers.state.network:game_object_or_level_id(unit)
 
@@ -538,7 +581,7 @@ BTDoomrocketLaunchAction._aim_at_target = function (self, unit, blackboard, t, d
 		local min = position_constant.min
 		local max = position_constant.max
 
-		GameSession.set_game_object_field(game, owner_unit_id, "aim_position", Vector3.clamp(aim_position, min, max))
+		GameSession.set_game_object_field(game, owner_unit_id, "aim_position", Vector3.clamp(ballistic_aim_position, min, max))
 	end
 
 	local realign = normalized_angle > PI / 3 or normalized_angle < -PI
@@ -547,6 +590,10 @@ BTDoomrocketLaunchAction._aim_at_target = function (self, unit, blackboard, t, d
 	PhysicsWorld.prepare_actors_for_raycast(physics_world, pivot, Vector3.normalize(aim_position - pivot), action.spread)
 
 	return realign
+end
+
+BTDoomrocketLaunchAction._projectile_target_position = function (self, data)
+	return Unit.local_position(data.target_unit, 0) + Vector3(0, 0, PROJECTILE_TARGET_HEIGHT)
 end
 
 BTDoomrocketLaunchAction._remaining_angle = function (self, from, to)
@@ -575,7 +622,6 @@ end
 BTDoomrocketLaunchAction._fire_from_position_direction = function (self, blackboard, data)
 	local ratling_gun_unit = data.ratling_gun_unit
 	local fire_node = Unit.node(ratling_gun_unit, "p_fx")
-	-- local fire_node = 1
 	local position = Unit.world_position(ratling_gun_unit, fire_node)
 	local direction = nil
 
@@ -585,9 +631,9 @@ BTDoomrocketLaunchAction._fire_from_position_direction = function (self, blackbo
 		direction = data.aim_position_box:unbox() - position
 	end
 
-	local fire_pos = position - Vector3.normalize(direction) * 0.25
+	local fire_position = position - Vector3.normalize(direction) * BALLISTICS.MUZZLE_BACKSTEP
 
-	return fire_pos, direction
+	return fire_position, direction
 end
 
 BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
@@ -617,28 +663,12 @@ BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
 	local projectile_system = Managers.state.entity:system("projectile_system")
 	local peer_id = data.peer_id
 	local skip_rpc = CLIENT_CONTROLLED_RATLING_GUN
+	local target_vector = self:_projectile_target_position(data)
+	local impulse_vector, flight_time = BALLISTICS.solve_launch_velocity(from_position, target_vector)
 
-	local position = Unit.local_position(data.target_unit, 0)
-	local target_vector = position + Vector3(0,0,0.25)
-	local start_vector = from_position
-
-	-- Ballistic lob. Previously this was direction_unit_vector * 10: a flat 10 m/s dart
-	-- aimed straight down the line of sight, with the only vertical component coming from
-	-- a one-frame kick in ProjectileRocket.guide_force. That read as a fast hitscan-ish
-	-- shot with no arc to read and no practical window to shoot it down.
-	--
-	-- Solve the launch velocity for a fixed flight time instead:
-	--   horizontal = delta / T          (constant, no drag)
-	--   vertical   = dz / T + 0.5 * G * T
-	-- which lands on the target at T and peaks near the midpoint.
-	local direction_vector = target_vector - start_vector
-	local flat_distance = Vector3.length(Vector3.flat(direction_vector))
-	local flight_time = math.clamp(flat_distance * ROCKET.SECONDS_PER_METRE, ROCKET.MIN_FLIGHT_TIME, ROCKET.MAX_FLIGHT_TIME)
-	local impulse_vector = Vector3(
-		direction_vector.x / flight_time,
-		direction_vector.y / flight_time,
-		direction_vector.z / flight_time + 0.5 * ROCKET.GRAVITY * flight_time
-	)
+	if not impulse_vector then
+		return
+	end
 
 	local rotation = Unit.local_rotation(unit, 0)
 	-- local rocket_launcher_id = Managers.state.unit_storage:go_id(data.ratling_gun_unit)
@@ -648,6 +678,27 @@ BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
 	local network_rotation = AiAnimUtils.rotation_network_scale(rotation, true)
 	local network_velocity = AiAnimUtils.velocity_network_scale(impulse_vector, true)
 	local network_target_vector =  AiAnimUtils.velocity_network_scale(target_vector, true)
+	local replicated_velocity = AiAnimUtils.velocity_network_scale(network_velocity)
+	local visual_direction_box = data.ballistic_aim_direction_box or data.shoot_direction_box
+	local visual_direction = visual_direction_box and visual_direction_box:unbox() or direction
+	local fire_node = Unit.node(data.ratling_gun_unit, "p_fx")
+	local muzzle_direction = Quaternion.forward(Unit.world_rotation(data.ratling_gun_unit, fire_node))
+	local normalized_velocity = Vector3.normalize(replicated_velocity)
+	local desired_pitch_degrees = math.asin(math.clamp(normalized_velocity.z, -1, 1)) * RADIANS_TO_DEGREES
+	local target_displacement = target_vector - from_position
+	local range = Vector3.length(target_displacement)
+	local flat_range = Vector3.length(Vector3.flat(target_displacement))
+
+	printf(
+		"[doomrocket:AIM] source=unit go_id=%s range=%.3f flat_range=%.3f flight_time=%.3f desired_pitch_deg=%.3f pose_error_deg=%.3f muzzle_error_deg=%.3f",
+		tostring(attacker_unit_id),
+		range,
+		flat_range,
+		flight_time,
+		desired_pitch_degrees,
+		direction_error_degrees(visual_direction, replicated_velocity),
+		direction_error_degrees(muzzle_direction, replicated_velocity)
+	)
 
 	local unit_name = "units/rocket/SM_Rocket"
 	local unit_template_name = "explosive_pickup_projectile_unit"
@@ -669,13 +720,16 @@ BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
 		},
 	}
 	local projectile_unit, go_id = Managers.state.unit_spawner:spawn_network_unit(unit_name, unit_template_name, extension_init_data, from_position, rotation)
-	mod.projectiles[projectile_unit] = ProjectileRocket:new(projectile_unit, unit, target_vector)
+	local combat_voice_variant = mod._choose_warlock_combat_voice(unit)
+	mod.projectiles[projectile_unit] = ProjectileRocket:new(
+		projectile_unit, unit, target_vector, data.ratling_gun_unit, combat_voice_variant)
 	-- local actor = Unit.actor(projectile_unit, 0)
 	-- Actor.add_velocity(actor, impulse_vector)
 
 	Unit.set_mesh_visibility(data.ratling_gun_unit, "pRocket", false, "default")
 	blackboard.reloaded_rocket = false
-	mod:network_send("rpc_launch_rocket","others", go_id, network_velocity, network_target_vector, attacker_unit_id)
+	mod:network_send("rpc_launch_rocket","others", go_id, network_velocity, network_target_vector,
+		attacker_unit_id, combat_voice_variant)
 
 end
 

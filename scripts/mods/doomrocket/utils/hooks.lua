@@ -808,6 +808,10 @@ mod._reset_warlock_death_drivers = function()
 end
 
 mod._prepare_warlock_death = function(owner_unit, source)
+	-- Stop while the visible outfit and its backpack source are still alive. Later death
+	-- callbacks hand animation ownership to the corpse and may delete either unit.
+	mod._stop_warlock_backpack_sound(owner_unit, "death_" .. tostring(source))
+
 	mod._warlock_death_sequence = mod._warlock_death_sequence + 1
 	local id = string.format("%s-%04d", source, mod._warlock_death_sequence)
 	local created_game_at = warlock_game_time()
@@ -1106,6 +1110,9 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				mod._warlock_outfits[unit] = outfit_unit
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
+				-- This runs on the authoritative unit and every husk, including hot-joins, so
+				-- each peer owns exactly one spatial loop on the visible backpack outfit.
+				mod._start_warlock_backpack_sound(unit, outfit_unit)
 			end
 		end
 	end

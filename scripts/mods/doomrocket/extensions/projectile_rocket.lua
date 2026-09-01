@@ -39,9 +39,6 @@ local move_particles = World.move_particles
 local vector4_multi = Quaternion.multiply
 local quat_look = Quaternion.look
 
-local trigger_audio = WwiseWorld.trigger_event
-local stop_audio = WwiseWorld.stop_event
-
 local rotate_unit = Unit.set_local_rotation
 local unit_delta_rotation = Unit.delta_rotation
 
@@ -49,7 +46,7 @@ local linear_sphere_sweep = stingray.PhysicsWorld.linear_sphere_sweep
 
 ProjectileRocket = class(ProjectileRocket)
 
-ProjectileRocket.init = function (self, unit, attacker_unit, target_pos)
+ProjectileRocket.init = function (self, unit, attacker_unit, target_pos, launch_sound_unit, combat_voice_variant)
     Managers.package:load("resource_packages/breeds/skaven_warpfire_thrower", "global")
     self.unit_string = tostring(unit)
     self.unit = unit
@@ -66,21 +63,21 @@ ProjectileRocket.init = function (self, unit, attacker_unit, target_pos)
     self.reached_apogee = false
 
     self.world = Unit.world(unit)
+	-- Constructor execution is the per-peer projectile-spawn boundary: the host creates
+	-- one instance in _shoot and every other peer creates one from rpc_launch_rocket.
+	-- The authority includes a zero-or-variant index in that same RPC, so the first rocket
+	-- in a volley produces one matching positional bark on every peer.
+	mod._play_warlock_combat_voice(attacker_unit, combat_voice_variant)
+
+	-- Prefer the launcher's p_fx node; fall back to the projectile if the weapon vanished.
+	mod._play_doomrocket_launch_sound(
+		launch_sound_unit and Unit.alive(launch_sound_unit) and launch_sound_unit or unit)
+
     local position = Actor.position(actor)
     local rotation = Actor.rotation(actor)
     self.exhaust_id = World.create_particles(self.world, "fx/chr_warp_fire_flamethrower_01", position, rotation, Vector3(0,0,1))
 
     self.physics_world = World.physics_world(self.world)
-
-    self.wwise_world = Wwise.wwise_world(self.world)
-    -- self.exhaust_sound_id = WwiseWorld.trigger_event(self.wwise_world, "Play_enemy_warpfire_thrower_shoot",  unit)
-    -- local wwise_source, wwise_world = WwiseUtils.make_unit_auto_source(self.world, unit)
-    local wwise_source = WwiseWorld.make_auto_source(self.wwise_world, unit)
-    local playing_id = WwiseWorld.trigger_event(self.wwise_world, "Play_enemy_warpfire_thrower_shoot", true, wwise_source)
-    WwiseWorld.set_source_parameter(self.wwise_world, wwise_source, "ratling_gun_shooting_loop_parameter", 0)
-
-    self.wwise_source_id = wwise_source
-    self.exhaust_sound_id = playing_id
 
     self.time_pass = 0
 
@@ -147,16 +144,6 @@ ProjectileRocket.move_particles = function(self, actor)
     move_particles(self.world, self.exhaust_id, pos, rot)
 end
 
-ProjectileRocket.update_sounds = function(self)
-    if self.time_pass > 2 then
-        local pos = pos_actor(self.actor)
-        local rot = vector4_multi(rot_actor(self.actor), radians_to_quaternion(0,0, math.pi))
-        WwiseWorld.stop_event(self.wwise_world, self.exhaust_sound_id)
-        self.exhaust_sound_id = WwiseWorld.trigger_event(self.wwise_world, "Play_enemy_warpfire_thrower_shoot",  pos, rot)
-    end
-
-end
-
 -- danger level similar to gas rat
 -- damage of 1000 is too high
 ProjectileRocket.rocket_explode = function(self)
@@ -164,22 +151,23 @@ ProjectileRocket.rocket_explode = function(self)
         local actor = self.actor
         local position = Actor.position(actor)
         local rotation = Actor.rotation(actor)
-        local attacker_unit_id = self.attacker_goid
-        local explosion_template_name = "doomrocket_explosion"
-        local explosion_template_id = NetworkLookup.explosion_templates[explosion_template_name]
-        local explosion_template = ExplosionTemplates[explosion_template_name]
-        local damage_source = "skaven_doomrocket"
-        local damage_source_id = NetworkLookup.damage_sources[damage_source]
-        local is_husk = true
-        -- local power_level = 1000
-        local power_level = 700
-        local world = self.world
+		local explosion_template_name = "doomrocket_explosion"
+		local damage_source = "skaven_doomrocket"
+		-- local power_level = 1000
+		local power_level = 700
 
+		-- The explosion template is the sole playback owner for impact audio. Record the
+		-- dispatch without directly triggering a duplicate local event.
+		mod._doomrocket_sound_impact_requested(position)
 
-		Managers.state.network.network_transmit:send_rpc_clients("rpc_create_explosion", attacker_unit_id, false,
-            position, rotation, explosion_template_id, 1, damage_source_id, power_level, false, attacker_unit_id)
-        Managers.state.network.network_transmit:send_rpc_server("rpc_create_explosion", attacker_unit_id, false,
-            position, rotation, explosion_template_id, 1, damage_source_id, power_level, false, attacker_unit_id)
+		-- Let the engine-owned AreaDamageSystem supply its managed level world, execute
+		-- the authoritative explosion once, and replicate it to clients. Passing
+		-- Unit.world(projectile) directly to DamageUtils leaves Managers.world unable to
+		-- resolve a Wwise world and crashes natively when the template has impact audio.
+		local area_damage_system = Managers.state.entity:system("area_damage_system")
+		area_damage_system:create_explosion(self.attacker_unit, position, rotation,
+			explosion_template_name, 1, damage_source, power_level, false,
+			self.attacker_unit)
 
         Managers.state.unit_spawner:mark_for_deletion(self.unit)
 
@@ -191,15 +179,6 @@ ProjectileRocket.rocket_explode = function(self)
 end
 
 ProjectileRocket.destroy = function(self)
-
-    if self.exhaust_sound_id then
-        WwiseWorld.set_source_parameter(self.wwise_world, self.wwise_source_id, "ratling_gun_shooting_loop_parameter", 100)
-        WwiseWorld.trigger_event(self.wwise_world, "player_enemy_warpfire_thrower_shoot_end", self.unit)
-        WwiseWorld.stop_event(self.wwise_world, self.exhaust_sound_id)
-        self.exhaust_sound_id = nil
-        self.wwise_source_id = nil
-    end
-
     if self.exhaust_id then
         World.destroy_particles(self.world, self.exhaust_id)
         self.exhaust_id = nil
