@@ -56,13 +56,21 @@ body:
       label: Actual behavior
     validations:
       required: true
+  - type: upload
+    id: console_log
+    attributes:
+      label: Console log
+      description: Attach the complete, unedited console log. Raw .log files are accepted; .txt, .zip, and .gz are also allowed. Maximum size is 25 MB.
+    validations:
+      required: true
+      accept: ".log,.txt,.zip,.gz"
   - type: textarea
     id: evidence
     attributes:
-      label: Logs and evidence
-      description: Attach the complete, unedited console log and any continuous video or screenshots. Do not paste only the final crash popup.
+      label: Additional evidence
+      description: Attach any continuous video or screenshots here. Do not paste only the final crash popup.
     validations:
-      required: true
+      required: false
   - type: checkboxes
     id: checks
     attributes:
