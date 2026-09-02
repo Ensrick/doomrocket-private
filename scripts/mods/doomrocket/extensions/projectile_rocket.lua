@@ -88,11 +88,20 @@ ProjectileRocket.init = function (self, unit, attacker_unit, target_pos, launch_
 end
 
 ProjectileRocket.update = function (self, dt)
-    if not Unit.alive(self.unit) then
-        self:rocket_explode()
+    -- `rocket_explode` is a terminal transition.  A synchronous engine callback
+    -- can re-enter this extension, and deletion is deferred until the spawner's
+    -- cleanup pass, so never touch physics or particles after it has been claimed.
+    if self.exploded then
+        return
     end
 
-    if self.actor and not self.exploded then
+    if not Unit.alive(self.unit) then
+        self:rocket_explode()
+
+        return
+    end
+
+    if self.actor then
         local vel = velocity(self.actor)
         local speed = magnitude(vel)
 
@@ -112,6 +121,8 @@ ProjectileRocket.update = function (self, dt)
         -- stop (impact), and only after it has cleared the muzzle.
         if self.time_pass > 0.35 and speed < 1.5 then
             self:rocket_explode()
+
+            return
         end
 
         self.time_pass = self.time_pass + dt
@@ -147,49 +158,85 @@ end
 -- danger level similar to gas rat
 -- damage of 1000 is too high
 ProjectileRocket.rocket_explode = function(self)
-    if Managers.player.is_server and not self.exploded then
-        local actor = self.actor
-        local position = Actor.position(actor)
-        local rotation = Actor.rotation(actor)
-		local explosion_template_name = "doomrocket_explosion"
-		local damage_source = "skaven_doomrocket"
-		-- local power_level = 1000
-		local power_level = 700
+    if self.exploded or not Managers.player.is_server then
+        return false
+    end
 
-		-- The explosion template is the sole playback owner for impact audio. Record the
-		-- dispatch without directly triggering a duplicate local event.
-		mod._doomrocket_sound_impact_requested(position)
+    -- Claim the terminal state before calling into audio, area damage, or the unit
+    -- spawner.  Issue #8 proved that create_explosion can raise after partially
+    -- dispatching: setting this at the end left the physics object active and made
+    -- every subsequent frame explode it again.
+    self.exploded = true
 
-		-- Let the engine-owned AreaDamageSystem supply its managed level world, execute
-		-- the authoritative explosion once, and replicate it to clients. Passing
-		-- Unit.world(projectile) directly to DamageUtils leaves Managers.world unable to
-		-- resolve a Wwise world and crashes natively when the template has impact audio.
-		local area_damage_system = Managers.state.entity:system("area_damage_system")
-		area_damage_system:create_explosion(self.attacker_unit, position, rotation,
-			explosion_template_name, 1, damage_source, power_level, false,
-			self.attacker_unit)
+    local unit = self.unit
+    local actor = self.actor
+    if not unit or not Unit.alive(unit) then
+        -- The spawner can win the race with mod.update during level teardown.  There
+        -- is no live unit left to queue, so release our registry/particle state now.
+        self:destroy()
 
-        Managers.state.unit_spawner:mark_for_deletion(self.unit)
+        return false
+    end
 
-        self.exploded = true
-	end
+    -- Snapshot the physics transform while the unit is unquestionably live.  The
+    -- actor guard handles teardown races while keeping deletion on one common path.
+    -- The deletion mark below is deferred, but no later callback touches the actor.
+    local position = actor and Actor.position(actor)
+    local rotation = actor and Actor.rotation(actor)
+	local explosion_template_name = "doomrocket_explosion"
+	local explosion_template_id = NetworkLookup.explosion_templates[explosion_template_name]
+	local damage_source = "skaven_doomrocket"
+	local damage_source_id = NetworkLookup.damage_sources[damage_source]
+	-- local power_level = 1000
+	local power_level = 700
+	local network_transmit = Managers.state.network.network_transmit
+	local attacker_unit_id = self.attacker_goid
 
-    -- Unit.set_unit_visibility(self.unit, false)
-    -- Unit.disable_physics(self.unit)
+    -- Queue deletion before any fallible impact callback.  Keep the terminal object
+    -- in mod.projectiles until GrowQueue.pop_first invokes destroy(); that registry is
+    -- also the deletion hook's lookup table for particle and actor cleanup.  update()
+    -- is harmless while we wait because the terminal guard above returns immediately.
+    Managers.state.unit_spawner:mark_for_deletion(unit)
+
+    if not actor then
+        return false
+    end
+
+	-- The explosion template is the sole playback owner for impact audio. Record the
+	-- dispatch without directly triggering a duplicate local event.
+	mod._doomrocket_sound_impact_requested(position)
+
+	-- This extension updates from VMF's mod.update callback, outside the engine's safe
+	-- area-damage phase.  Issue #8 captured a stale POSITION_LOOKUP inside a direct
+	-- AreaDamageSystem call.  Route exactly one request back through the native server
+	-- RPC handler; it executes the authoritative explosion and owns client replication.
+	network_transmit:send_rpc_server("rpc_create_explosion", attacker_unit_id, false,
+		position, rotation, explosion_template_id, 1, damage_source_id, power_level,
+		false, attacker_unit_id)
+
+    return true
 end
 
 ProjectileRocket.destroy = function(self)
+    -- Destruction is terminal even if a late death-reaction callback retained this
+    -- Lua object.  Do not clear the guard and accidentally re-arm it.
+    self.exploded = true
+
+    local unit = self.unit
+
+    if unit then
+        mod.projectiles[unit] = nil
+    end
+
     if self.exhaust_id then
         World.destroy_particles(self.world, self.exhaust_id)
         self.exhaust_id = nil
     end
 
-    if self.unit then
-        mod.projectiles[self.unit] = nil
-        Unit.destroy_actor(self.unit, 'pRocket')
+    if unit and Unit.alive(unit) then
+        Unit.destroy_actor(unit, 'pRocket')
     end
     self.unit = nil
     self.actor = nil
     self.unit_string = nil
-    self.exploded = nil
 end

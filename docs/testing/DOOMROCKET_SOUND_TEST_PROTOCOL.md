@@ -18,7 +18,7 @@ Warpfire-backpack explosion is the deliberate crash-safe impact fallback while
 the custom bank is unavailable; it is acceptable only when the log also says
 `phase=impact_config status=fallback`.
 
-## v0.1.59 runtime failure and v0.1.60 containment
+## v0.1.59 runtime failure, v0.1.60 containment, and v0.1.61 safe-phase candidate
 
 Two complete tester logs from 2026-09-01 established the actual failure rather
 than relying on offline inference:
@@ -35,11 +35,13 @@ than relying on offline inference:
   `Unit.world(projectile)`. That Stingray world handle was not registered with
   `Managers.world`, so the audio branch could not resolve a Wwise world.
 
-`v0.1.60-dev` contains the crash independently of custom-audio success:
+`v0.1.61-dev` extends the v0.1.60 containment independently of custom-audio success:
 
-1. Projectile and loaded-warhead death explosions call the game-owned
-   `AreaDamageSystem:create_explosion`. That system supplies its managed level
-   world, performs the authoritative explosion once, and owns client
+1. Loaded-warhead death explosions call the game-owned
+   `AreaDamageSystem:create_explosion` from the engine's death phase. Projectile
+   impacts detected in VMF's `mod.update` instead send exactly one native
+   `rpc_create_explosion` request to the server; its handler performs the
+   authoritative explosion in the safe network phase and owns client
    replication.
 2. The explosion template uses the custom impact event only when
    `Wwise.has_event` confirms it registered; otherwise every peer selects the
@@ -53,6 +55,34 @@ than relying on offline inference:
    by two independent, working VT2 custom-audio mods. This is a sound-fix
    candidate, not proof: only a new game log showing `status=played` proves the
    Doomrocket events registered.
+
+### Issue #8: repeated explosion containment
+
+Crunch's issue #8 log exposed a second, independent failure in the projectile
+lifecycle. The same moving rocket requested 113 impact sounds and produced 111
+`DamageUtils.create_explosion` errors over roughly eight seconds. The engine
+exception reported `unit_position = [Stale Vector3]`: projectile collision was
+being evaluated from VMF's `mod.update`, not an engine damage-system phase in
+which `POSITION_LOOKUP` is safe to consume. It escaped
+`AreaDamageSystem:create_explosion` before the old function reached either
+`mark_for_deletion` or `self.exploded = true`, so the next frame treated the
+same physics object as a fresh impact.
+
+The required ordering is now an explicit contract:
+
+1. Reject non-authoritative or already-terminal calls.
+2. Set `self.exploded = true` so every later update or callback is a no-op.
+3. Snapshot the live actor's final position and rotation.
+4. Queue the projectile unit for deletion, retaining its `mod.projectiles`
+   entry until the existing deletion hook calls `destroy` to clean up its
+   particle and actor.
+5. Only then emit impact telemetry and one server-directed native explosion
+   RPC. The projectile must never call `AreaDamageSystem` directly or send a
+   client explosion RPC.
+
+This makes explosion a one-way, idempotent transition even if an engine/audio
+callback raises or synchronously re-enters the extension. `destroy` preserves
+the terminal flag rather than re-arming a retained Lua object.
 
 ## Reproducible bank build
 
@@ -89,6 +119,7 @@ From the repository root, run:
 
 ```powershell
 py -3 tools/tests/test_doomrocket_sound_contract.py
+py -3 tools/tests/test_doomrocket_projectile_lifecycle.py
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-WarlockPipeline.ps1
 git diff --check
 ```
@@ -109,9 +140,14 @@ The focused test rejects a candidate unless:
   cooldown and no immediate repeat;
 - both unit and husk death reactions select one custom death take, suppress
   hot-join playback, and explicitly disable the inherited Ratling death event;
-- each server-owned projectile or loaded-warhead explosion calls the
-  game-owned `AreaDamageSystem` exactly once, with no direct `DamageUtils`
-  invocation or hand-written explosion RPC;
+- a projectile sends exactly one server-directed native `rpc_create_explosion`
+  request, with no direct `AreaDamageSystem`/`DamageUtils` call and no client
+  RPC; the loaded-warhead death path deliberately retains exactly one direct
+  authoritative `AreaDamageSystem` call from its safe engine phase;
+- a projectile claims its terminal flag and queues deletion before any
+  fallible impact callback; repeated or re-entrant calls are no-ops, the
+  deletion hook can still find it for cleanup, and `destroy` cannot clear the
+  terminal flag;
 - no custom-audio helper passes `Unit.world(...)` into `WwiseUtils`; the
   managed level world and its Wwise world must both exist first;
 - the backpack has both start and stop wiring and every mod/level teardown
@@ -199,6 +235,13 @@ the complete console log.
    explode. Both must remain crash-free. Preserve the full log and confirm it
    contains neither `WwiseWorld.make_auto_source` with a nil Wwise world nor a
    direct Doomrocket `DamageUtils.create_explosion` stack.
+10. Repeat issue #8's slow-impact case on uneven ground and keep the rocket in
+    view until its unit disappears. Require one impact sound/visual, one damage
+    application, and one `phase=impact status=template_dispatch` record. Fail
+    on a moving rocket after detonation, repeated impact records, or repeated
+    `rocket_explode`/`create_explosion` stacks from the same projectile. The
+    log must not show a projectile-local `AreaDamageSystem:create_explosion`
+    frame or `unit_position = [Stale Vector3]`.
 
 ## Lifecycle and stress pass
 

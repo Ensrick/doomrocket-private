@@ -789,37 +789,38 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
             1,
         )
 
-    def test_server_owned_explosions_dispatch_once_per_peer(self) -> None:
-        self.assertNotIn(
-            'send_rpc_server("rpc_create_explosion"',
-            self.runtime,
-            "server-owned Doomrocket explosions must not loop through the server RPC",
+    def test_projectile_defers_damage_to_one_server_rpc(self) -> None:
+        self.assertEqual(
+            self.projectile.count(
+                'network_transmit:send_rpc_server("rpc_create_explosion"'
+            ),
+            1,
+            "mod.update must make one server-directed request and let the native RPC handler own damage/replication",
         )
-        for lane, source in (
-            ("projectile", self.projectile),
-            ("loaded-warhead death", self.death_reactions),
-        ):
-            with self.subTest(lane=lane):
-                self.assertEqual(
-                    source.count(':system("area_damage_system")'),
-                    1,
-                    f"{lane} must obtain exactly one engine-owned area-damage system",
-                )
-                self.assertEqual(
-                    source.count("area_damage_system:create_explosion("),
-                    1,
-                    f"{lane} must execute exactly one authoritative replicated explosion",
-                )
-                self.assertNotIn(
-                    "DamageUtils.create_explosion(",
-                    source,
-                    f"{lane} must not bypass the managed explosion world",
-                )
-                self.assertNotIn(
-                    'send_rpc_clients("rpc_create_explosion"',
-                    source,
-                    f"{lane} replication belongs to AreaDamageSystem",
-                )
+        self.assertNotIn(':system("area_damage_system")', self.projectile)
+        self.assertNotIn("area_damage_system:create_explosion(", self.projectile)
+        self.assertNotIn("DamageUtils.create_explosion(", self.projectile)
+        self.assertNotIn('send_rpc_clients("rpc_create_explosion"', self.projectile)
+        self.assertNotIn(
+            'send_rpc_clients_except("rpc_create_explosion"', self.projectile
+        )
+
+    def test_loaded_warhead_death_keeps_authoritative_area_damage(self) -> None:
+        self.assertEqual(
+            self.death_reactions.count(':system("area_damage_system")'),
+            1,
+        )
+        self.assertEqual(
+            self.death_reactions.count("area_damage_system:create_explosion("),
+            1,
+        )
+        self.assertNotIn("DamageUtils.create_explosion(", self.death_reactions)
+        self.assertNotIn(
+            'send_rpc_server("rpc_create_explosion"', self.death_reactions
+        )
+        self.assertNotIn(
+            'send_rpc_clients("rpc_create_explosion"', self.death_reactions
+        )
 
     def test_custom_audio_never_passes_a_unit_world_to_wwise_utils(self) -> None:
         self.assertIn('world_manager:world("level_world")', self.audio)

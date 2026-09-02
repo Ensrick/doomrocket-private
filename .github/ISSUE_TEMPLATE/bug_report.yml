@@ -1,82 +1,96 @@
-name: Development bug report
-description: Report a reproducible problem in the Doomrocket development build.
-title: "[Bug]: "
+name: Development gameplay or presentation bug
+description: Report a reproducible gameplay, visual, animation, audio, or multiplayer problem in the TEST build.
+title: "[Bug] "
 labels:
   - bug
+  - needs-triage
+  - dev-test
 body:
   - type: markdown
     attributes:
       value: |
-        Use the public repository for bugs affecting the public alpha. This form is for the TEST Workshop build.
-  - type: input
-    id: mod_version
+        Thanks for testing the experimental build. Attach the complete session log rather than pasting it into the page.
+
+        This form is only for TEST Workshop item `3794172730`. Public-alpha reports belong in `doomrocket-public`.
+  - type: dropdown
+    id: area
     attributes:
-      label: Mod version
-      description: Copy the `[doomrocket:LOAD]` version from the console log.
-      placeholder: v0.1.60-dev
+      label: Affected area
+      options:
+        - Rocket, explosion, or damage
+        - Spawning, AI, shove, or aiming
+        - Model, texture, ragdoll, or animation
+        - Sound or visual effects
+        - Multiplayer or networking
+        - Other
     validations:
       required: true
   - type: input
-    id: game_build
+    id: loaded_banner
     attributes:
-      label: Vermintide 2 build
-      description: Include the game build or patch shown in the log.
+      label: Exact loaded build banner
+      description: Copy the `[doomrocket:LOAD]` line from the reproducing log.
+      placeholder: "[doomrocket:LOAD] v0.1.61-dev"
     validations:
       required: true
   - type: dropdown
     id: network_role
     attributes:
-      label: Network role
+      label: Your network role
       options:
-        - Listen host
+        - Host
         - Remote client
-        - Solo/offline
+        - Solo or offline
+        - Unknown
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
-      label: Reproduction steps
-      description: Give the exact spawn, combat, death, or level sequence.
+      label: Steps to reproduce
       placeholder: |
-        1. Launch...
-        2. Spawn...
-        3. Observe...
-    validations:
-      required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
+        1. Launch with TEST item 3794172730 enabled.
+        2. Start...
+        3. Spawn or encounter...
+        4. Observe...
     validations:
       required: true
   - type: textarea
     id: actual
     attributes:
-      label: Actual behavior
+      label: What happened?
+      description: Include frequency and exactly what you saw or heard.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
     validations:
       required: true
   - type: upload
     id: console_log
     attributes:
       label: Console log
-      description: Attach the complete, unedited console log. Raw .log files are accepted; .txt, .zip, and .gz are also allowed. Maximum size is 25 MB.
+      description: Attach the complete matching file from `%APPDATA%\Fatshark\Vermintide 2\console_logs\`. Raw .log files are accepted; .txt, .zip, and .gz are also allowed (25 MB maximum).
     validations:
       required: true
       accept: ".log,.txt,.zip,.gz"
   - type: textarea
-    id: evidence
+    id: media
     attributes:
-      label: Additional evidence
-      description: Attach any continuous video or screenshots here. Do not paste only the final crash popup.
+      label: Screenshots or video
+      description: Optional. Add continuous video when timing or repeated effects matter.
     validations:
       required: false
   - type: checkboxes
     id: checks
     attributes:
-      label: Pre-submission checks
+      label: Final checks
       options:
-        - label: I restarted the game after the Workshop update and verified the exact `[doomrocket:LOAD]` version.
+        - label: I restarted after the Workshop update and verified the exact loaded banner.
           required: true
-        - label: Every player used the same build, and the public and TEST versions were not enabled together.
+        - label: The public alpha was disabled, and every lobby member used this same TEST version.
+          required: true
+        - label: I understand that this report and its attachments are public.
           required: true

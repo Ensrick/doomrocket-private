@@ -1,0 +1,75 @@
+name: Development crash report
+description: Report a Vermintide crash or assertion while using the TEST build.
+title: "[Crash] "
+labels:
+  - bug
+  - crash
+  - needs-triage
+  - dev-test
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Attach the original matching console log. The final popup alone rarely contains enough evidence.
+  - type: input
+    id: loaded_banner
+    attributes:
+      label: Exact loaded build banner
+      placeholder: "[doomrocket:LOAD] v0.1.61-dev"
+    validations:
+      required: true
+  - type: input
+    id: crash_guid
+    attributes:
+      label: Crash GUID or Crashify link
+      description: Copy it exactly from the crash dialog/report.
+    validations:
+      required: true
+  - type: dropdown
+    id: network_role
+    attributes:
+      label: Your network role
+      options:
+        - Host
+        - Remote client
+        - Solo or offline
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Exact actions immediately before the crash
+      placeholder: |
+        1. Launch with TEST item 3794172730 enabled.
+        2. Spawn...
+        3. Attack/push/shoot...
+        4. Crash occurs when...
+    validations:
+      required: true
+  - type: upload
+    id: console_log
+    attributes:
+      label: Complete matching console log
+      description: Attach the original file from `%APPDATA%\Fatshark\Vermintide 2\console_logs\`. Raw .log files are accepted; .txt, .zip, and .gz are also allowed (25 MB maximum).
+    validations:
+      required: true
+      accept: ".log,.txt,.zip,.gz"
+  - type: textarea
+    id: repeatability
+    attributes:
+      label: Repeatability and other enabled mods
+      description: Say how many attempts crashed and list other mods that were enabled.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Final checks
+      options:
+        - label: I restarted after the Workshop update and verified the exact loaded banner.
+          required: true
+        - label: The public alpha was disabled, and every lobby member used this same TEST version.
+          required: true
+        - label: I understand that this report and its attachments are public.
+          required: true

@@ -1,0 +1,47 @@
+name: Development balance or design feedback
+description: Suggest a TEST-build balance, behavior, presentation, or usability improvement.
+title: "[Feedback] "
+labels:
+  - enhancement
+  - needs-triage
+  - dev-test
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feedback area
+      options:
+        - Health, armor, damage, or breakpoints
+        - AI, shove, or ballistic aiming
+        - Model, texture, animation, or ragdoll
+        - Sound, voice, or visual effects
+        - Multiplayer behavior
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: observation
+    attributes:
+      label: What did you observe?
+      description: Include difficulty, player count, career/build, network role, and TEST version when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: What change do you suggest?
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why would this improve the mod?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Optional evidence
+      description: Add a concise log excerpt, screenshot, or video. Use the bug/crash form when something malfunctioned.
+    validations:
+      required: false

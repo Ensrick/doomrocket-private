@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: Public alpha bug reports
+  - name: TEST bug-reporting instructions
+    url: https://github.com/Ensrick/doomrocket-private/blob/private-copy/docs/BUG_REPORTING.md
+    about: Read how to verify the loaded build and attach the correct console log.
+  - name: Public-alpha reports
     url: https://github.com/Ensrick/doomrocket-public/issues/new/choose
-    about: Report bugs from the public Workshop build in the public release repository.
+    about: Report problems from the stable public-alpha Workshop item here.

@@ -14,22 +14,18 @@ function Assert-True {
 # --- Source layout invariants ----------------------------------------------
 
 $itemConfig = Get-Content (Join-Path $repoRoot "itemV2.cfg") -Raw
+Assert-True ($itemConfig -match '(?m)^published_id\s*=\s*3794172730L;\s*$') `
+    "development config must target TEST Workshop item 3794172730"
 Assert-True ($itemConfig -match '(?m)^visibility\s*=\s*"public";\s*$') `
-    "both public-alpha and TEST Workshop builds must remain publicly visible"
-
-$isDevelopmentWorkshop = $itemConfig -match '(?m)^title\s*=\s*"[^"]*\bTEST\b[^"]*";\s*$'
-$publishedIdMatch = [regex]::Match($itemConfig, '(?m)^published_id\s*=\s*(\d+)L;\s*$')
-if ($isDevelopmentWorkshop) {
-    Assert-True ($publishedIdMatch.Success -and $publishedIdMatch.Groups[1].Value -eq '3794172730') `
-        "TEST build must target development Workshop item 3794172730, never public-alpha item 3771657344"
-    Assert-True ($itemConfig -match 'DEVELOPMENT TEST BUILD') `
-        "TEST Workshop description must begin with an explicit development-build warning"
-    Assert-True ($itemConfig -match 'Do not enable it together with the public') `
-        "TEST Workshop description must warn users not to enable both builds"
-} else {
-    Assert-True ($publishedIdMatch.Success -and $publishedIdMatch.Groups[1].Value -eq '3771657344') `
-        "public-alpha itemV2.cfg must retain Workshop item 3771657344"
-}
+    "development TEST Workshop item must remain public"
+Assert-True ($itemConfig -match '(?m)^preview\s*=\s*"item_preview_test\.png";\s*$') `
+    "development TEST build must use item_preview_test.png"
+Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0\.1\.61-dev";\s*$') `
+    "development title must be exactly Warprocket Bombardier TEST v0.1.61-dev"
+Assert-True ($itemConfig -match 'DEVELOPMENT TEST BUILD') `
+    "TEST Workshop description must begin with an explicit development-build warning"
+Assert-True ($itemConfig -match 'Do not enable it together with the public') `
+    "TEST Workshop description must warn users not to enable both builds"
 
 $unitDir = Join-Path $repoRoot "units\warlock_bombardier"
 foreach ($required in @(
@@ -77,6 +73,11 @@ $soundRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_sound_contract
 & py -3 $soundRegression
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("Doomrocket sound-bank/runtime regression suite failed (exit $LASTEXITCODE)")
+}
+$projectileLifecycleRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_projectile_lifecycle.py'
+& py -3 $projectileLifecycleRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("Doomrocket projectile one-shot lifecycle regression suite failed (exit $LASTEXITCODE)")
 }
 
 # Every animation referenced by the state machine must exist as clip + recipe
