@@ -15,13 +15,17 @@ the short re-entry map, not a second backlog.
 
 ## Current TEST candidate
 
-The next source candidate is `v0.1.61-dev`. Its principal change makes rocket
+The uploaded TEST build is `v0.1.61-dev` on Workshop item `3794172730`
+(content handle `8534772704831302808`, uploaded 2026-09-02). Its principal
+change makes rocket
 detonation an idempotent terminal transition and defers the authoritative
 explosion request to the engine's network/damage phase. This targets
 [issue #8](https://github.com/Ensrick/doomrocket-private/issues/8), whose log
 recorded one projectile attempting 113 impacts after a stale-position failure.
 
-Offline regression tests are necessary but do not prove the fix in game. Keep
+The clean SDK build, verified material splice, complete local pipeline, and
+GitHub source workflow pass. Those checks are necessary but do not prove the
+fix in game. Keep
 #8 open until the TEST Workshop build passes ground impact, player impact,
 shot-down rocket, attacker-death, multi-rocket stress, and host/remote-client
 tests. Then recheck the earlier native audio/explosion crash in

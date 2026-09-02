@@ -4,6 +4,10 @@
 
 Development TEST candidate; runtime acceptance pending.
 
+Published to Workshop item `3794172730` as content handle
+`8534772704831302808`. Source and compiled gates pass; in-game acceptance is
+still required.
+
 - Makes projectile detonation an early-guarded, one-way lifecycle transition.
 - Queues projectile deletion before fallible impact callbacks.
 - Routes the authoritative explosion request into the engine-managed phase to
