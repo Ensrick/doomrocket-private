@@ -15,6 +15,16 @@ must use the same channel and exact version.
 
 ## Development publication procedure
 
+Preferred guarded command (from a clean, committed `private-copy` branch):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\Invoke-DoomrocketRelease.ps1 -Upload
+```
+
+Omit `-Upload` to build/splice/test without publishing, or use
+`-PreflightOnly` for a fast channel/metadata/clean-tree check. The equivalent
+manual sequence is:
+
 ```powershell
 $vmbExe = 'C:\Users\danjo\source\repos\vmb-launcher-baseline-056-20260726\bin\Release\net9.0-windows\win-x64\publish\VMBLauncher.exe'
 $devCfg = 'C:\Users\danjo\source\repos\_doomrocket_vmb\vmblauncher.settings.json'

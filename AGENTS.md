@@ -46,5 +46,8 @@ py -3 tools/check_repository.py --channel development
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-WarlockPipeline.ps1
 ```
 
+For a release, prefer `tools/Invoke-DoomrocketRelease.ps1`. It runs the guarded
+sequence and is non-publishing unless `-Upload` is supplied explicitly.
+
 See `docs/RELEASE_CHANNELS.md`, `CONTRIBUTING.md`, and
 `docs/TESTER_QUICKSTART.md` for the human workflows.
