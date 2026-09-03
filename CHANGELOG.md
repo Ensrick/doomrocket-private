@@ -4,6 +4,10 @@
 
 Development TEST candidate; runtime acceptance pending.
 
+Published to Workshop item `3794172730` as content handle
+`3137123372436099113`. Source, compiled-resource, upload, and remote metadata
+gates pass; in-game acceptance is still required.
+
 - Rejects a nil or deleted player target before launch initialization, fixing
   the issue #9 career-switch crash at `Unit.local_position`.
 - Guards bot-attack notifications, clears stale reload targets, and makes an

@@ -15,7 +15,8 @@ the short re-entry map, not a second backlog.
 
 ## Current TEST candidate
 
-The current source candidate is `v0.1.62-dev` for Workshop item `3794172730`.
+The uploaded TEST build is `v0.1.62-dev` on Workshop item `3794172730`
+(content handle `3137123372436099113`, uploaded 2026-09-03).
 It retains the idempotent rocket detonation work from v0.1.61 and targets three
 new reports: the career-switch deleted-target crash in
 [issue #9](https://github.com/Ensrick/doomrocket-private/issues/9), custom sound
@@ -23,9 +24,9 @@ registration/playback in [issue #10](https://github.com/Ensrick/doomrocket-priva
 and the never-selected close-range shove in
 [issue #11](https://github.com/Ensrick/doomrocket-private/issues/11).
 
-The clean SDK build, verified material splice, complete local pipeline, and
-GitHub source workflow pass. Those checks are necessary but do not prove the
-fix in game. Keep
+The clean SDK build, verified material splice, complete local pipeline, GitHub
+source workflow, Workshop upload, and remote size/title/visibility checks pass.
+Those checks are necessary but do not prove the fixes in game. Keep
 #8 open until the TEST Workshop build passes ground impact, player impact,
 shot-down rocket, attacker-death, multi-rocket stress, and host/remote-client
 tests. Then recheck the earlier native audio/explosion crash in
