@@ -271,6 +271,9 @@ the complete console log.
    machinery left at the corpse or original spawn point. The rocket and its
    eventual impact must continue normally when appropriate. Exactly one custom
    death take must play from the dying enemy; no Ratling death line may overlap.
+   When a combat bark is still speaking at the killing blow, it must stop before
+   the death take begins. Require `phase=combat_voice_stop status=stopped` before
+   the corresponding `phase=death_voice status=played` record.
 2. Spawn and kill five Bombardiers rapidly. Count one living loop per enemy;
    after all five die, none may remain. New spawns must still produce sound.
 3. Move far enough to force ordinary despawn, then return. There must be no
@@ -310,7 +313,7 @@ observations rather than reporting only “sounds good.”
 | Host | Backpack idle/approach | 1 per living enemy |  |  |  |  |
 | Host | Three launches | 3 |  |  | n/a |  |
 | Host | Combat bark pool | at most 1 per enemy / 5 s |  |  | n/a |  |
-| Host | Enemy death | 1 custom take; 0 Ratling overlap |  |  | n/a |  |
+| Host | Enemy death | 1 custom take; 0 Ratling/combat-bark overlap |  |  | n/a |  |
 | Host | Ground impact | 1 layered event |  |  | n/a |  |
 | Host | Shot-down impact | 1 layered event |  |  | n/a |  |
 | Host | Five-enemy death/despawn | 0 loops afterward |  |  |  |  |

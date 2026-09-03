@@ -41,6 +41,7 @@ local audio_state = {
 	backpack_loops = {},
 	combat_voice_next_time = setmetatable({}, { __mode = "k" }),
 	combat_voice_last_index = setmetatable({}, { __mode = "k" }),
+	active_combat_voices = setmetatable({}, { __mode = "k" }),
 	death_voice_played = setmetatable({}, { __mode = "k" }),
 }
 
@@ -164,7 +165,7 @@ local function play_voice_event(emitter_unit, event_name, phase, variant)
 		phase, played and "played" or "trigger_rejected", event_name, tostring(variant), tostring(emitter_unit), node_id,
 		tostring(playing_id), peer_role())
 
-	return played, playing_id
+	return played, playing_id, wwise_world
 end
 
 -- The authority chooses one variant and sends that index through the existing rocket
@@ -201,6 +202,28 @@ mod._choose_warlock_combat_voice = function(owner_unit)
 	return index
 end
 
+local function stop_combat_voice_entry(owner_unit, reason)
+	local entry = audio_state.active_combat_voices[owner_unit]
+
+	if not entry then
+		return false
+	end
+
+	-- Clear first so death, despawn and lifecycle cleanup can safely converge.
+	audio_state.active_combat_voices[owner_unit] = nil
+	local was_playing = entry.playing_id and WwiseWorld.is_playing(entry.wwise_world, entry.playing_id)
+
+	if was_playing then
+		WwiseWorld.stop_event(entry.wwise_world, entry.playing_id)
+	end
+
+	printf("[doomrocket:SOUND] phase=combat_voice_stop status=%s event=%s owner=%s reason=%s peer=%s",
+		was_playing and "stopped" or "already_complete", tostring(entry.event_name),
+		tostring(owner_unit), tostring(reason), peer_role())
+
+	return true
+end
+
 mod._play_warlock_combat_voice = function(owner_unit, variant)
 	local event_name = COMBAT_VOICE_EVENTS[variant]
 
@@ -212,13 +235,29 @@ mod._play_warlock_combat_voice = function(owner_unit, variant)
 		return false
 	end
 
-	return play_voice_event(owner_unit, event_name, "combat_voice", variant)
+	stop_combat_voice_entry(owner_unit, "replacement")
+
+	local played, playing_id, wwise_world = play_voice_event(owner_unit, event_name, "combat_voice", variant)
+
+	if played then
+		audio_state.active_combat_voices[owner_unit] = {
+			wwise_world = wwise_world,
+			playing_id = playing_id,
+			event_name = event_name,
+		}
+	end
+
+	return played
 end
 
 mod._play_warlock_death_voice = function(owner_unit)
 	if not owner_unit or not Unit.alive(owner_unit) or audio_state.death_voice_played[owner_unit] then
 		return false
 	end
+
+	-- The death take replaces speech; never allow an earlier attack bark to talk
+	-- over the corpse or over the custom death voice.
+	stop_combat_voice_entry(owner_unit, "death")
 
 	-- Network game-object IDs are stable on every peer, so the same corpse selects the
 	-- same take without adding a second death-only RPC. Fall back to random only for an
@@ -356,6 +395,18 @@ mod._stop_all_warlock_backpack_sounds = function(reason)
 	end
 end
 
+mod._stop_all_warlock_combat_voices = function(reason)
+	local owners = {}
+
+	for owner_unit, _ in pairs(audio_state.active_combat_voices) do
+		owners[#owners + 1] = owner_unit
+	end
+
+	for i = 1, #owners do
+		stop_combat_voice_entry(owners[i], reason or "stop_all")
+	end
+end
+
 mod._update_warlock_backpack_sounds = function()
 	local stopped_owners = {}
 	local stopped_reasons = {}
@@ -434,8 +485,10 @@ end
 
 mod._shutdown_doomrocket_audio = function(reason, unload_bank)
 	mod._stop_all_warlock_backpack_sounds(reason or "shutdown")
+	mod._stop_all_warlock_combat_voices(reason or "shutdown")
 	audio_state.combat_voice_next_time = setmetatable({}, { __mode = "k" })
 	audio_state.combat_voice_last_index = setmetatable({}, { __mode = "k" })
+	audio_state.active_combat_voices = setmetatable({}, { __mode = "k" })
 	audio_state.death_voice_played = setmetatable({}, { __mode = "k" })
 
 	if unload_bank and audio_state.bank_loaded_by_mod then

@@ -802,6 +802,26 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
         self.assertEqual(self.projectile.count("mod._play_warlock_combat_voice("), 1)
         self.assertIn("COMBAT_VOICE_COOLDOWN_SECONDS", self.audio)
 
+    def test_death_stops_any_active_combat_voice_before_playing_death_take(self) -> None:
+        self.assertIn("active_combat_voices", self.audio)
+        self.assertIn("WwiseWorld.stop_event(", self.audio)
+        death_start = self.audio.find("mod._play_warlock_death_voice = function")
+        death_end = self.audio.find("local function stop_backpack_entry", death_start)
+        self.assertGreaterEqual(death_start, 0)
+        self.assertGreater(death_end, death_start)
+        death_body = self.audio[death_start:death_end]
+        stop_call = death_body.find('stop_combat_voice_entry(owner_unit, "death")')
+        death_play = death_body.find('play_voice_event(owner_unit, event_name, "death_voice"')
+        self.assertGreaterEqual(stop_call, 0)
+        self.assertGreater(
+            death_play,
+            stop_call,
+            "the active bark must stop before the death take starts",
+        )
+        shutdown_start = self.audio.find("mod._shutdown_doomrocket_audio = function")
+        shutdown = self.audio[shutdown_start:]
+        self.assertIn("mod._stop_all_warlock_combat_voices(", shutdown)
+
     def test_custom_death_voice_replaces_the_inherited_ratling_event(self) -> None:
         self.assertRegex(
             self.breed,

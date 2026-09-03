@@ -15,7 +15,7 @@ body:
     id: loaded_banner
     attributes:
       label: Exact loaded build banner
-      placeholder: "[doomrocket:LOAD] v0.1.62-dev"
+      placeholder: "[doomrocket:LOAD] v0.1.63-dev"
     validations:
       required: true
   - type: input

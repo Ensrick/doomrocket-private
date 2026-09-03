@@ -623,12 +623,35 @@ class BallisticAimLaunchParityTests(unittest.TestCase):
             r"if\s+not\s+data\s+or\s+data\.invalid_target\s+then\s*return\s+[\"']failed[\"']",
         )
         self.assertRegex(leave, r"if\s+data\.attack_notified\s+then")
-        for body in (notify_start, notify_end):
-            self.assertRegex(
-                body,
-                r"if\s+not\s+target_unit\s+or\s+not\s+Unit\.alive\s*\(\s*target_unit\s*\)\s+then",
-                "bot-attack cleanup must also tolerate target destruction",
-            )
+        self.assertRegex(
+            notify_start,
+            r"if\s+not\s+target_unit\s+or\s+not\s+Unit\.alive\s*\(\s*target_unit\s*\)\s+then",
+        )
+        self.assertNotRegex(
+            notify_end,
+            r"not\s+Unit\.alive\s*\(\s*(?:target_unit|notified_target)\s*\)\s+then\s*return",
+            "career replacement destroys the victim before leave; attack-ended must still clear the attacker sentinel",
+        )
+        end_call = notify_end.find(":ranged_attack_ended(")
+        alive_check = notify_end.find("Unit.alive(notified_target)")
+        self.assertGreaterEqual(end_call, 0)
+        self.assertGreater(
+            alive_check,
+            end_call,
+            "victim liveness may guard status cleanup, never the paired group-system end",
+        )
+        self.assertIn("active_bot_attack_targets[self_unit] = nil", notify_end)
+        self.assertIn("data.attack_notified_target", leave)
+
+    def test_point_blank_target_cannot_fall_through_from_shove_to_launch(self) -> None:
+        enter = function_slice(self.launch, "enter")
+        run = function_slice(self.launch, "run")
+
+        self.assertIn("local MIN_LAUNCH_DISTANCE = 1.8", self.launch)
+        self.assertIn("target_is_inside_launch_safety", enter)
+        self.assertIn("reason=target_too_close", enter)
+        self.assertIn("target_is_inside_launch_safety", run)
+        self.assertIn("phase=launch_aborted", run)
 
     def test_reload_cannot_reuse_a_deleted_career_target(self) -> None:
         self.assertRegex(

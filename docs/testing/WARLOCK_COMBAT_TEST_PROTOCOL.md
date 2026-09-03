@@ -88,8 +88,10 @@ Test on open, level ground with one Bombardier and no other enemies:
    and pushes forward at speed 7 with a cap of 8.
 5. Remain in range. Native Stormvermin utility keeps the shove unavailable for
    7.5 seconds and ramps it in just after that (roughly an eight-second minimum
-   observed interval). It must resume navigation/ranged behavior after the
-   action ends.
+   observed interval). During that cooldown it may reposition, but it must not
+   launch a rocket while the target remains inside 1.8 metres. The log should
+   show `reason=target_too_close`; after the cooldown it must shove again if the
+   target remains eligible.
 6. Repeat while stepping behind the Bombardier before impact. No push should be
    applied because impact revalidates range and facing.
 7. Repeat while dodging out of range, becoming downed, and killing/staggering
@@ -98,12 +100,32 @@ Test on open, level ground with one Bombardier and no other enemies:
 8. Repeat once with a remote client as the target. The server remains the shove
    authority, while the client must observe the same networked pushed status.
 
+## Career-switch notification regression
+
+Issue #9 reproduced after repeated Keep career changes because destruction of
+the old player unit caused the launch action to skip its paired bot-group
+`ranged_attack_ended` call. The next launch then asserted that the same
+Bombardier was attacking two victims.
+
+1. Spawn one Bombardier, let it begin aiming, and switch career before it fires.
+2. Repeat at least ten times with the same living Bombardier, including switches
+   during align, ready, firing, and reload states.
+3. Repeat with one dead and one living Bombardier present.
+4. Require a matching `status=ended` record for every
+   `phase=bot_attack_notification status=started` record. An ended record may
+   legitimately say `target_alive=false` after the switch.
+5. Fail on `already attacking another victim`, any assertion, or a permanently
+   stuck bot-threat state. A `status=repaired_stale` record is acceptable once
+   after a development hot reload, but not during an ordinary fresh-game run.
+
 ## Pass criteria
 
 - Bombardier and Stormvermin maximum health match at every tested difficulty.
 - Torso armor behavior matches Stormvermin and the head hit zone remains valid.
 - Every eligible close approach yields at most one zero-damage shove.
 - Cooldown, facing, range, downed-target, and interruption gates all work.
-- The Bombardier returns to its ranged behavior after the shove.
+- The Bombardier never fires inside the 1.8-metre shove envelope and resumes
+  ranged behavior only after the target leaves it.
+- Repeated career switches leave every bot attack notification paired.
 - Host and client logs contain no script error, assertion, missing animation
   event, stuck behavior node, or repeated shove impact for one action.

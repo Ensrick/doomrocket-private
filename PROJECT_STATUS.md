@@ -15,18 +15,19 @@ the short re-entry map, not a second backlog.
 
 ## Current TEST candidate
 
-The uploaded TEST build is `v0.1.62-dev` on Workshop item `3794172730`
-(content handle `3137123372436099113`, uploaded 2026-09-03).
+The current source candidate is `v0.1.63-dev` for Workshop item `3794172730`.
+The last verified upload is `v0.1.62-dev` (content handle
+`3137123372436099113`, uploaded 2026-09-03).
 It retains the idempotent rocket detonation work from v0.1.61 and targets three
-new reports: the career-switch deleted-target crash in
+new reports: the career-switch bot-attack notification leak in
 [issue #9](https://github.com/Ensrick/doomrocket-private/issues/9), custom sound
-registration/playback in [issue #10](https://github.com/Ensrick/doomrocket-private/issues/10),
-and the never-selected close-range shove in
+voice interruption on death in [issue #10](https://github.com/Ensrick/doomrocket-private/issues/10),
+and ranged fire during the close-range shove cooldown in
 [issue #11](https://github.com/Ensrick/doomrocket-private/issues/11).
 
-The clean SDK build, verified material splice, complete local pipeline, GitHub
-source workflow, Workshop upload, and remote size/title/visibility checks pass.
-Those checks are necessary but do not prove the fixes in game. Keep
+The v0.1.63 clean SDK build, verified material splice, complete local pipeline,
+Workshop upload, and remote verification are still pending. Those checks do
+not prove the fixes in game. Keep
 #8 open until the TEST Workshop build passes ground impact, player impact,
 shot-down rocket, attacker-death, multi-rocket stress, and host/remote-client
 tests. Then recheck the earlier native audio/explosion crash in
@@ -37,14 +38,14 @@ tests. Then recheck the earlier native audio/explosion crash in
 | Area | State |
 | --- | --- |
 | Accepted body, textures, weapon placement, death drop, host ragdoll | Public alpha; do not replace with unverified TEST work |
-| Stormvermin-style survivability and close-range shove | v0.1.62 direct Ratling-tree gate; runtime/balance verification remains |
+| Stormvermin-style survivability and close-range shove | v0.1.63 blocks point-blank launches while the inherited shove is cooling down; runtime/balance verification remains |
 | Distance-aware ballistic aim | Implemented offline; runtime aiming verification remains |
-| Custom sound bank and voice events | In development; runtime event registration/playback remains a blocker |
+| Custom sound bank and voice events | Runtime playback confirmed in v0.1.62; v0.1.63 must verify combat barks stop on death |
 | Flexible backpack tube, chimney smoke, final animation/rig work | Open development work |
 
 ## Exact next playtest
 
-Use `docs/TESTER_QUICKSTART.md`. Verify the v0.1.62 load marker, then test the
+Use `docs/TESTER_QUICKSTART.md`. Verify the v0.1.63 load marker, then test the
 issue #8 impact matrix, switch career while a living and dead Bombardier are in
 the Keep, approach within 1.8 m for a shove, and exercise every custom sound.
 Require one explosion and one impact per rocket, `shove_selected`/`shove_begin`

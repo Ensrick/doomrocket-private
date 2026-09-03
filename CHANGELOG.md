@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.63-dev — 2026-09-03
+
+- Pair bot-group ranged-attack start/end notifications even when career switching destroys the original player unit, preventing the one-victim assertion in issue #9.
+- Reject and abort Doomrocket launches inside the 1.8 m Stormvermin shove envelope, so the shove cooldown cannot fall through into a point-blank self-hit from issue #11.
+- Track combat-voice playing IDs and stop an active bark before the custom death take, addressing the remaining audio behavior reported in issue #10.
+
 ## v0.1.62-dev — 2026-09-03
 
 Development TEST candidate; runtime acceptance pending.
