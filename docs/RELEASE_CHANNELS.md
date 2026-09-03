@@ -41,6 +41,15 @@ Afterward, verify the live Workshop title, public visibility, warning,
 ManifestID/time, and content size. Confirm the TEST thumbnail is still present.
 Never use `vmblauncher all`; it has no material-splice checkpoint.
 
+Every Workshop-published build also receives exactly one matching lightweight
+Git tag and GitHub prerelease in its owning repository. The version must match
+the Lua load marker and Workshop title exactly (`v<version>-dev` for TEST,
+`v<version>-alpha` for public alpha). Point the tag at the publication-record
+commit, and include the Workshop item, content handle, verified byte size,
+changes, completed gates, and outstanding runtime acceptance in the release
+notes. Do not tag source-only intermediate commits or backfill speculative tags
+for historical builds whose exact publication commit is unknown.
+
 Promotion is a deliberate second change: only runtime-accepted commits are
 ported into the public-alpha worktree, retested there, and uploaded to item
 `3771657344` using that repository's procedure.

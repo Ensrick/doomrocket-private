@@ -36,6 +36,9 @@ this maintenance line. Push development work only to `private`.
 - Never use `vmblauncher all`; it uploads before the required material splice.
 - Build order is clean build, verified material splice, full pipeline, optional
   local deploy, TEST upload, then Steam metadata/content verification.
+- After a verified Workshop publication, record its content handle and byte
+  size, then create one matching lightweight Git tag and GitHub prerelease at
+  the publication-record commit. Never leave a published version untagged.
 - Both Workshop builds share the same internal mod identity. Never enable them
   together, and every multiplayer participant must use the same exact build.
 

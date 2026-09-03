@@ -40,3 +40,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/tests/Test-WarlockRagd
 Before a Workshop upload, also complete the clean SDK build, verified material
 splice, full pipeline, and post-upload verification in
 [`docs/RELEASE_CHANNELS.md`](docs/RELEASE_CHANNELS.md).
+
+## Issue-label policy
+
+Labels describe separate dimensions and may be combined deliberately:
+
+- kind: `bug`, `enhancement`, `documentation`, or `question`;
+- channel: `dev-test` here and `public-alpha` in the player repository;
+- evidence/workflow: `needs-triage`, `needs-info`, `confirmed`, and `testing`;
+- impact/priority: `crash` and `release-blocker`.
+
+New issue forms add `needs-triage`. Remove it as soon as the report is reviewed;
+add `confirmed` only with reproducible evidence, and add `testing` while a fix
+or feature awaits in-game acceptance. `confirmed` and `testing` can coexist:
+one records the evidence and the other records the current work phase. Reserve
+`crash` for an application crash or assertion and `release-blocker` for work
+that must pass before the TEST line can be promoted. Closed dedicated
+validation tasks may use only the channel plus `testing` labels.
