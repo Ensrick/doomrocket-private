@@ -71,7 +71,7 @@ BANK_METADATA_PATH = WWISE_ROOT / "doomrocket.wwise_bank_metadata"
 DEPENDENCY_PATH = WWISE_ROOT / "doomrocket.wwise_dep"
 INIT_BANK_PATH = WWISE_ROOT / "Init.wwise_bank"
 INIT_DEPENDENCY_PATH = WWISE_ROOT / "Init.wwise_dep"
-PROJECT_METADATA_PATH = WWISE_ROOT / "project.wwise_metadata"
+PROJECT_METADATA_PATH = WWISE_ROOT / "doomrocket_project.wwise_metadata"
 MANIFEST_PATH = WWISE_ROOT / "doomrocket.bank_manifest.json"
 BUILDER_PATH = REPO_ROOT / "tools" / "build_doomrocket_wwise_bank.py"
 
@@ -290,6 +290,10 @@ class DoomrocketWwiseProductsTests(unittest.TestCase):
         )
         for path in required:
             self.assertGreater(path.stat().st_size, 0, f"{path.name} is empty")
+        self.assertFalse(
+            (WWISE_ROOT / "project.wwise_metadata").exists(),
+            "the legacy generic metadata resource would reintroduce a compiled collision",
+        )
 
     def test_bank_has_wrapped_wwise_sections(self) -> None:
         if not BANK_PATH.is_file():
@@ -323,6 +327,45 @@ class DoomrocketWwiseProductsTests(unittest.TestCase):
             "XOR word recovered independently from VT2's SDK plugin",
         )
 
+    def test_hirc_order_matches_working_vt2_authoring_banks(self) -> None:
+        data = BANK_PATH.read_bytes()
+        hirc_header = data.index(b"HIRC")
+        hirc_size = struct.unpack_from("<I", data, hirc_header + 4)[0]
+        hirc = data[hirc_header + 8 : hirc_header + 8 + hirc_size]
+        object_count = struct.unpack_from("<I", hirc, 0)[0]
+        objects: list[tuple[int, int, bytes]] = []
+        cursor = 4
+        for _ in range(object_count):
+            object_type = hirc[cursor]
+            body_size = struct.unpack_from("<I", hirc, cursor + 1)[0]
+            body = hirc[cursor + 5 : cursor + 5 + body_size]
+            self.assertGreaterEqual(len(body), 4)
+            objects.append((object_type, struct.unpack_from("<I", body, 0)[0], body))
+            cursor += 5 + body_size
+        self.assertEqual(cursor, len(hirc), "HIRC parser did not consume the section")
+
+        types = [item[0] for item in objects]
+        first_sound = types.index(0x02)
+        first_action = types.index(0x03)
+        self.assertTrue(all(kind == 0x0E for kind in types[:first_sound]))
+        self.assertTrue(all(kind == 0x02 for kind in types[first_sound:first_action]))
+        self.assertTrue(all(kind in (0x03, 0x04) for kind in types[first_action:]))
+
+        event_ids = [short_id for kind, short_id, _ in objects if kind == 0x04]
+        self.assertEqual(event_ids, sorted(event_ids), "Event groups must be ShortID ordered")
+        for event_index, (kind, _, body) in enumerate(objects):
+            if kind != 0x04:
+                continue
+            action_count = body[4]
+            action_ids = list(struct.unpack_from(f"<{action_count}I", body, 5))
+            preceding = objects[event_index - action_count : event_index]
+            self.assertEqual([item[0] for item in preceding], [0x03] * action_count)
+            self.assertEqual(
+                [item[1] for item in preceding],
+                action_ids,
+                "each Event must immediately follow the Action object(s) it references",
+            )
+
     def test_dependency_and_metadata_name_the_bank_and_all_events(self) -> None:
         required = (
             DEPENDENCY_PATH,
@@ -339,8 +382,8 @@ class DoomrocketWwiseProductsTests(unittest.TestCase):
 
         self.assertIn('"wwise/doomrocket"', dependency)
         self.assertIn('"wwise/Init"', init_dependency)
-        self.assertIn('metadata = "wwise/project"', dependency)
-        self.assertIn('metadata = "wwise/project"', init_dependency)
+        self.assertIn('metadata = "wwise/doomrocket_project"', dependency)
+        self.assertIn('metadata = "wwise/doomrocket_project"', init_dependency)
         self.assertRegex(project_metadata, r"\bInit\s*=\s*\{")
         for event in sorted(EXPECTED_EVENTS):
             with self.subTest(event=event):
@@ -352,7 +395,7 @@ class DoomrocketWwiseProductsTests(unittest.TestCase):
                 self.assertIn(
                     event,
                     quoted_values(project_metadata),
-                    f"{event} is absent from project.wwise_metadata",
+                    f"{event} is absent from doomrocket_project.wwise_metadata",
                 )
 
         backpack_metadata = re.search(
@@ -517,7 +560,7 @@ class DoomrocketWwiseProductsTests(unittest.TestCase):
                 Path("wwise/doomrocket.wwise_dep"),
                 Path("wwise/Init.wwise_bank"),
                 Path("wwise/Init.wwise_dep"),
-                Path("wwise/project.wwise_metadata"),
+                Path("wwise/doomrocket_project.wwise_metadata"),
                 Path("wwise/doomrocket.bank_manifest.json"),
             ):
                 with self.subTest(product=relative.as_posix()):
@@ -538,7 +581,9 @@ class DoomrocketWwiseProductsTests(unittest.TestCase):
         init_bank_payloads = compiled_resource_payloads("wwise_bank", "wwise/Init")
         dependency_payloads = compiled_resource_payloads("wwise_dep", "wwise/doomrocket")
         init_dependency_payloads = compiled_resource_payloads("wwise_dep", "wwise/Init")
-        metadata_payloads = compiled_resource_payloads("wwise_metadata", "wwise/project")
+        metadata_payloads = compiled_resource_payloads(
+            "wwise_metadata", "wwise/doomrocket_project"
+        )
         self.assertEqual(len(bank_payloads), 1, "expected one compiled Doomrocket bank")
         self.assertEqual(len(init_bank_payloads), 1, "expected one compiled Wwise Init bank")
         self.assertEqual(len(dependency_payloads), 1, "expected one compiled Doomrocket dependency")
@@ -656,11 +701,11 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
             + ", ".join(found),
         )
 
-    def test_impact_template_uses_runtime_gated_custom_event_with_safe_fallback(self) -> None:
+    def test_impact_template_uses_loaded_custom_event_with_resource_fallback(self) -> None:
         self.assertRegex(
             self.bootstrap,
             r"sound_event_name\s*=\s*mod\._doomrocket_select_impact_event\(\)",
-            "the replicated explosion template must select only a registered event",
+            "the replicated explosion template must use the centralized event selection",
         )
         self.assertIn("Wwise.has_event", self.audio)
         self.assertIn("Play_enemy_doomrocket_impact", self.audio)
@@ -668,8 +713,13 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
         self.assertRegex(
             self.audio,
             r"local\s+selected_event\s*=\s*available\s+and\s+IMPACT_EVENT\s+or\s+IMPACT_FALLBACK_EVENT",
-            "an unregistered custom impact event must fail closed to the known native event",
+            "a missing bank/runtime must fail closed to the known native event",
         )
+        ensure_start = self.audio.find("local function ensure_bank_for_event")
+        ensure_body = self.audio[ensure_start : ensure_start + 2600]
+        self.assertIn('return true, "metadata_unverified"', ensure_body)
+        self.assertIn("action=attempt_playback", ensure_body)
+        self.assertNotIn('return false, "event_missing"', ensure_body)
 
     def test_loop_start_and_stop_are_both_live_and_cleanup_is_idempotent(self) -> None:
         self.assertIn("Play_enemy_doomrocket_backpack_loop", self.runtime)

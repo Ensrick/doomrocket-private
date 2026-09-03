@@ -34,7 +34,7 @@
     "resource": "wwise/doomrocket",
     "stored_vt2_bank_version": "0x9211BC28",
     "wrapped_bytes": 3824303,
-    "wrapped_sha256": "50e9d0c4ae2fec24ede1e5b2c6eb302644046d8ffc35433202d9e48a60027fc9",
+    "wrapped_sha256": "d64acb9a984c6dc3f580469a7f5d952e931ce4add86233f1fb75b6677e827ff2",
     "wrapper_bytes": 44,
     "wwise_release": "2018.1"
   },

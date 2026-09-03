@@ -24,6 +24,9 @@ The combat contract suite verifies all of the following:
 - the close shove is the first branch inside the existing attack-pattern root,
   ahead of the ranged sequence, while the hand-written generated selector
   retains its matching root-child layout;
+- the shove evaluates the native Stormvermin spline boundaries directly rather
+  than depending on the `BTUtilityNode` used by the Stormvermin tree but absent
+  from the Ratling-derived Doomrocket tree;
 - shove impact can occur only once, uses the same zero-damage push semantics
   as Stormvermin, and cleans up correctly when completed or interrupted;
 - the shove uses an event already supported by both the carrier and custom
@@ -75,9 +78,10 @@ Test on open, level ground with one Bombardier and no other enemies:
 
 1. Stay beyond 1.8 metres for at least ten seconds. The Bombardier must not
    shove and must continue its ranged behavior.
-2. Approach inside approximately 1.8 metres while visible, upright, and moving
-   away at less than approximately 1.5 m/s. The native utility splines reach
-   zero at the exact boundary values, so treat them as strict thresholds.
+2. Approach inside 1.8 metres while upright and moving away at less than
+   1.5 m/s. These are the native utility spline boundaries and are evaluated as
+   strict thresholds. The log must contain `phase=shove_selected` followed by
+   `phase=shove_begin`; their absence means the action was not selected.
 3. Confirm the existing `attack_shoot_align` visual starts, impact occurs once
    between 0.6 and 0.8 seconds, and the action ends between 1.2 and 1.5 seconds.
 4. Confirm the shove deals zero health damage, applies the `sv_push` response,

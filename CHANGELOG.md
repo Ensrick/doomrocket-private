@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.1.62-dev — 2026-09-03
+
+Development TEST candidate; runtime acceptance pending.
+
+- Rejects a nil or deleted player target before launch initialization, fixing
+  the issue #9 career-switch crash at `Unit.local_position`.
+- Guards bot-attack notifications, clears stale reload targets, and makes an
+  invalid launch frame fail back to the selector without touching the
+  destroyed unit.
+- Evaluates the Stormvermin shove's 1.8 m distance, 1.5 m/s movement, and
+  7.5-second cooldown boundaries directly in the Ratling selector, fixing the
+  never-selected shove reported in issue #11.
+- Gives the custom Wwise project metadata a Doomrocket-specific resource name,
+  eliminating the collision risk of the generic `wwise/project` resource.
+- Reorders HIRC Action/Event records to match working Wwise 2018 VT2 banks and
+  dispatches loaded-bank events when `Wwise.has_event` is a metadata false
+  negative, with playing-ID telemetry to prove runtime acceptance.
+- Adds regression contracts for stale career targets, deterministic shove
+  selection, unique metadata, authoring-compatible HIRC order, and direct
+  custom-event dispatch.
+
 ## v0.1.61-dev — 2026-09-02
 
 Development TEST candidate; runtime acceptance pending.

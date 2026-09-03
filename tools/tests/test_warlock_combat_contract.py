@@ -409,37 +409,44 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
             self.generated, r"local\s+node_idle\s*=\s*children\[7\]"
         )
 
-    def test_condition_uses_native_stormvermin_utility_and_active_bypass(self) -> None:
+    def test_condition_uses_stormvermin_boundaries_without_utility_node_dependency(self) -> None:
         condition_start = self.runtime.find(
             "BTConditions.doomrocket_should_shove = function"
         )
         self.assertGreaterEqual(condition_start, 0, "missing shove BT condition")
         condition = self.runtime[condition_start : condition_start + 2400]
         active = re.search(r"shove[^\r\n]*active|active[^\r\n]*shove", condition)
-        utility = re.search(r"Utility\.get_action_utility\s*\(", condition)
         self.assertIsNotNone(active, "running shove must bypass fresh eligibility checks")
-        self.assertIsNotNone(utility, "condition must use native Stormvermin utility")
-        self.assertLess(
-            active.start(),
-            utility.start(),
-            "active bypass must be evaluated before cooldown utility",
+        self.assertIn("local SHOVE_MAX_DISTANCE = 1.8", self.shove)
+        self.assertIn("local SHOVE_MAX_TARGET_SPEED_AWAY = 1.5", self.shove)
+        self.assertIn("local SHOVE_COOLDOWN_SECONDS = 7.5", self.shove)
+        self.assertNotIn(
+            "Utility.get_action_utility",
+            condition,
+            "the Ratling selector must not depend on a Stormvermin BTUtilityNode",
         )
-        self.assertRegex(condition, r"Utility\.get_action_utility\s*\([^\n]+\)\s*>\s*0")
+        self.assertNotIn(
+            "confirmed_player_sighting",
+            condition,
+            "the Ratling attack tree can have a valid target without this Stormvermin outer gate",
+        )
+        self.assertRegex(condition, r"not\s+Unit\.alive\s*\(\s*target_unit\s*\)")
         self.assertIn("BTConditions.ask_target_before_attacking", condition)
-        self.assertRegex(condition, r'type\(blackboard\.target_dist\)\s*~=\s*"number"')
+        self.assertRegex(condition, r'type\(target_dist\)\s*~=\s*"number"')
         self.assertRegex(
-            condition, r'type\(blackboard\.target_speed_away\)\s*~=\s*"number"'
+            condition, r'type\(target_speed_away\)\s*~=\s*"number"'
         )
         self.assertRegex(condition, r'type\(utility_data\.time_since_last\)\s*~=\s*"number"')
+        self.assertIn("utility_data.time_since_last < SHOVE_COOLDOWN_SECONDS", condition)
+        self.assertIn("target_dist >= SHOVE_MAX_DISTANCE", condition)
+        self.assertIn("target_speed_away >= SHOVE_MAX_TARGET_SPEED_AWAY", condition)
+        self.assertIn("blackboard.target_is_not_downed == false", condition)
+        self.assertIn("phase=shove_selected", condition)
         if "action.name" in condition:
             self.assertRegex(
                 condition,
                 r"local\s+action_name\s*=\s*action\.name\s+or\s+[\"']push_attack[\"']",
                 "utility lookup needs a safe action-name fallback",
-            )
-            self.assertRegex(
-                condition,
-                r"Utility\.get_action_utility\s*\(\s*action\s*,\s*action_name\s*,",
             )
             self.assertRegex(condition, r"utility_actions\s*\[\s*action_name\s*\]")
         else:

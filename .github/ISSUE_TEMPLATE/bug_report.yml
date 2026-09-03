@@ -30,7 +30,7 @@ body:
     attributes:
       label: Exact loaded build banner
       description: Copy the `[doomrocket:LOAD]` line from the reproducing log.
-      placeholder: "[doomrocket:LOAD] v0.1.61-dev"
+      placeholder: "[doomrocket:LOAD] v0.1.62-dev"
     validations:
       required: true
   - type: dropdown

@@ -2,7 +2,7 @@ win32 = {
 	banks = [
 		"wwise/doomrocket"
 	]
-	metadata = "wwise/project"
+	metadata = "wwise/doomrocket_project"
 	streams = [
 	]
 }

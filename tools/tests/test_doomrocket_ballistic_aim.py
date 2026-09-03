@@ -44,6 +44,7 @@ LAUNCH_PATH = (
     / "skaven_doomrocket"
     / "bt_doomrocket_launch_action.lua"
 )
+RELOAD_PATH = LAUNCH_PATH.with_name("bt_doomrocket_reload_action.lua")
 AIM_TEMPLATE_PATH = (
     REPO_ROOT
     / "scripts"
@@ -579,6 +580,7 @@ class BallisticAimLaunchParityTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.helper = read_lua(BALLISTICS_PATH) if BALLISTICS_PATH.is_file() else ""
         cls.launch = read_lua(LAUNCH_PATH)
+        cls.reload = read_lua(RELOAD_PATH)
         cls.aim_template = read_lua(AIM_TEMPLATE_PATH)
         cls.bootstrap = read_lua(BOOTSTRAP_PATH)
         cls.rpc = read_lua(RPC_PATH)
@@ -594,6 +596,55 @@ class BallisticAimLaunchParityTests(unittest.TestCase):
         self.assertGreaterEqual(helper_load, 0, "bootstrap does not load ballistic helper")
         self.assertGreater(launch_load, helper_load)
         self.assertGreater(aim_load, helper_load)
+
+    def test_deleted_target_is_rejected_before_launch_initialization(self) -> None:
+        enter = function_slice(self.launch, "enter")
+        run = function_slice(self.launch, "run")
+        leave = function_slice(self.launch, "leave")
+        notify_start = function_slice(self.launch, "_notify_attacking")
+        notify_end = function_slice(self.launch, "_notify_no_longer_attacking")
+
+        guard = re.search(
+            r"if\s+not\s+target_unit\s+or\s+not\s+Unit\.alive\s*\(\s*target_unit\s*\)\s+then",
+            enter,
+        )
+        self.assertIsNotNone(guard, "enter must guard a nil or deleted career target")
+        self.assertNotIn(
+            "Unit.local_position(target_unit",
+            enter[: guard.start()],
+            "the issue #9 crash dereferenced the deleted target before this guard",
+        )
+        rejected = enter[guard.start() :]
+        self.assertRegex(rejected, r"data\.target_unit\s*=\s*nil")
+        self.assertRegex(rejected, r"data\.invalid_target\s*=\s*true")
+        self.assertIn("phase=launch_rejected", rejected)
+        self.assertRegex(
+            run,
+            r"if\s+not\s+data\s+or\s+data\.invalid_target\s+then\s*return\s+[\"']failed[\"']",
+        )
+        self.assertRegex(leave, r"if\s+data\.attack_notified\s+then")
+        for body in (notify_start, notify_end):
+            self.assertRegex(
+                body,
+                r"if\s+not\s+target_unit\s+or\s+not\s+Unit\.alive\s*\(\s*target_unit\s*\)\s+then",
+                "bot-attack cleanup must also tolerate target destruction",
+            )
+
+    def test_reload_cannot_reuse_a_deleted_career_target(self) -> None:
+        self.assertRegex(
+            self.reload,
+            r"if\s+target_unit\s+and\s+Unit\.alive\s*\(\s*target_unit\s*\)\s+then",
+        )
+        self.assertRegex(
+            self.reload,
+            r"elseif\s+old_target_visible\s+and\s+data\.target_unit\s+and\s+"
+            r"Unit\.alive\s*\(\s*data\.target_unit\s*\)\s+then",
+        )
+        self.assertGreaterEqual(
+            len(re.findall(r"data\.target_unit\s*=\s*nil", self.reload)),
+            2,
+            "both reload acquisition paths must discard a destroyed player unit",
+        )
 
     def test_visual_aim_and_shoot_call_exactly_one_shared_primitive_solver(self) -> None:
         solve_call = method_call_pattern(self.launch, "solve_launch_velocity")

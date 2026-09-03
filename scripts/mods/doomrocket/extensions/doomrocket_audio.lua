@@ -36,7 +36,7 @@ mod.doomrocket_sound_events = {
 local audio_state = {
 	bank_loaded_by_mod = false,
 	bank_unavailable_logged = false,
-	missing_events_logged = {},
+	unverified_events_logged = {},
 	impact_event_name = IMPACT_FALLBACK_EVENT,
 	backpack_loops = {},
 	combat_voice_next_time = setmetatable({}, { __mode = "k" }),
@@ -62,7 +62,7 @@ local function ensure_bank_for_event(event_name)
 	end
 
 	if event_exists(event_name) then
-		return true
+		return true, "registered"
 	end
 
 	if not audio_state.bank_loaded_by_mod then
@@ -82,16 +82,23 @@ local function ensure_bank_for_event(event_name)
 	end
 
 	if event_exists(event_name) then
-		return true
+		return true, "registered"
 	end
 
-	if not audio_state.missing_events_logged[event_name] then
-		audio_state.missing_events_logged[event_name] = true
-		printf("[doomrocket:SOUND] phase=bank status=missing_event resource=%s event=%s action=silent",
+	-- Working VT2 custom-audio mods dispatch bank events directly. Wwise.has_event
+	-- depends on project metadata registration and can remain false when the bank
+	-- itself loaded successfully, so treat it as diagnostic rather than a mute gate.
+	if not audio_state.unverified_events_logged[event_name] then
+		audio_state.unverified_events_logged[event_name] = true
+		printf("[doomrocket:SOUND] phase=bank status=metadata_unverified resource=%s event=%s action=attempt_playback",
 			BANK_RESOURCE, event_name)
 	end
 
-	return false, "event_missing"
+	return true, "metadata_unverified"
+end
+
+local function valid_playing_id(playing_id)
+	return playing_id ~= nil and playing_id ~= 0
 end
 
 local function unit_node_or_root(unit, node_name)
@@ -151,12 +158,13 @@ local function play_voice_event(emitter_unit, event_name, phase, variant)
 	local node_id = unit_node_or_root(emitter_unit, "c_head")
 	local source_id, wwise_world = WwiseUtils.make_unit_auto_source(world, emitter_unit, node_id)
 	local playing_id = WwiseWorld.trigger_event(wwise_world, event_name, true, source_id)
+	local played = valid_playing_id(playing_id)
 
-	printf("[doomrocket:SOUND] phase=%s status=played event=%s variant=%s emitter=%s node=%d playing_id=%s peer=%s",
-		phase, event_name, tostring(variant), tostring(emitter_unit), node_id,
+	printf("[doomrocket:SOUND] phase=%s status=%s event=%s variant=%s emitter=%s node=%d playing_id=%s peer=%s",
+		phase, played and "played" or "trigger_rejected", event_name, tostring(variant), tostring(emitter_unit), node_id,
 		tostring(playing_id), peer_role())
 
-	return true, playing_id
+	return played, playing_id
 end
 
 -- The authority chooses one variant and sends that index through the existing rocket
@@ -310,6 +318,14 @@ mod._start_warlock_backpack_sound = function(owner_unit, outfit_unit)
 	local source_id, wwise_world = WwiseUtils.make_unit_auto_source(world, outfit_unit, node_id)
 	local playing_id = WwiseWorld.trigger_event(wwise_world, BACKPACK_PLAY_EVENT, true, source_id)
 
+	if not valid_playing_id(playing_id) then
+		printf("[doomrocket:SOUND] phase=backpack_start status=trigger_rejected event=%s owner=%s outfit=%s node=%d playing_id=%s peer=%s",
+			BACKPACK_PLAY_EVENT, tostring(owner_unit), tostring(outfit_unit), node_id,
+			tostring(playing_id), peer_role())
+
+		return false
+	end
+
 	audio_state.backpack_loops[owner_unit] = {
 		outfit_unit = outfit_unit,
 		wwise_world = wwise_world,
@@ -385,15 +401,18 @@ mod._play_doomrocket_launch_sound = function(emitter_unit)
 	local node_id = unit_node_or_root(emitter_unit, "p_fx")
 	local source_id, wwise_world = WwiseUtils.make_unit_auto_source(world, emitter_unit, node_id)
 	local playing_id = WwiseWorld.trigger_event(wwise_world, LAUNCH_EVENT, true, source_id)
+	local played = valid_playing_id(playing_id)
 
-	printf("[doomrocket:SOUND] phase=launch status=played event=%s emitter=%s node=%d playing_id=%s peer=%s",
-		LAUNCH_EVENT, tostring(emitter_unit), node_id, tostring(playing_id), peer_role())
+	printf("[doomrocket:SOUND] phase=launch status=%s event=%s emitter=%s node=%d playing_id=%s peer=%s",
+		played and "played" or "trigger_rejected", LAUNCH_EVENT, tostring(emitter_unit), node_id,
+		tostring(playing_id), peer_role())
 
-	return true
+	return played
 end
 
--- Configure the replicated explosion template once per peer. A resource being loadable
--- is not proof its events registered; Wwise.has_event is the runtime acceptance gate.
+-- Configure the replicated explosion template once per peer. The unique metadata
+-- resource avoids the base game's generic project path, while bank-loaded events
+-- remain playable even if Wwise.has_event has not refreshed its registry yet.
 mod._doomrocket_select_impact_event = function()
 	local available, unavailable_reason = ensure_bank_for_event(IMPACT_EVENT)
 	local selected_event = available and IMPACT_EVENT or IMPACT_FALLBACK_EVENT

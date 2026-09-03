@@ -363,9 +363,9 @@ def make_raw_bank(assets: tuple[MediaAsset, ...]) -> tuple[bytes, dict[str, int]
         )
         for asset in assets
     }
-    for attenuation_id, max_distance in unique_attenuations.items():
+    for attenuation_id, max_distance in sorted(unique_attenuations.items()):
         objects.append((0x0E, attenuation_id, make_attenuation(attenuation_id, max_distance)))
-    for asset in assets:
+    for asset in sorted(assets, key=lambda item: item.sound_id):
         objects.append((0x02, asset.sound_id, make_sound(asset)))
 
     play_targets = {
@@ -377,14 +377,14 @@ def make_raw_bank(assets: tuple[MediaAsset, ...]) -> tuple[bytes, dict[str, int]
     play_targets.update({
         key: assets_by_key[key].sound_id for key in VOICE_ASSET_KEYS
     })
-    for key, target in play_targets.items():
-        objects.append((0x03, action_ids[key], make_play_action(action_ids[key], target, bank_id)))
-    objects.append(
-        (
-            0x03,
-            action_ids["backpack_stop"],
-            make_stop_action(action_ids["backpack_stop"], backpack.sound_id, 250),
-        )
+    action_objects = {
+        action_ids[key]: (0x03, action_ids[key], make_play_action(action_ids[key], target, bank_id))
+        for key, target in play_targets.items()
+    }
+    action_objects[action_ids["backpack_stop"]] = (
+        0x03,
+        action_ids["backpack_stop"],
+        make_stop_action(action_ids["backpack_stop"], backpack.sound_id, 250),
     )
 
     event_actions = {
@@ -396,12 +396,15 @@ def make_raw_bank(assets: tuple[MediaAsset, ...]) -> tuple[bytes, dict[str, int]
     event_actions.update({
         VOICE_EVENT_BY_ASSET[key]: (action_ids[key],) for key in VOICE_ASSET_KEYS
     })
-    for event_name, event_action_ids in event_actions.items():
+    # Match the object ordering emitted by working VT2 Wwise 2018 banks: shared
+    # attenuation and Sound objects first, then each Event's Action object(s)
+    # immediately before that Event, with Event groups ordered by ShortID.
+    for event_name, event_action_ids in sorted(
+        event_actions.items(), key=lambda item: fnv1_32(item[0])
+    ):
+        for action_id in event_action_ids:
+            objects.append(action_objects[action_id])
         objects.append((0x04, fnv1_32(event_name), make_event(event_name, event_action_ids)))
-
-    # Wwise groups HIRC objects by class and orders each group by ShortID.
-    type_order = {0x0E: 0, 0x02: 1, 0x03: 2, 0x04: 3}
-    objects.sort(key=lambda item: (type_order[item[0]], item[1]))
     hirc_body = struct.pack("<I", len(objects)) + b"".join(item[2] for item in objects)
 
     all_ids = {
@@ -457,7 +460,7 @@ def write_metadata(output_dir: Path, assets: tuple[MediaAsset, ...]) -> None:
         "\tbanks = [\n"
         '\t\t"wwise/doomrocket"\n'
         "\t]\n"
-        '\tmetadata = "wwise/project"\n'
+        '\tmetadata = "wwise/doomrocket_project"\n'
         "\tstreams = [\n"
         "\t]\n"
         "}\n"
@@ -467,7 +470,7 @@ def write_metadata(output_dir: Path, assets: tuple[MediaAsset, ...]) -> None:
         "\tbanks = [\n"
         '\t\t"wwise/Init"\n'
         "\t]\n"
-        '\tmetadata = "wwise/project"\n'
+        '\tmetadata = "wwise/doomrocket_project"\n'
         "\tstreams = [\n"
         "\t]\n"
         "}\n"
@@ -533,7 +536,12 @@ def write_metadata(output_dir: Path, assets: tuple[MediaAsset, ...]) -> None:
         raise AssertionError("embedded Wwise 2018.1 Init bank digest mismatch")
     (output_dir / "Init.wwise_bank").write_bytes(init_bank)
     (output_dir / "Init.wwise_dep").write_text(init_dependency, encoding="utf-8", newline="\n")
-    (output_dir / "project.wwise_metadata").write_text(project_metadata, encoding="utf-8", newline="\n")
+    (output_dir / "doomrocket_project.wwise_metadata").write_text(
+        project_metadata, encoding="utf-8", newline="\n"
+    )
+    legacy_metadata = output_dir / "project.wwise_metadata"
+    if legacy_metadata.is_file():
+        legacy_metadata.unlink()
 
 
 def build(source_dir: Path, repo_root: Path) -> dict[str, object]:

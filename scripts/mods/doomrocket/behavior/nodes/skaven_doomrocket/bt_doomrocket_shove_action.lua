@@ -1,29 +1,39 @@
 local mod = get_mod("doomrocket")
 
 require("scripts/entity_system/systems/behaviour/nodes/bt_node")
-require("scripts/entity_system/systems/behaviour/utility/utility")
 
 BTDoomrocketShoveAction = class(BTDoomrocketShoveAction, BTNode)
 BTDoomrocketShoveAction.name = "BTDoomrocketShoveAction"
+
+-- These are the positive-utility boundaries of the native Stormvermin shove
+-- splines: distance 4 * 0.45, speed 10 * 0.15 and cooldown 15 * 0.5.
+-- The Doomrocket keeps those combat values, but evaluates them directly because
+-- the Ratling behavior tree does not run inside the Stormvermin BTUtilityNode.
+local SHOVE_MAX_DISTANCE = 1.8
+local SHOVE_MAX_TARGET_SPEED_AWAY = 1.5
+local SHOVE_COOLDOWN_SECONDS = 7.5
 
 BTDoomrocketShoveAction.init = function (self, ...)
 	BTDoomrocketShoveAction.super.init(self, ...)
 end
 
--- The native Stormvermin consideration supplies the distance, line-of-sight,
--- target-speed, downed-target and time-since-last gates.  Once entered, keep
--- the condition sticky: enter consumes the cooldown immediately, so evaluating
--- the utility again would otherwise abort the shove on its next frame.
+-- Once entered, keep the condition sticky: enter consumes the cooldown
+-- immediately, so evaluating eligibility again would abort the next frame.
 BTConditions.doomrocket_should_shove = function (blackboard, condition_args, action)
 	if blackboard.doomrocket_shove_active then
 		return true
 	end
 
-	if not action or not action.considerations or not BTConditions.confirmed_player_sighting(blackboard) then
+	local target_unit = blackboard.target_unit
+
+	if not action or not target_unit or not Unit.alive(target_unit) then
 		return false
 	end
 
-	if type(blackboard.target_dist) ~= "number" or type(blackboard.target_speed_away) ~= "number" then
+	local target_dist = blackboard.target_dist
+	local target_speed_away = blackboard.target_speed_away
+
+	if type(target_dist) ~= "number" or type(target_speed_away) ~= "number" then
 		return false
 	end
 
@@ -31,7 +41,13 @@ BTConditions.doomrocket_should_shove = function (blackboard, condition_args, act
 	local utility_actions = blackboard.utility_actions
 	local utility_data = utility_actions and utility_actions[action_name]
 
-	if not utility_data or type(utility_data.time_since_last) ~= "number" then
+	if not utility_data or type(utility_data.time_since_last) ~= "number"
+		or utility_data.time_since_last < SHOVE_COOLDOWN_SECONDS then
+		return false
+	end
+
+	if target_dist >= SHOVE_MAX_DISTANCE or target_speed_away >= SHOVE_MAX_TARGET_SPEED_AWAY
+		or blackboard.target_is_not_downed == false then
 		return false
 	end
 
@@ -39,7 +55,10 @@ BTConditions.doomrocket_should_shove = function (blackboard, condition_args, act
 		return false
 	end
 
-	return Utility.get_action_utility(action, action_name, blackboard) > 0
+	printf("[doomrocket:COMBAT] phase=shove_selected distance=%.3f speed_away=%.3f cooldown_s=%.3f",
+		target_dist, target_speed_away, utility_data.time_since_last)
+
+	return true
 end
 
 BTDoomrocketShoveAction.enter = function (self, unit, blackboard, t)
