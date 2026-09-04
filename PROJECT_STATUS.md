@@ -15,9 +15,8 @@ the short re-entry map, not a second backlog.
 
 ## Current TEST candidate
 
-The current source candidate is `v0.1.63-dev` for Workshop item `3794172730`.
-The last verified upload is `v0.1.62-dev` (content handle
-`3137123372436099113`, uploaded 2026-09-03).
+The uploaded TEST build is `v0.1.63-dev` on Workshop item `3794172730`
+(content handle `6015138325193005907`, 95,645,866 bytes, verified 2026-09-03).
 It retains the idempotent rocket detonation work from v0.1.61 and targets three
 new reports: the career-switch bot-attack notification leak in
 [issue #9](https://github.com/Ensrick/doomrocket-private/issues/9), custom sound
@@ -26,7 +25,7 @@ and ranged fire during the close-range shove cooldown in
 [issue #11](https://github.com/Ensrick/doomrocket-private/issues/11).
 
 The v0.1.63 clean SDK build, verified material splice, complete local pipeline,
-Workshop upload, and remote verification are still pending. Those checks do
+Workshop upload, and remote size/title/visibility checks pass. Those checks do
 not prove the fixes in game. Keep
 #8 open until the TEST Workshop build passes ground impact, player impact,
 shot-down rocket, attacker-death, multi-rocket stress, and host/remote-client
