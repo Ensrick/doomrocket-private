@@ -357,6 +357,8 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
                 b"BTDoomrocketShoveAction",
                 b"doomrocket_should_shove",
                 b"close_combat_selector",
+                b"doomrocket_should_wait_at_close_range",
+                b"wait_at_close_range",
             ),
             "scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_shove_action": (
                 b"BTDoomrocketShoveAction",
@@ -364,6 +366,13 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
                 b"shove_begin",
                 b"shove_impact",
                 b"set_pushed_network",
+                b"doomrocket_should_wait_at_close_range",
+            ),
+            "scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_reload_action": (
+                b"reload_in_progress",
+                b"reload_begin",
+                b"reload_interrupted",
+                b"reload_complete",
             ),
         }
 

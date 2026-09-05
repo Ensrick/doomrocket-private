@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.64-dev — 2026-09-05
+
+Development TEST candidate; new reload behavior awaits runtime acceptance.
+
+- Preserve a completed rocket load across shoves instead of replaying the
+  reload animation after every kick (issue #12, reported in #11).
+- Wait with the loaded rocket while a close player remains inside the shove
+  envelope, then resume aiming when the player steps away.
+- Retain the existing shove cooldown, force, damage, and aiming timing.
+- Record the v0.1.63 host confirmations: repeated career switching no longer
+  reproduces #9, combat barks stop on death (#10), and repeat shoves block
+  point-blank launches (#11). Remote-client verification remains open.
+
 ## v0.1.63-dev — 2026-09-03
 
 - Pair bot-group ranged-attack start/end notifications even when career switching destroys the original player unit, preventing the one-victim assertion in issue #9.

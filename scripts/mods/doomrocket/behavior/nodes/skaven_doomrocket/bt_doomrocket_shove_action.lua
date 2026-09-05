@@ -13,6 +13,19 @@ local SHOVE_MAX_DISTANCE = 1.8
 local SHOVE_MAX_TARGET_SPEED_AWAY = 1.5
 local SHOVE_COOLDOWN_SECONDS = 7.5
 
+-- A loaded weapon has nothing to reload while the target remains point-blank.
+-- Hold a native idle action between shoves instead of restarting the complete
+-- ranged sequence and rejecting its launch every AI tick. Empty weapons may
+-- finish a real reload; the higher-priority shove can still interrupt it.
+BTConditions.doomrocket_should_wait_at_close_range = function (blackboard)
+	local target_unit = blackboard.target_unit
+	local target_dist = blackboard.target_dist
+
+	return blackboard.reloaded_rocket ~= false
+		and target_unit ~= nil and Unit.alive(target_unit)
+		and type(target_dist) == "number" and target_dist < SHOVE_MAX_DISTANCE
+end
+
 BTDoomrocketShoveAction.init = function (self, ...)
 	BTDoomrocketShoveAction.super.init(self, ...)
 end

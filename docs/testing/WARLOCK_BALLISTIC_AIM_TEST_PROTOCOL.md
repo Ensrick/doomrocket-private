@@ -4,7 +4,7 @@ This is the source contract and runtime acceptance gate for the Bombardier's
 launcher pose. The launcher must point along the rocket's initial ballistic
 velocity, not along the straight line from the enemy to the target.
 
-Status: **v0.1.63-dev is a test candidate, not a runtime-accepted build.** Its
+Status: **v0.1.64-dev is a test candidate, not a runtime-accepted build.** Its
 offline checks can prove the solver and its call sites agree, but host and
 remote-client video are still required to prove that the animation constraint
 actually places the launcher on the visible trajectory.
@@ -161,7 +161,7 @@ testing.
    the complete host log and at least one remote-client log.
 4. Confirm both logs contain the exact banner:
 
-       [doomrocket:LOAD] v0.1.63-dev
+       [doomrocket:LOAD] v0.1.64-dev
 
 5. Disable mods that replace enemy targeting, animation, projectiles, time
    scale, or network behavior. Use an open area with a clear side view of the
@@ -219,7 +219,7 @@ The candidate passes only when all of the following are true:
 
 - the focused test, full offline pipeline, clean build, and compiled-resource
   freshness checks pass;
-- both peers prove `[doomrocket:LOAD] v0.1.63-dev`, with no script error,
+- both peers prove `[doomrocket:LOAD] v0.1.64-dev`, with no script error,
   assertion, invalid vector, or missing animation-constraint error;
 - every host release record has finite range, flat range, flight time, desired pitch, and
   `pose_error_deg <= 0.25`; `pose_error_deg == -1` rejects the shot;

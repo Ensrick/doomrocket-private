@@ -40,6 +40,9 @@ jobs:
       - name: Run combat contracts
         run: python tools/tests/test_warlock_combat_contract.py
 
+      - name: Run executable reload and shove lifecycle tests
+        run: python tools/tests/test_doomrocket_reload_lifecycle.py
+
       - name: Run ballistic aiming contracts
         run: python tools/tests/test_doomrocket_ballistic_aim.py
 

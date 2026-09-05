@@ -100,6 +100,29 @@ Test on open, level ground with one Bombardier and no other enemies:
 8. Repeat once with a remote client as the target. The server remains the shove
    authority, while the client must observe the same networked pushed status.
 
+## Reload interruption and resumption (#12)
+
+Verify `[doomrocket:LOAD] v0.1.64-dev` and use one Bombardier on open ground.
+
+1. On a fresh spawn, interrupt its first aim with a shove. Step away and confirm
+   it resumes aiming with the original loaded rocket, without a reload cycle.
+2. Let it fire and complete a reload. Approach for a shove and remain close for
+   at least two cooldowns. Each shove must retain the loaded rocket; no reload
+   animation or repeated reload visibility update should occur between kicks.
+3. Step back outside 1.8 m. It must aim and fire that retained rocket, then
+   perform one genuine reload before the next shot.
+4. Separately interrupt a reload early and during its final second. An
+   unfinished load must restart after the shove and cannot fire immediately.
+   The rocket appears and is synced to peers only when reloading completes.
+5. Repeat with stagger, death, and a career switch during reload. No stale
+   callback, deleted target access, free shot, or stuck navigation may result.
+6. Repeat as a remote client while the host runs AI. Compare the visible
+   loaded/empty weapon on both peers and attach both complete logs.
+
+The selector can interrupt both reload and aiming; no new aim-only restriction
+or stronger knockback is part of this fix. The existing shove cooldown and
+force remain the baseline for any later balance changes.
+
 ## Career-switch notification regression
 
 Issue #9 reproduced after repeated Keep career changes because destruction of

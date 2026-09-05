@@ -20,8 +20,8 @@ Assert-True ($itemConfig -match '(?m)^visibility\s*=\s*"public";\s*$') `
     "development TEST Workshop item must remain public"
 Assert-True ($itemConfig -match '(?m)^preview\s*=\s*"item_preview_test\.png";\s*$') `
     "development TEST build must use item_preview_test.png"
-Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0\.1\.63-dev";\s*$') `
-    "development title must be exactly Warprocket Bombardier TEST v0.1.63-dev"
+Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0\.1\.64-dev";\s*$') `
+    "development title must be exactly Warprocket Bombardier TEST v0.1.64-dev"
 Assert-True ($itemConfig -match 'DEVELOPMENT TEST BUILD') `
     "TEST Workshop description must begin with an explicit development-build warning"
 Assert-True ($itemConfig -match 'Do not enable it together with the public') `
@@ -63,6 +63,11 @@ $combatRegression = Join-Path $PSScriptRoot 'tests\test_warlock_combat_contract.
 & py -3 $combatRegression
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("combat survivability/shove regression suite failed (exit $LASTEXITCODE)")
+}
+$reloadLifecycleRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_reload_lifecycle.py'
+& py -3 $reloadLifecycleRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("Doomrocket executable reload/shove lifecycle regression suite failed (exit $LASTEXITCODE)")
 }
 $ballisticRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_ballistic_aim.py'
 & py -3 $ballisticRegression

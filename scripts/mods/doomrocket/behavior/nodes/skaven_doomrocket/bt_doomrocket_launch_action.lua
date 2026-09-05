@@ -100,7 +100,6 @@ BTDoomrocketLaunchAction.enter = function (self, unit, blackboard, t)
 		data.arc_of_sight_nav_obstacle = aos_nav_obs
 	end
 
-	blackboard.first_shots_fired = true
 	blackboard.navigation_extension:set_enabled(false)
 	blackboard.locomotion_extension:set_wanted_velocity(Vector3.zero())
 
@@ -827,6 +826,7 @@ BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
 	-- Actor.add_velocity(actor, impulse_vector)
 
 	Unit.set_mesh_visibility(data.ratling_gun_unit, "pRocket", false, "default")
+	blackboard.first_shots_fired = true
 	blackboard.reloaded_rocket = false
 	mod:network_send("rpc_launch_rocket","others", go_id, network_velocity, network_target_vector,
 		attacker_unit_id, combat_voice_variant)

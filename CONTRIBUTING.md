@@ -34,8 +34,14 @@ py -3 tools/tests/test_doomrocket_projectile_lifecycle.py
 py -3 tools/tests/test_doomrocket_sound_contract.py
 py -3 tools/tests/test_doomrocket_ballistic_aim.py
 py -3 tools/tests/test_warlock_combat_contract.py
+py -3 tools/tests/test_doomrocket_reload_lifecycle.py
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/tests/Test-WarlockRagdollRegressions.ps1
 ```
+
+Install `requirements-dev.txt` first. The reload lifecycle tests execute the
+production actions in Lua 5.1 through [Lupa](https://pypi.org/project/lupa/),
+with engine I/O stubbed; animation and multiplayer results still require
+the game.
 
 Before a Workshop upload, also complete the clean SDK build, verified material
 splice, full pipeline, and post-upload verification in

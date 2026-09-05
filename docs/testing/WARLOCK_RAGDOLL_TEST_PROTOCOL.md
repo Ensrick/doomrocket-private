@@ -41,7 +41,7 @@ long-lived cleanup coverage remain required.
 5. Confirm the console contains the exact tested-build banner and record
    its Workshop manifest ID:
 
-       [doomrocket:LOAD] v0.1.63-dev
+       [doomrocket:LOAD] v0.1.64-dev
 
    `[doomrocket:LOAD] v0.1.50-dev` identifies the original baseline.
    `[doomrocket:LOAD] v0.1.51-dev` identifies the known pre-monitor
