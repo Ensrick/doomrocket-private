@@ -17,9 +17,18 @@ the short re-entry map, not a second backlog.
 
 The source candidate is `v0.1.64-dev`, fixing the completed reload that restarts
 after each shove in [issue #12](https://github.com/Ensrick/doomrocket-private/issues/12).
-Its build and publication checks are pending. The last verified upload is
+Clean compilation, all five material splices, 138 package tests, the ragdoll
+regressions, and GitHub source validation pass. **Workshop publication is
+blocked by the SDK uploader's Steam API initialization crash**, not by a mod
+test failure. Two upload attempts exited with `0xc0000005` before publication;
+a normal Steam restart is needed before retrying the validated package. See
+the [build record and package hashes](docs/testing/2026-09-05_TESTER_RESULTS.md#build-and-publication-gate).
+The last verified upload remains
 `v0.1.63-dev` on Workshop item `3794172730` (content handle
 `6015138325193005907`, 95,645,866 bytes, verified 2026-09-03).
+
+Do not announce v0.1.64 as live or tag it until the upload and remote metadata
+checks succeed. Public alpha remains unchanged.
 
 Crunch's September 5 reports confirm the v0.1.63 fixes on host: 38 career
 changes without the reported crash, 16 active voice interruptions on death,

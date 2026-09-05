@@ -56,6 +56,39 @@ the reload implementation is replaced in memory with the v0.1.63 source, and
 passes with v0.1.64. This establishes a regression test for the reported defect;
 it does not simulate the game's animation graph, physics, or peer rendering.
 
+## Build and publication gate
+
+Source commit `854d918738372bea9c70611b0670a84ace0e1ca2` passed GitHub source
+validation and the complete local release gate: clean SDK compilation, five
+hash-verified material splices, 138 Python tests against source/compiled
+resources, and the PowerShell ragdoll regressions. The validated local package
+is **95,342,738 bytes**:
+
+| File in `bundleV2` | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `209fb8c3c0a8c3a4.mod_bundle` | 1,021,841 | `B242782BC46EA2646616D9D25A51F87701C49B989537B347B6E1B7D0BED801EC` |
+| `4e6a9317aab221e1.mod_bundle` | 7,258 | `5C7BF2F4DD484FFA20EA5971068037E1B5DB1B5EB25530DFE664209532FF1DA8` |
+| `ac226cc769a897ae.mod_bundle` | 61,859,994 | `C8597439F1556B22B34132635562C29414BBAF6FB65107B25D857721B074C176` |
+| `doomrocket.mod` | 470 | `DBF17C3E8ED109834BBCF56E4BDF7700BFF937E6B699FD63D7E11E571F3165D2` |
+| `f5283f9585ea8355.mod_bundle` | 32,453,175 | `A3FA4DBBF3F7000E36C47EBFAE5F970B67B998958B8CE3A5FAA74463A2835F8F` |
+
+Publication did **not** succeed. The guarded upload and one upload-only retry
+both ended in `ugc_tool.exe` exit `-1073741819` (`0xc0000005`). Windows recorded
+the fault at module offset `0x4169`. Read-only disassembly places this at a null
+Steam-interface dereference immediately after `SteamAPI_Init` and
+`SteamInternal_ContextInit`, before the uploader submits the item. The launcher
+already supplies the SDK's documented `-x` stdin option; this is not missing
+EULA input. Steam's `ActiveProcess` registry PID was stale relative to the live
+client, which is consistent with a session/IPC problem, not proof of its cause.
+
+Steam still reports v0.1.63, public visibility, handle `6015138325193005907`,
+and 95,645,866 bytes. Do not replace DLLs or edit Steam's registry to work around
+this. Have the user normally exit/relaunch Steam when convenient, verify the
+local package hashes above still match, and retry only the documented guarded
+VMB upload step in `docs/RELEASE_CHANNELS.md`. Recheck the live title, handle,
+size, visibility, TEST warning, thumbnail, and links. Only after success record
+the publication commit and create the matching lightweight tag/prerelease.
+
 ## Explosion and wider acceptance limits
 
 These sessions contain 62 launch audio records and 63 impact dispatch records,
