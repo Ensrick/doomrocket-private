@@ -55,11 +55,26 @@ September 7 package, not the old September 5 candidate:
 | `doomrocket.mod` | 470 | `DBF17C3E8ED109834BBCF56E4BDF7700BFF937E6B699FD63D7E11E571F3165D2` |
 | `f5283f9585ea8355.mod_bundle` | 32,453,175 | `A3FA4DBBF3F7000E36C47EBFAE5F970B67B998958B8CE3A5FAA74463A2835F8F` |
 
-The Steam process and stale recorded PID were unchanged from the failed
-September 5 uploader session. The user was asked to normally exit/relaunch
-Steam; another identical crash-prone upload was not attempted while that
-state remained unchanged. Do not restart Steam or edit its registry without
-the user's direction.
+At the end of the portrait build, the Steam process and stale recorded PID
+were unchanged from the failed September 5 uploader session. The user was
+asked to normally exit/relaunch Steam; no upload was attempted during that
+build turn. Do not restart Steam or edit its registry without the user's
+direction.
+
+At the user's subsequent request, an upload-only retry on September 7 at
+12:08 CDT again exited with `0xc0000005` at `ugc_tool.exe` offset `0x4169`.
+Steam still reported v0.1.63, handle `6015138325193005907`, 95,645,866 bytes.
+The five local package hashes above were unchanged and the preflight passed.
+
+VT2 is absent from the current Steam library's installed-app list, but the
+SDK and uploader remain present. [Valve's SteamAPI_Init requirements](https://partner.steamgames.com/doc/api/steam_api#SteamAPI_Init)
+specify a running client, resolvable App ID, matching Windows user/elevation,
+and the active account's license; they do not list game installation as a
+requirement. The uploader's working directory contains App ID 552500. Steam
+and the shell use the same Windows user/session and both have Medium integrity
+(`0x2000`), ruling out the checked elevation mismatch. Current Steam license
+state and the exact cause of the failed initialization remain unverified.
+Do not trigger a large game reinstall based only on the missing manifest.
 
 After the restart, verify these package hashes and use the upload-only VMB
 command in `docs/RELEASE_CHANNELS.md`. Verify the live item title, public
