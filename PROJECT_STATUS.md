@@ -13,28 +13,29 @@ the short re-entry map, not a second backlog.
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
-## Current TEST candidate
+## Current TEST build
 
-The source candidate remains `v0.1.64-dev`: the pending completed-reload fix
+Published **`v0.1.64-dev`** on September 7 at 17:47:44 UTC: the completed-reload fix
 for [issue #12](https://github.com/Ensrick/doomrocket-private/issues/12), now
 combined with Crunch's new 60x70 kill-feed portrait. Clean compilation, all
 five material splices, 150 package tests, ragdoll regressions, and GitHub
-source validation pass. The ready-to-upload package is 95,349,849 bytes;
+source validation pass. The published package is 95,349,849 bytes;
 do not reuse the September 5 package hashes. See the [current evidence/build record](docs/testing/2026-09-07_TESTER_RESULTS.md)
 and [portrait pipeline](docs/WARLOCK_PORTRAIT_PIPELINE.md).
 
 Crunch's September 7 "still reloading twice" capture loads **v0.1.63-dev** at
 line 1160. It confirms the existing old-version defect, not failure of the
-unpublished fix. The prior upload failed during the SDK uploader's Steam API
-initialization. Steam still has that same client session; the user has been
-asked to exit/relaunch it before another upload attempt.
+then-unpublished fix. The previous Steam API initialization failure was
+resolved by a normal Steam restart authorized by the user. No game reinstall,
+registry edits, or binary replacements were needed.
 
-The last verified upload remains
-`v0.1.63-dev` on Workshop item `3794172730` (content handle
-`6015138325193005907`, 95,645,866 bytes, verified 2026-09-03).
+The verified upload is `v0.1.64-dev` on Workshop item `3794172730` (content
+handle `1532641586336614793`, 95,349,849 bytes). Steam confirms the exact title,
+public visibility, TEST thumbnail, development warning, requirements, and
+bug-report links. See the matching `v0.1.64-dev` tag/prerelease.
 
-Do not announce v0.1.64 as live or tag it until the upload and remote metadata
-checks succeed. Public alpha remains unchanged.
+The release is ready for runtime testing, not accepted as an in-game fix yet.
+Public alpha v0.1.55-alpha remains unchanged.
 
 Crunch's September 5 reports confirm the v0.1.63 fixes on host: 38 career
 changes without the reported crash, 16 active voice interruptions on death,
@@ -51,7 +52,7 @@ complete that acceptance gate.
 | Accepted body, textures, weapon placement, death drop, host ragdoll | Public alpha; do not replace with unverified TEST work |
 | Career-switch crash | v0.1.63 host reproduction passes; remote-client verification remains |
 | Close-range shove and rocket exclusion | v0.1.63 host repetition passes; v0.1.64 addresses the separate reload restart |
-| Engineer kill-feed portrait | New 60x70 artwork verified in compiled v0.1.64 package; publication and visible acceptance pending |
+| Engineer kill-feed portrait | New 60x70 artwork published in TEST v0.1.64; visible acceptance pending |
 | Stormvermin-style armor and health | Implemented; difficulty and damage parity still need explicit runtime checks |
 | Distance-aware ballistic aim | Implemented offline; runtime aiming verification remains |
 | Custom sound bank and voice events | Host playback and death interruption confirmed; remote-client behavior and final audio quality remain |
@@ -60,8 +61,8 @@ complete that acceptance gate.
 ## Exact next playtest
 
 Use `docs/TESTER_QUICKSTART.md` and the issue #12 reload matrix in
-`docs/testing/WARLOCK_COMBAT_TEST_PROTOCOL.md`. Once v0.1.64 is published,
-verify its load marker, then test a shove after a completed reload, during an
+`docs/testing/WARLOCK_COMBAT_TEST_PROTOCOL.md`. Verify the published build's
+`[doomrocket:LOAD] v0.1.64-dev` marker, then test a shove after a completed reload, during an
 unfinished reload, and before the first shot. Step out of shove range and
 confirm aiming resumes with the correct weapon load. Verify the new portrait's
 red/green colors, size, and normal attacker/victim orientation. Capture both host and

@@ -2,7 +2,10 @@
 
 ## v0.1.64-dev — 2026-09-07
 
-Development TEST candidate; new reload behavior awaits runtime acceptance.
+Published development TEST build; new reload behavior awaits runtime acceptance.
+
+Workshop item `3794172730`, content handle `1532641586336614793`,
+95,349,849 bytes, verified 2026-09-07 17:47:44 UTC.
 
 - Replace the old kill-feed image with Crunch's supplied 60x70 Engineer
   portrait, preserving its pixels and the existing atlas/runtime identity.

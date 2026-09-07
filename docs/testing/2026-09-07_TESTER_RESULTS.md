@@ -22,20 +22,20 @@ for the first matching-version test of the fix. It adds host shove coverage,
 not new multiplayer or death-audio acceptance. No additional behavior patch
 is justified by this old-version capture alone.
 
-## Combined candidate
+## Combined build
 
-Keep **v0.1.64-dev** because it has not been published or tagged. Add the
-provided 60x70 portrait to that pending reload fix; the behavior code is
+The combined build retained **v0.1.64-dev** because the earlier candidate had
+not been published or tagged. It adds the provided 60x70 portrait to the
+pending reload fix; the behavior code is
 unchanged from the reviewed implementation. See the
 [portrait pipeline](../WARLOCK_PORTRAIT_PIPELINE.md) for source provenance,
 asset wiring, and visible acceptance steps.
 
 The combined package passed its own clean build and full release checks. The
 September 5 package hashes are historical and must not be used for this
-portrait update. Publication remains pending until Steam verifies the actual
-new content, not merely a successful local build.
+portrait update. Publication was subsequently verified as recorded below.
 
-## Validated build, not yet published
+## Validated build
 
 Source commit `d714e888ed4e852d86701ea5aabd09983fc040b6` passed GitHub source
 validation. The non-uploading release wrapper completed clean SDK compilation,
@@ -44,7 +44,7 @@ PowerShell ragdoll regressions. The new compiled portrait check passes and
 rejects the previous stale atlas. No reload behavior code was changed by the
 portrait work. Native appearance and reload acceptance still need playtesting.
 
-Package total: **95,349,849 bytes**. These hashes identify the ready-to-upload
+Package total: **95,349,849 bytes**. These hashes identify the published
 September 7 package, not the old September 5 candidate:
 
 | File in `bundleV2` | Bytes | SHA-256 |
@@ -76,8 +76,29 @@ and the shell use the same Windows user/session and both have Medium integrity
 state and the exact cause of the failed initialization remain unverified.
 Do not trigger a large game reinstall based only on the missing manifest.
 
-After the restart, verify these package hashes and use the upload-only VMB
-command in `docs/RELEASE_CHANNELS.md`. Verify the live item title, public
-visibility, warning, thumbnail, updated content handle, and exact byte count.
-Only then record the publication commit, create the matching lightweight
-v0.1.64-dev tag/prerelease, and tell Crunch to start the new test.
+## Verified publication — 2026-09-07 17:47:44 UTC
+
+The user explicitly authorized restarting Steam and completing the upload.
+Steam exited through its normal `-shutdown` command and relaunched with
+`-silent`; no forced process termination, game installation, registry edit, or
+DLL replacement was performed. The new client signed in normally, and its
+recorded process ID matched the running client. This restart resolved the
+observed uploader failure; it does not establish why the prior client session
+became inconsistent.
+
+The unchanged, hash-verified package was uploaded using the guarded VMB
+upload-only command. The uploader completed successfully, and Steam's
+published-file API independently confirmed:
+
+- Item `3794172730`, title `Warprocket Bombardier TEST v0.1.64-dev`.
+- New content handle **`1532641586336614793`**.
+- Exact content size **95,349,849 bytes**, matching the local package.
+- Public visibility, unchanged white-on-black TEST thumbnail, development
+  warning, VMF requirement, issue chooser, and the new portrait description.
+
+Public item `3771657344` remains v0.1.55-alpha, handle `6702297514175948321`,
+92,589,521 bytes. No public-alpha upload was made.
+
+Record this publication with one matching lightweight `v0.1.64-dev` tag and
+GitHub prerelease at the publication-record commit. Issue #12 remains open
+for host/client visual results against the now-published v0.1.64 load marker.
