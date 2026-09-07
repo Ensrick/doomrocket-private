@@ -17,9 +17,10 @@ the short re-entry map, not a second backlog.
 
 The source candidate remains `v0.1.64-dev`: the pending completed-reload fix
 for [issue #12](https://github.com/Ensrick/doomrocket-private/issues/12), now
-combined with Crunch's new 60x70 kill-feed portrait. The combined candidate
-needs a new clean build and full release checks; do not reuse the September 5
-package hashes. See the [current evidence/build record](docs/testing/2026-09-07_TESTER_RESULTS.md)
+combined with Crunch's new 60x70 kill-feed portrait. Clean compilation, all
+five material splices, 150 package tests, ragdoll regressions, and GitHub
+source validation pass. The ready-to-upload package is 95,349,849 bytes;
+do not reuse the September 5 package hashes. See the [current evidence/build record](docs/testing/2026-09-07_TESTER_RESULTS.md)
 and [portrait pipeline](docs/WARLOCK_PORTRAIT_PIPELINE.md).
 
 Crunch's September 7 "still reloading twice" capture loads **v0.1.63-dev** at
@@ -50,7 +51,7 @@ complete that acceptance gate.
 | Accepted body, textures, weapon placement, death drop, host ragdoll | Public alpha; do not replace with unverified TEST work |
 | Career-switch crash | v0.1.63 host reproduction passes; remote-client verification remains |
 | Close-range shove and rocket exclusion | v0.1.63 host repetition passes; v0.1.64 addresses the separate reload restart |
-| Engineer kill-feed portrait | New 60x70 artwork wired into the v0.1.64 candidate; compiled and visible acceptance pending |
+| Engineer kill-feed portrait | New 60x70 artwork verified in compiled v0.1.64 package; publication and visible acceptance pending |
 | Stormvermin-style armor and health | Implemented; difficulty and damage parity still need explicit runtime checks |
 | Distance-aware ballistic aim | Implemented offline; runtime aiming verification remains |
 | Custom sound bank and voice events | Host playback and death interruption confirmed; remote-client behavior and final audio quality remain |
