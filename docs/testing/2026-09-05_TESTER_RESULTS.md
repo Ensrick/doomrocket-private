@@ -58,6 +58,10 @@ it does not simulate the game's animation graph, physics, or peer rendering.
 
 ## Build and publication gate
 
+Historical September 5 build record. The unpublished candidate is being
+rebuilt with the September 7 portrait update; do not upload this superseded
+package. See [the September 7 status](2026-09-07_TESTER_RESULTS.md).
+
 Source commit `854d918738372bea9c70611b0670a84ace0e1ca2` passed GitHub source
 validation and the complete local release gate: clean SDK compilation, five
 hash-verified material splices, 138 Python tests against source/compiled

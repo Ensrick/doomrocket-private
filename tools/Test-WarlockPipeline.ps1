@@ -59,6 +59,11 @@ $weaponRegression = Join-Path $PSScriptRoot 'tests\test_warlock_weapon_pipeline.
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("weapon source/runtime regression suite failed (exit $LASTEXITCODE)")
 }
+$portraitRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_portrait_pipeline.py'
+& py -3 $portraitRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("kill-feed portrait source/compiled regression suite failed (exit $LASTEXITCODE)")
+}
 $combatRegression = Join-Path $PSScriptRoot 'tests\test_warlock_combat_contract.py'
 & py -3 $combatRegression
 if ($LASTEXITCODE -ne 0) {

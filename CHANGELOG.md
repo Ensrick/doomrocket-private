@@ -1,9 +1,13 @@
 # Changelog
 
-## v0.1.64-dev — 2026-09-05
+## v0.1.64-dev — 2026-09-07
 
 Development TEST candidate; new reload behavior awaits runtime acceptance.
 
+- Replace the old kill-feed image with Crunch's supplied 60x70 Engineer
+  portrait, preserving its pixels and the existing atlas/runtime identity.
+- Add a reproducible portrait atlas builder and source/compiled regression
+  checks. The supplied 110x130 portrait is not wired into the kill feed.
 - Preserve a completed rocket load across shoves instead of replaying the
   reload animation after every kick (issue #12, reported in #11).
 - Wait with the loaded rocket while a close player remains inside the shove

@@ -6,11 +6,13 @@ Copy the block below into Discord when assigning a playtest.
 WARPROCKET BOMBARDIER TEST — QUICKSTART
 
 Setup
+[ ] Wait for confirmation that the assigned candidate was actually published.
 [ ] Fully restart Steam and Vermintide after the Workshop update.
 [ ] Launch the Modded Realm.
 [ ] Load Vermintide Mod Framework above Warprocket Bombardier.
 [ ] Enable TEST item 3794172730 only; disable public item 3771657344.
 [ ] Confirm the exact [doomrocket:LOAD] banner in the new console log.
+[ ] If the version differs from the assigned build, stop and report the mismatch.
 [ ] Record whether you are host, remote client, or solo.
 
 Test

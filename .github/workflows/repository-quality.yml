@@ -58,6 +58,9 @@ jobs:
       - name: Run texture and material source tests
         run: python tools/tests/test_warlock_texture_pipeline.py
 
+      - name: Run kill-feed portrait contracts
+        run: python tools/tests/test_doomrocket_portrait_pipeline.py
+
       - name: Run weapon source and contract tests
         run: python tools/tests/test_warlock_weapon_pipeline.py
 

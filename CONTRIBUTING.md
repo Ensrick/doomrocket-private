@@ -35,6 +35,7 @@ py -3 tools/tests/test_doomrocket_sound_contract.py
 py -3 tools/tests/test_doomrocket_ballistic_aim.py
 py -3 tools/tests/test_warlock_combat_contract.py
 py -3 tools/tests/test_doomrocket_reload_lifecycle.py
+py -3 tools/tests/test_doomrocket_portrait_pipeline.py
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/tests/Test-WarlockRagdollRegressions.ps1
 ```
 
@@ -42,6 +43,9 @@ Install `requirements-dev.txt` first. The reload lifecycle tests execute the
 production actions in Lua 5.1 through [Lupa](https://pypi.org/project/lupa/),
 with engine I/O stubbed; animation and multiplayer results still require
 the game.
+
+For portrait updates, follow [`docs/WARLOCK_PORTRAIT_PIPELINE.md`](docs/WARLOCK_PORTRAIT_PIPELINE.md).
+Replacing the standalone PNG alone does not replace the compiled atlas.
 
 Before a Workshop upload, also complete the clean SDK build, verified material
 splice, full pipeline, and post-upload verification in
