@@ -15,17 +15,25 @@ the short re-entry map, not a second backlog.
 
 ## Current TEST build
 
-**v0.1.65-dev is in preparation, not published.** It addresses the close-range
-idle gap with repositioning after a kick, tracked separately as
-[#13](https://github.com/Ensrick/doomrocket-private/issues/13). The user selected
-movement, not a shorter kick cooldown or stronger knockback. Do not ask testers
-to validate this candidate until publication is explicitly verified.
+**v0.1.65-dev is published and verified**, September 8 at 15:38:48 UTC. It
+addresses the close-range idle gap with one bounded reposition after a kick,
+tracked separately as [#13](https://github.com/Ensrick/doomrocket-private/issues/13).
+The kick cooldown, shove force, ammo handling, and 1.8 m launch floor are
+unchanged. Empty weapons finish reloading first; blocked routes fail safely.
 
-The current live TEST item remains **v0.1.64-dev**, published September 7 at
-17:47:44 UTC (content handle `1532641586336614793`, 95,349,849 bytes). Its clean
-build, five material splices, 150 package tests, ragdoll regressions, and
-GitHub source validation passed. See the [publication record](docs/testing/2026-09-07_TESTER_RESULTS.md)
-and [portrait pipeline](docs/WARLOCK_PORTRAIT_PIPELINE.md).
+Workshop item `3794172730` now has content handle `8123257090222204359`, exactly
+95,350,820 bytes. Clean compilation, all five material splices, 173 package
+tests (including 22 new reposition tests), ragdoll regressions, and source CI
+pass. Steam confirms the title, public visibility, unchanged TEST thumbnail,
+development warning, requirements, and bug-report links. See the
+[current evidence/build record](docs/testing/2026-09-08_TESTER_RESULTS.md),
+matching `v0.1.65-dev` tag/prerelease, and [portrait pipeline](docs/WARLOCK_PORTRAIT_PIPELINE.md).
+
+The first upload hit the SDK's Steam API initialization crash: Steam was
+elevated while the uploader was not. A normal graceful shutdown and
+non-elevated restart resolved it; the retried package matched all validated
+hashes. No force-kill, privilege elevation, game reinstall, or binary changes.
+Repositioning still awaits visible host/client playtest acceptance.
 
 Crunch's later September 7 capture **does load v0.1.64-dev** and visibly confirms
 that completed loads survive kicks without another reload. The host log also
@@ -48,7 +56,7 @@ complete that acceptance gate.
 | --- | --- |
 | Accepted body, textures, weapon placement, death drop, host ragdoll | Public alpha; do not replace with unverified TEST work |
 | Career-switch crash | v0.1.63 host reproduction passes; remote-client verification remains |
-| Close-range shove, rocket exclusion, reload preservation | v0.1.64 host pass; client/edge-case checks remain; v0.1.65 reposition candidate in preparation |
+| Close-range shove, rocket exclusion, reload preservation | v0.1.64 host pass; v0.1.65 reposition published for host/client playtest; client/edge-case checks remain |
 | Engineer kill-feed portrait | New 60x70 artwork published in TEST v0.1.64; visible acceptance pending |
 | Stormvermin-style armor and health | Implemented; difficulty and damage parity still need explicit runtime checks |
 | Distance-aware ballistic aim | Implemented offline; runtime aiming verification remains |
@@ -57,7 +65,7 @@ complete that acceptance gate.
 
 ## Exact next playtest
 
-After verified publication, use `docs/TESTER_QUICKSTART.md` and the #13
+Use `docs/TESTER_QUICKSTART.md` and the #13
 reposition matrix in `docs/testing/WARLOCK_COMBAT_TEST_PROTOCOL.md`. Verify
 `[doomrocket:LOAD] v0.1.65-dev`, then test open-ground retreats, pursuit,
 walls/corners, no route, and target/death/stagger interruptions. Retain the #12

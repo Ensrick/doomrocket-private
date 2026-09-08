@@ -2,7 +2,10 @@
 
 ## v0.1.65-dev — 2026-09-08
 
-Development TEST candidate; not published or runtime-accepted yet.
+Published development TEST build; repositioning awaits runtime acceptance.
+
+Workshop item `3794172730`, content handle `8123257090222204359`,
+95,350,820 bytes, verified 2026-09-08 15:38:48 UTC.
 
 - Address the close-range idle gap with a bounded reposition after a kick
   ([#13](https://github.com/Ensrick/doomrocket-private/issues/13)), preserving

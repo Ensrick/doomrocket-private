@@ -125,5 +125,54 @@ and replication still need visible host/client playtests. A compiled-resource
 contract rejects the old v0.1.64 package as expected until a clean rebuild;
 the new Lua resource and bootstrap/tree/config markers must all be present.
 
-Publication and full package gate results will be recorded below after the
-guarded release completes. No v0.1.65 runtime pass is claimed.
+The same post-kick state selects `reposition` with the v0.1.65 tree and
+`wait_at_close_range` when the published v0.1.64 tree is substituted in memory.
+The old package also fails the new compiled-resource gate, as intended.
+
+## Clean build and verified publication
+
+Built source commit `59dc1841fc7651107d14ed983709c57159134226` with the guarded
+release workflow. Clean SDK compilation succeeded, all five material splices
+were verified, and the full pipeline passed **173 Python tests**: texture 17,
+weapon 39, portrait 12, combat 13, reload 9, reposition 22, ballistic 29,
+sound 24, projectile 8. Ragdoll regressions also pass.
+[GitHub source CI passed](https://github.com/Ensrick/doomrocket-private/actions/runs/34245364533).
+
+The first uploader attempt failed with `0xc0000005` at `ugc_tool.exe+0x4169`,
+the previously disassembled Steam-interface dereference. Read-only Windows
+token checks established Steam at high integrity (`0x3000`) and the uploader
+at medium integrity (`0x2000`); the normal user's Steam ActiveProcess record
+had PID/user zero. The Steam client itself was signed in, so reinstalling
+Vermintide or replacing mod assets was not indicated.
+
+Sent the standard `steam.exe -shutdown` command. The elevated client exited
+asynchronously; no force termination or elevation was used. Relaunching Steam
+normally restored medium integrity and its matching active-process record.
+Sign-in completed, and upload-only retry succeeded with all five validated
+package hashes unchanged. No rebuild, game reinstall, registry edit, or binary
+replacement was needed.
+
+Steam's API independently confirms publication at **2026-09-08 15:38:48 UTC**:
+
+- Item `3794172730`, title `Warprocket Bombardier TEST v0.1.65-dev`.
+- Content handle `8123257090222204359`, exactly **95,350,820 bytes**.
+- Public visibility, unchanged TEST thumbnail, development warning, VMF
+  requirement, bug-report links, and v0.1.65 load-marker instructions.
+- Public alpha remains v0.1.55-alpha, handle `6702297514175948321`,
+  92,589,521 bytes. It was not edited, built, or uploaded.
+
+Published package SHA-256 manifest:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `209fb8c3c0a8c3a4.mod_bundle` | 1,021,841 | `B242782BC46EA2646616D9D25A51F87701C49B989537B347B6E1B7D0BED801EC` |
+| `4e6a9317aab221e1.mod_bundle` | 7,258 | `5C7BF2F4DD484FFA20EA5971068037E1B5DB1B5EB25530DFE664209532FF1DA8` |
+| `ac226cc769a897ae.mod_bundle` | 61,868,076 | `B154FC011CF43BD00D28016067258146CF7F61FF6E9C0CDB4264CA0F2BAC5458` |
+| `doomrocket.mod` | 470 | `DBF17C3E8ED109834BBCF56E4BDF7700BFF937E6B699FD63D7E11E571F3165D2` |
+| `f5283f9585ea8355.mod_bundle` | 32,453,175 | `A3FA4DBBF3F7000E36C47EBFAE5F970B67B998958B8CE3A5FAA74463A2835F8F` |
+
+The matching lightweight `v0.1.65-dev` tag/prerelease identifies the
+publication-record commit; changes after the built source commit are release
+documentation only. **No v0.1.65 runtime pass is claimed.** Keep #13 open
+pending matching host/client movement and visual evidence; retain #12's
+outstanding reload edge cases.
