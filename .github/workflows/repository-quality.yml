@@ -46,6 +46,9 @@ jobs:
       - name: Run ballistic aiming contracts
         run: python tools/tests/test_doomrocket_ballistic_aim.py
 
+      - name: Run executable reposition lifecycle tests
+        run: python tools/tests/test_doomrocket_reposition_lifecycle.py
+
       - name: Run projectile lifecycle contracts
         run: python tools/tests/test_doomrocket_projectile_lifecycle.py
 

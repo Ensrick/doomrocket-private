@@ -103,6 +103,21 @@ BreedActions.skaven_doomrocket.push_attack.attack_anim = "attack_shoot_align"
 BreedActions.skaven_doomrocket.push_attack.impact_time = 0.65
 BreedActions.skaven_doomrocket.push_attack.duration = 1.2
 
+-- A short ordinary navmesh walk after the kick creates room to resume aiming.
+-- This does not change the native shove's cooldown, damage, or push force.
+BreedActions.skaven_doomrocket.reposition = {
+	clear_distance = 3.5,
+	goal_distance = 4.0,
+	max_duration = 2.5,
+	max_plans = 2,
+	replan_interval = 0.75,
+	arrival_distance = 0.3,
+	minimum_progress = 0.15,
+	nav_height = 0.5,
+	move_speed = Breeds.skaven_doomrocket.walk_speed,
+	move_anim = "move_fwd",
+}
+
 BreedActions.skaven_doomrocket.switch_weapons = {
     switch_animation = "idle",
     switch_weapon_index = 2,

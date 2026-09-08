@@ -1,6 +1,6 @@
 # Project status
 
-Snapshot updated 2026-09-07. GitHub Issues is the live work queue; this page is
+Snapshot updated 2026-09-08. GitHub Issues is the live work queue; this page is
 the short re-entry map, not a second backlog.
 
 ## One-minute re-entry
@@ -15,27 +15,24 @@ the short re-entry map, not a second backlog.
 
 ## Current TEST build
 
-Published **`v0.1.64-dev`** on September 7 at 17:47:44 UTC: the completed-reload fix
-for [issue #12](https://github.com/Ensrick/doomrocket-private/issues/12), now
-combined with Crunch's new 60x70 kill-feed portrait. Clean compilation, all
-five material splices, 150 package tests, ragdoll regressions, and GitHub
-source validation pass. The published package is 95,349,849 bytes;
-do not reuse the September 5 package hashes. See the [current evidence/build record](docs/testing/2026-09-07_TESTER_RESULTS.md)
+**v0.1.65-dev is in preparation, not published.** It addresses the close-range
+idle gap with repositioning after a kick, tracked separately as
+[#13](https://github.com/Ensrick/doomrocket-private/issues/13). The user selected
+movement, not a shorter kick cooldown or stronger knockback. Do not ask testers
+to validate this candidate until publication is explicitly verified.
+
+The current live TEST item remains **v0.1.64-dev**, published September 7 at
+17:47:44 UTC (content handle `1532641586336614793`, 95,349,849 bytes). Its clean
+build, five material splices, 150 package tests, ragdoll regressions, and
+GitHub source validation passed. See the [publication record](docs/testing/2026-09-07_TESTER_RESULTS.md)
 and [portrait pipeline](docs/WARLOCK_PORTRAIT_PIPELINE.md).
 
-Crunch's September 7 "still reloading twice" capture loads **v0.1.63-dev** at
-line 1160. It confirms the existing old-version defect, not failure of the
-then-unpublished fix. The previous Steam API initialization failure was
-resolved by a normal Steam restart authorized by the user. No game reinstall,
-registry edits, or binary replacements were needed.
-
-The verified upload is `v0.1.64-dev` on Workshop item `3794172730` (content
-handle `1532641586336614793`, 95,349,849 bytes). Steam confirms the exact title,
-public visibility, TEST thumbnail, development warning, requirements, and
-bug-report links. See the matching `v0.1.64-dev` tag/prerelease.
-
-The release is ready for runtime testing, not accepted as an in-game fix yet.
-Public alpha v0.1.55-alpha remains unchanged.
+Crunch's later September 7 capture **does load v0.1.64-dev** and visibly confirms
+that completed loads survive kicks without another reload. The host log also
+shows an interrupted unfinished reload restarting correctly. This supersedes
+the earlier v0.1.63-only report. [Evidence and limits](docs/testing/2026-09-08_TESTER_RESULTS.md):
+remote-client and final-second interruption checks remain; no visible portrait
+result has been supplied. Public alpha v0.1.55-alpha remains unchanged.
 
 Crunch's September 5 reports confirm the v0.1.63 fixes on host: 38 career
 changes without the reported crash, 16 active voice interruptions on death,
@@ -51,7 +48,7 @@ complete that acceptance gate.
 | --- | --- |
 | Accepted body, textures, weapon placement, death drop, host ragdoll | Public alpha; do not replace with unverified TEST work |
 | Career-switch crash | v0.1.63 host reproduction passes; remote-client verification remains |
-| Close-range shove and rocket exclusion | v0.1.63 host repetition passes; v0.1.64 addresses the separate reload restart |
+| Close-range shove, rocket exclusion, reload preservation | v0.1.64 host pass; client/edge-case checks remain; v0.1.65 reposition candidate in preparation |
 | Engineer kill-feed portrait | New 60x70 artwork published in TEST v0.1.64; visible acceptance pending |
 | Stormvermin-style armor and health | Implemented; difficulty and damage parity still need explicit runtime checks |
 | Distance-aware ballistic aim | Implemented offline; runtime aiming verification remains |
@@ -60,11 +57,12 @@ complete that acceptance gate.
 
 ## Exact next playtest
 
-Use `docs/TESTER_QUICKSTART.md` and the issue #12 reload matrix in
-`docs/testing/WARLOCK_COMBAT_TEST_PROTOCOL.md`. Verify the published build's
-`[doomrocket:LOAD] v0.1.64-dev` marker, then test a shove after a completed reload, during an
-unfinished reload, and before the first shot. Step out of shove range and
-confirm aiming resumes with the correct weapon load. Verify the new portrait's
+After verified publication, use `docs/TESTER_QUICKSTART.md` and the #13
+reposition matrix in `docs/testing/WARLOCK_COMBAT_TEST_PROTOCOL.md`. Verify
+`[doomrocket:LOAD] v0.1.65-dev`, then test open-ground retreats, pursuit,
+walls/corners, no route, and target/death/stagger interruptions. Retain the #12
+loaded and unfinished reload tests. Confirm aiming resumes with the correct
+weapon load. Verify the new portrait's
 red/green colors, size, and normal attacker/victim orientation. Capture both host and
 remote-client views/logs. Retain the #7/#8 impact matrix and existing
 career-switch/death-voice regressions in the multiplayer pass.

@@ -66,6 +66,7 @@ SHOVE_PATH = (
     / "skaven_doomrocket"
     / "bt_doomrocket_shove_action.lua"
 )
+REPOSITION_PATH = SHOVE_PATH.with_name("bt_doomrocket_reposition_action.lua")
 BOOTSTRAP_PATH = (
     REPO_ROOT / "scripts" / "mods" / "doomrocket" / "doomrocket.lua"
 )
@@ -337,6 +338,21 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
             "damage, fatigue, push speeds, considerations, and intensity must stay native",
         )
 
+    def test_reposition_is_wired_before_idle_with_supported_movement(self) -> None:
+        source = read_lua(REPOSITION_PATH)
+        node_load = self.bootstrap.index('mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_reposition_action")')
+        tree_load = self.bootstrap.index('mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/trees/skaven/skaven_doomrocket_behavior")')
+        self.assertLess(node_load, tree_load)
+        self.assertLess(self.tree.index('"BTDoomrocketShoveAction"'), self.tree.index('"BTDoomrocketRepositionAction"'))
+        self.assertLess(self.tree.index('"BTDoomrocketRepositionAction"'), self.tree.index('name = "wait_at_close_range"'))
+        self.assertRegex(self.state_machine, r'(?m)^\s*move_fwd\s*=\s*\{\}\s*$')
+        self.assertIn('move_anim = "move_fwd"', self.breed)
+        self.assertIn('LocomotionUtils.ray_can_go_on_mesh(', source)
+        self.assertIn('navigation:traverse_logic()', source)
+        self.assertIn('Vector3Box(projected_end)', source)
+        self.assertNotRegex(source, r'blackboard\.(?:reloaded_rocket|attack_pattern_data)\s*=(?!=)')
+        self.assertNotRegex(source, r'Unit\.(?:set_local_position|set_world_position|set_animation_state_machine)\(')
+
     def test_current_compiled_bundle_contains_the_complete_combat_candidate(self) -> None:
         if not any(BUNDLE_ROOT.glob("*.mod_bundle")):
             self.skipTest("bundleV2 is absent; source-only checkout")
@@ -345,6 +361,7 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
             "scripts/mods/doomrocket/doomrocket": (
                 self.mod_version.encode(),
                 b"bt_doomrocket_shove_action",
+                b"bt_doomrocket_reposition_action",
             ),
             "scripts/mods/doomrocket/breeds/skaven_doomrocket": (
                 b"skaven_storm_vermin",
@@ -352,6 +369,8 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
                 b"armor_category",
                 b"push_attack",
                 b"attack_shoot_align",
+                b"reposition",
+                b"clear_distance",
             ),
             "scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/trees/skaven/skaven_doomrocket_behavior": (
                 b"BTDoomrocketShoveAction",
@@ -359,6 +378,8 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
                 b"close_combat_selector",
                 b"doomrocket_should_wait_at_close_range",
                 b"wait_at_close_range",
+                b"BTDoomrocketRepositionAction",
+                b"doomrocket_should_reposition",
             ),
             "scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_shove_action": (
                 b"BTDoomrocketShoveAction",
@@ -367,6 +388,19 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
                 b"shove_impact",
                 b"set_pushed_network",
                 b"doomrocket_should_wait_at_close_range",
+                b"doomrocket_reposition_request_target",
+            ),
+            "scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_reposition_action": (
+                b"BTDoomrocketRepositionAction",
+                b"doomrocket_should_reposition",
+                b"ray_can_go_on_mesh",
+                b"traverse_logic",
+                b"number_failed_move_attempts",
+                b"reposition_begin",
+                b"reposition_plan",
+                b"reposition_end",
+                b"max_plans",
+                b"destination_box",
             ),
             "scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_reload_action": (
                 b"reload_in_progress",

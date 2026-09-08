@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.64-dev"
+local MOD_VERSION = "0.1.65-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -37,6 +37,7 @@ end
 
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/generated/bt_selector_skaven_doomrocket")
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_shove_action")
+mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_reposition_action")
 mod:dofile("scripts/mods/doomrocket/utils/doomrocket_ballistics")
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_launch_action")
 mod:dofile("scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_reload_action")

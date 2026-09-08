@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.65-dev — 2026-09-08
+
+Development TEST candidate; not published or runtime-accepted yet.
+
+- Address the close-range idle gap with a bounded reposition after a kick
+  ([#13](https://github.com/Ensrick/doomrocket-private/issues/13)), preserving
+  the kick cooldown, native shove force, and 1.8 m launch exclusion.
+- Keep ammunition independent of movement and retain the v0.1.64 reload fix.
+- Record Crunch's matching v0.1.64 host confirmation and the remaining
+  multiplayer, final-second interruption, and portrait checks.
+
 ## v0.1.64-dev — 2026-09-07
 
 Published development TEST build; new reload behavior awaits runtime acceptance.

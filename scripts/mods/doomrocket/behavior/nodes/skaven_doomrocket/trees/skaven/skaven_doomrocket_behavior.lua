@@ -179,6 +179,12 @@ BreedBehaviors.skaven_doomrocket = {
 			action_data = ACTIONS.push_attack
 		},
 		{
+			"BTDoomrocketRepositionAction",
+			name = "reposition",
+			condition = "doomrocket_should_reposition",
+			action_data = ACTIONS.reposition
+		},
+		{
 			"BTIdleAction",
 			name = "wait_at_close_range",
 			condition = "doomrocket_should_wait_at_close_range"

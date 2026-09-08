@@ -203,6 +203,13 @@ BTDoomrocketShoveAction.leave = function (self, unit, blackboard, t, reason, des
 		utility_data.last_done_time = t
 	end
 
+	-- One escape attempt follows a completed kick, including when the push has
+	-- already moved its target outside 1.8 m. An interrupted kick requests none.
+	if reason == "done" and data and not data.invalid and t >= data.end_t
+		and Unit.alive(unit) and HEALTH_ALIVE[unit] and Unit.alive(data.target_unit) then
+		blackboard.doomrocket_reposition_request_target = data.target_unit
+	end
+
 	blackboard.doomrocket_shove_data = nil
 	blackboard.doomrocket_shove_active = nil
 	blackboard.active_node = nil

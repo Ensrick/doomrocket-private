@@ -7,7 +7,8 @@ end
 BTNode = {}
 BTConditions = { ask_target_before_attacking = function() return true end }
 script_data = {}
-events = { animations = {}, rpcs = {}, meshes = {}, logs = {}, spawns = 0 }
+events = { animations = {}, rpcs = {}, meshes = {}, logs = {}, spawns = 0,
+    nav_goals = {}, nav_queries = 0, nav_stops = 0 }
 function printf(format, ...)
     table.insert(events.logs, string.format(format, ...))
 end
@@ -73,7 +74,17 @@ local function noop() end
 local navigation = {
     enabled = true,
     set_enabled = function(self, enabled) self.enabled = enabled end,
-    set_max_speed = noop,
+    max_speed = 1,
+    set_max_speed = function(self, speed) self.max_speed = speed end,
+    get_max_speed = function(self) return self.max_speed end,
+    number_failed_move_attempts = function(self) return self.failed_attempts or 0 end,
+    traverse_logic = function() return 'test_traverse' end,
+    move_to = function(self, goal)
+        self.failed_attempts = 0
+        self.goal = goal
+        table.insert(events.nav_goals, goal)
+    end,
+    stop = function(self) self.goal = nil; events.nav_stops = events.nav_stops + 1 end,
 }
 local locomotion = { set_wanted_velocity = noop, set_wanted_rotation = noop, use_lerp_rotation = noop }
 local status = {}
@@ -102,6 +113,13 @@ AiUtils = {
 LocomotionUtils = {
     rotation_towards_unit_flat = function() return {} end,
     look_at_position_flat = function() return {} end,
+    ray_can_go_on_mesh = function(world, origin, goal, traverse, above, below)
+        assert(world == 'test_nav_world' and traverse == 'test_traverse')
+        assert(above <= 0.5 and below <= 0.5, 'unsafe vertical projection')
+        events.nav_queries = events.nav_queries + 1
+        if nav_policy then return nav_policy(origin, goal) end
+        return true, origin, goal
+    end,
 }
 PerceptionUtils = {
     pick_ratling_gun_target = function(_, bb)
@@ -152,7 +170,8 @@ function get_mod() return mod end
 blackboard = {
     target_unit = target, target_dist = 5, target_speed_away = 0,
     target_is_not_downed = true, perceived_target = target, perceived_node = 'head',
-    breed = { default_inventory_template = 'gun', walk_speed = 1 },
+    breed = { default_inventory_template = 'gun', walk_speed = 1, run_speed = 3 },
+    nav_world = 'test_nav_world',
     navigation_extension = navigation, locomotion_extension = locomotion,
     utility_actions = { push_attack = { time_since_last = 100 } },
 }
@@ -182,6 +201,7 @@ function attach_actions()
     reload = setmetatable({ _tree_node = { action_data = reload_action } }, { __index = BTDoomrocketReloadAction })
     launch = setmetatable({ _tree_node = { action_data = launch_action } }, { __index = BTDoomrocketLaunchAction })
     shove = setmetatable({ _tree_node = { action_data = shove_action } }, { __index = BTDoomrocketShoveAction })
+    reposition = setmetatable({ _tree_node = { action_data = BreedActions.skaven_doomrocket.reposition } }, { __index = BTDoomrocketRepositionAction })
     launch._fire_from_position_direction = function() return unit.position, Vector3.forward() end
     launch._projectile_target_position = function() return target.position end
 end
@@ -190,6 +210,18 @@ function become_close()
     target.position = vector(0, 1, 0)
     POSITION_LOOKUP[target] = target.position
     blackboard.target_dist = 1
+end
+
+function place_unit(x, y, z)
+    unit.position = vector(x, y, z)
+    POSITION_LOOKUP[unit] = unit.position
+    blackboard.target_dist = Vector3.distance(unit.position, target.position)
+end
+
+function request_reposition(t)
+    become_close()
+    finish_shove(t or 0)
+    blackboard.utility_actions.push_attack.time_since_last = 1.3
 end
 
 function enter_reload(t)

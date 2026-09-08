@@ -86,9 +86,9 @@ Test on open, level ground with one Bombardier and no other enemies:
    between 0.6 and 0.8 seconds, and the action ends between 1.2 and 1.5 seconds.
 4. Confirm the shove deals zero health damage, applies the `sv_push` response,
    and pushes forward at speed 7 with a cap of 8.
-5. Remain in range. Native Stormvermin utility keeps the shove unavailable for
-   7.5 seconds and ramps it in just after that (roughly an eight-second minimum
-   observed interval). During that cooldown it may reposition, but it must not
+5. Remain in range. The inherited shove cooldown keeps it unavailable for
+   7.5 seconds; v0.1.64 host captures show repeated selections just after that
+   boundary. During that cooldown it may reposition, but it must not
    launch a rocket while the target remains inside 1.8 metres. The log should
    show `reason=target_too_close`; after the cooldown it must shove again if the
    target remains eligible.
@@ -102,7 +102,8 @@ Test on open, level ground with one Bombardier and no other enemies:
 
 ## Reload interruption and resumption (#12)
 
-Verify `[doomrocket:LOAD] v0.1.64-dev` and use one Bombardier on open ground.
+Verify the announced build's load marker (v0.1.65-dev for the reposition
+candidate) and use one Bombardier on open ground.
 
 1. On a fresh spawn, interrupt its first aim with a shove. Step away and confirm
    it resumes aiming with the original loaded rocket, without a reload cycle.
@@ -122,6 +123,64 @@ Verify `[doomrocket:LOAD] v0.1.64-dev` and use one Bombardier on open ground.
 The selector can interrupt both reload and aiming; no new aim-only restriction
 or stronger knockback is part of this fix. The existing shove cooldown and
 force remain the baseline for any later balance changes.
+
+## Reposition after a shove
+
+The September 8 follow-up, [issue #13](https://github.com/Ensrick/doomrocket-private/issues/13), targets the idle period between kicks by moving
+the Engineer to create space. It must preserve the 7.5-second shove cooldown;
+reducing the cooldown or increasing shove force is not the selected change.
+This section defines acceptance for the candidate, not a publication or
+runtime-pass claim. Record the exact announced candidate version from its
+`[doomrocket:LOAD]` banner; v0.1.64 is the baseline, not evidence that the new
+movement is present. See the [audited baseline](2026-09-08_TESTER_RESULTS.md).
+
+Use one Bombardier, record video alongside the complete console log, and run
+these cases on host and with a remote client as the target:
+
+1. **Open ground:** finish a reload, approach for a successful shove, and watch
+   the follow-up movement. It should create navigable space rather than stand
+   idle through the cooldown. Once there is enough separation, it should
+   resume aiming and fire the retained rocket without an extra reload.
+2. **Persistent close target:** follow the Engineer during its movement and
+   stay inside 1.8 m. It must not fire into the player at point-blank range,
+   shorten the 7.5-second kick cooldown, or apply another impact from the same
+   shove. A later eligible shove must still work after the cooldown.
+3. **Walls and corners:** place a wall behind it, then repeat near a corner,
+   ledge, and narrow doorway. It must use a reachable route without passing
+   through geometry, walking off a ledge, teleporting, or getting permanently
+   stuck. If one direction is blocked, any chosen alternative must remain
+   reachable and preserve the launch-distance guard.
+4. **No navigable escape:** surround it with blocking geometry or use a
+   position with no reachable retreat route. Failing to find space must end
+   or bound the attempt cleanly. It must remain able to shove when eligible
+   and resume ranged behavior once the player provides space; there must be
+   no endless movement action, path-request loop, or point-blank fallback shot.
+5. **Moving target:** move sideways, cross behind it, pursue it, and then
+   retreat while it is repositioning. It must respond to current target
+   positions without oscillating forever, following a stale target, or firing
+   based only on the separation that existed when movement began.
+6. **Loaded rocket retention:** stay close for several shove/movement cycles
+   after a completed reload. There must be no new reload animation, duplicate
+   reload visibility update, lost rocket, or free extra shot. After one real
+   shot, a genuine reload must again be required.
+7. **Unfinished reload:** interrupt reloading early and during its final
+   second with a shove. Repositioning must not mark that unfinished load as
+   complete or allow immediate firing. It must subsequently finish a real
+   reload before shooting. Also interrupt the first aim after a fresh spawn:
+   preserving that original loaded rocket must still work.
+8. **Interruptions and target loss:** stagger or kill the Engineer during
+   movement; separately down, remove, or career-switch its target. Movement
+   and attack state must clean up without a stuck navigation override,
+   post-death movement, deleted-unit access, or unpaired bot-attack
+   notification. Recovery and later attacks must remain possible when alive.
+9. **Host/client agreement:** compare movement, loaded/empty weapon state,
+   kick timing and push response, and rocket firing on both peers. Only the
+   host should decide the action. Capture both complete logs with matching
+   version banners and label which view each recording shows.
+
+Record blocked-route outcomes as well as successful retreats. Preserve the
+existing armor/health, ragdoll, death-audio, career-switch, and explosion
+regressions; this movement test does not replace their acceptance checks.
 
 ## Career-switch notification regression
 

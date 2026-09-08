@@ -7,6 +7,7 @@ rendering still require the TEST Workshop playtest.
 """
 
 from pathlib import Path
+import re
 import unittest
 
 from lupa.lua51 import LuaRuntime
@@ -17,18 +18,25 @@ NODES = ROOT / "scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket"
 HARNESS = Path(__file__).with_name("fixtures") / "doomrocket_combat_harness.lua"
 
 
+def create_runtime():
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(HARNESS.read_text(encoding="utf-8"))
+    for name in ("reload", "launch", "shove", "reposition"):
+        lua.execute((NODES / f"bt_doomrocket_{name}_action.lua").read_text(encoding="utf-8"))
+    # Load the production tuning table, not a duplicate test configuration.
+    breed = (ROOT / "scripts/mods/doomrocket/breeds/skaven_doomrocket.lua").read_text(encoding="utf-8")
+    config = re.search(r"BreedActions\.skaven_doomrocket\.reposition = \{.*?\n\}", breed, re.S)
+    assert config, "production reposition tuning is missing"
+    lua.execute("Breeds = { skaven_doomrocket = blackboard.breed }")
+    lua.execute(config.group())
+    lua.execute((NODES / "trees/skaven/skaven_doomrocket_behavior.lua").read_text(encoding="utf-8"))
+    lua.execute("attach_actions()")
+    return lua
+
+
 class DoomrocketReloadLifecycleTests(unittest.TestCase):
     def setUp(self):
-        self.lua = LuaRuntime(unpack_returned_tuples=True)
-        self.lua.execute(HARNESS.read_text(encoding="utf-8"))
-        for name in ("reload", "launch", "shove"):
-            self.lua.execute(
-                (NODES / f"bt_doomrocket_{name}_action.lua").read_text(encoding="utf-8")
-            )
-        self.lua.execute(
-            (NODES / "trees/skaven/skaven_doomrocket_behavior.lua").read_text(encoding="utf-8")
-        )
-        self.lua.execute("attach_actions()")
+        self.lua = create_runtime()
 
     def test_spawned_loaded_rocket_initializes_aim_without_reload_animation(self):
         self.lua.execute("""
