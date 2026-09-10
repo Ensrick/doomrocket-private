@@ -118,7 +118,7 @@ Before attempting real hose physics we need:
 3. A verified authorable two-ended solver: decoded/exportable native
    constraints, or a separately validated custom simulation.
 4. Defined wield/stow, teleport, death/drop and teardown behavior preserving
-   the single dropped-weapon actor and independent loaded warhead.
+   the single dropped-weapon actor and rigidly attached loaded warhead.
 5. Compiler inspection plus host/client lifecycle tests.
 
 The installed SDK's historical `vermintide.chm` physics guide describes
@@ -209,6 +209,37 @@ Entry points: `_start_warlock_backpack_smoke`, `_stop_warlock_backpack_smoke`,
 `_release_warlock_smoke_world`. Logs use `[doomrocket:SMOKE] phase=start/stop`.
 A start proves a creation call, not correct visible placement. Unknown-world
 package retention is an exceptional safety fallback, not a passed leak test.
+
+## Offline validation record
+
+Validated 2026-09-10 at 05:39 UTC from clean source commit
+`b7538d42cb647bb198b6e68aa8743c9dd6839c3f`:
+
+- `Invoke-DoomrocketRelease.ps1` without `-Upload` or `-Deploy`: success.
+  Clean SDK build, all five verified material splices, **216 Python tests**,
+  and the PowerShell ragdoll regression suite passed.
+- Includes 14 anchor tests and 29 smoke tests: 21 controller tests, six
+  executable shipping-callback tests, and two explicitly structural hook
+  ordering checks. The rebuilt package now contains the anchor profile;
+  its body payload, inverse bind, rim weights and weapon contracts pass.
+- [Source CI run 34441823725](https://github.com/Ensrick/doomrocket-private/actions/runs/34441823725)
+  passed for the same commit.
+- Five local bundles plus the mod manifest total **95,660,541 bytes**.
+  These are unpublished local artifacts, not a Steam content handle.
+  Both source worktrees were clean after the build; public was untouched.
+
+| Local artifact | SHA-256 after material splice |
+| --- | --- |
+| `209fb8c3c0a8c3a4.mod_bundle` | `b242782bc46ea2646616d9d25a51f87701c49b989537b347b6e1b7d0bed801ec` |
+| `4e6a9317aab221e1.mod_bundle` | `5c7bf2f4dd484ffa20ea5971068037e1b5db1b5eb25530dfe664209532ff1da8` |
+| `ac226cc769a897ae.mod_bundle` | `e3ab07b2fdef0161425a61467b1384efa67ce449324925c75e09311f54b2093b` |
+| `e7852992f40eb619.mod_bundle` | `e1a04e500f8255ebedcaffb4e35e829adbd99ebf46c2b8b4cd89d26dca4735e2` |
+| `f5283f9585ea8355.mod_bundle` | `a3fa4dbbf3f7000e36c47ebfae5f970b67b998958b8ce3a5faa74463a2835f8f` |
+| `doomrocket.mod` | `dbf17c3e8ed109834bbcf56e4bdf7700bff937e6b699fd63d7e11e571f3165d2` |
+
+These passing checks do not cover the known #14 runtime/network crash and
+do not establish smoke visibility or native engine safety. No deployment,
+Workshop upload, release tag, or GitHub prerelease was made.
 
 ## Runtime smoke acceptance
 
