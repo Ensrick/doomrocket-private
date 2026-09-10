@@ -73,7 +73,7 @@ own donor. The exporter hash-pins the following inputs:
 
 | Input | Path or Git object | SHA-256 |
 |---|---|---|
-| Crunch Blender scene | `C:\Users\danjo\Downloads\xud4soo5fg7g8qd4.blend` | `AB6EBC9EF45CEA6E402BBD0415C2D40716824552C2AB514947902D1EAC06C1B2` |
+| Crunch Blender scene (moved; hash reverified September 10) | `D:\Game Mods\Vermintide 2 modding\Projects\3D\xud4soo5fg7g8qd4.blend` | `AB6EBC9EF45CEA6E402BBD0415C2D40716824552C2AB514947902D1EAC06C1B2` |
 | Crunch texture archive | `C:\Users\danjo\Downloads\zxnu2hjyuovl4rhx.zip` | `551852EE9A9FA99995921E4B6B5CF898D4C17B51486E22FE7772D980F92C2187` |
 | Isolated Crunch launcher export | `C:\Users\danjo\source\repos\_warlock_bombardier_art\warlock_rocketlauncher.fbx` | `1682ECD2979ED988C2254DBABFD20E1D2E5C7D4869AD39B3727872F914F9DF69` |
 | Isolated Crunch rocket export | `C:\Users\danjo\source\repos\_warlock_bombardier_art\warlock_rocket.fbx` | `968539ECA60F065B90ED5899195F1EB2DFD6ED2B77ED87A8958CA976DCC0E0EA` |

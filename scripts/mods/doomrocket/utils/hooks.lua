@@ -808,6 +808,8 @@ mod._reset_warlock_death_drivers = function()
 end
 
 mod._prepare_warlock_death = function(owner_unit, source)
+	-- Cosmetic emitter ownership ends before the outfit enters its corpse handoff.
+	mod._stop_warlock_backpack_smoke(owner_unit, "death_" .. tostring(source))
 	-- Stop while the visible outfit and its backpack source are still alive. Later death
 	-- callbacks hand animation ownership to the corpse and may delete either unit.
 	mod._stop_warlock_backpack_sound(owner_unit, "death_" .. tostring(source))
@@ -1113,6 +1115,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				-- This runs on the authoritative unit and every husk, including hot-joins, so
 				-- each peer owns exactly one spatial loop on the visible backpack outfit.
 				mod._start_warlock_backpack_sound(unit, outfit_unit)
+				mod._start_warlock_backpack_smoke(unit, outfit_unit)
 			end
 		end
 	end
@@ -1143,6 +1146,24 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 	end
 
 	return result
+end)
+
+-- Stop before native inventory teardown unlinks/deletes the parent outfit.
+mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
+	mod._stop_warlock_backpack_smoke(self.unit, "inventory_destroy")
+	return func(self, ...)
+end)
+
+mod:hook(AIInventoryExtension, "freeze", function(func, self, ...)
+	mod._stop_warlock_backpack_smoke(self.unit, "inventory_freeze")
+	return func(self, ...)
+end)
+
+-- Forget IDs before the engine releases the world. The engine owns destruction
+-- here; a later reset must never operate on a recycled particle/world handle.
+mod:hook(Application, "release_world", function(func, world, ...)
+	mod._release_warlock_smoke_world(world)
+	return func(world, ...)
 end)
 
 -- these functions are needed so the client can properly spawn in the custom breed with right breed data set

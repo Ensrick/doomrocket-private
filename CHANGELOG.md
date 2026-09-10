@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.66-dev — unpublished development candidate
+
+- Adds a cosmetic prototype using native Warpfire backpack smoke at the measured
+  Warlock chimney lip, with scale-correct linking and owned emitter cleanup.
+- Preserves all body/weapon geometry, bones, weights, materials, animations and
+  physics. No hose is appended to the rigid launcher.
+- Researches native Warpfire two-endpoint hose deformation and separate native
+  dangling-chain references under issues #3/#4; actual hose physics remains open.
+- Adds anchor provenance/matrix and executable particle-lifecycle regressions.
+
+This candidate is **not on Workshop**. The existing v0.1.65 relocation crash
+[#14](https://github.com/Ensrick/doomrocket-private/issues/14) remains unresolved
+and must be handled before another TEST publication. Smoke appearance and
+host/client acceptance are pending. Public alpha v0.1.56-alpha is unchanged.
+See [hose/smoke research and test plan](docs/research/BACKPACK_HOSE_AND_SMOKE.md).
+
 ## v0.1.65-dev — 2026-09-08
 
 Published development TEST build; repositioning awaits runtime acceptance.

@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.65-dev"
+local MOD_VERSION = "0.1.66-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -21,6 +21,8 @@ mod:dofile("scripts/mods/doomrocket/breeds/skaven_doomrocket")
 mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_interaction")
 mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_pickup")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_audio")
+mod._doomrocket_chimney_anchor = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_chimney_anchor")
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_backpack_smoke")
 mod:dofile("scripts/mods/doomrocket/extensions/projectile_rocket")
 mod:dofile("scripts/mods/doomrocket/extensions/anim_emitter")
 -- Vanilla snapshots its threat_values table at boot, before this mod registers its breed,
@@ -201,9 +203,11 @@ function mod.update(dt)
 	end
 
 	mod._update_warlock_backpack_sounds()
+	mod._update_warlock_backpack_smoke()
 end
 
 local function reset_warlock_runtime_state(reason, unload_bank)
+	mod._reset_warlock_backpack_smoke(reason or "runtime_reset")
 	mod._shutdown_doomrocket_audio(reason or "runtime_reset", unload_bank == true)
 
 	if mod._reset_warlock_death_drivers then

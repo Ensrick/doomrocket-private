@@ -20,8 +20,8 @@ Assert-True ($itemConfig -match '(?m)^visibility\s*=\s*"public";\s*$') `
     "development TEST Workshop item must remain public"
 Assert-True ($itemConfig -match '(?m)^preview\s*=\s*"item_preview_test\.png";\s*$') `
     "development TEST build must use item_preview_test.png"
-Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0\.1\.65-dev";\s*$') `
-    "development title must be exactly Warprocket Bombardier TEST v0.1.65-dev"
+Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0\.1\.66-dev";\s*$') `
+    "development title must be exactly Warprocket Bombardier TEST v0.1.66-dev"
 Assert-True ($itemConfig -match 'DEVELOPMENT TEST BUILD') `
     "TEST Workshop description must begin with an explicit development-build warning"
 Assert-True ($itemConfig -match 'Do not enable it together with the public') `
@@ -64,6 +64,13 @@ $portraitRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_portrait_pi
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("kill-feed portrait source/compiled regression suite failed (exit $LASTEXITCODE)")
 }
+foreach ($smokeRegression in @('test_doomrocket_chimney_anchor.py', 'test_doomrocket_backpack_smoke.py')) {
+    & py -3 (Join-Path $PSScriptRoot "tests\$smokeRegression")
+    if ($LASTEXITCODE -ne 0) {
+        [void]$failures.Add("$smokeRegression failed (exit $LASTEXITCODE)")
+    }
+}
+
 $combatRegression = Join-Path $PSScriptRoot 'tests\test_warlock_combat_contract.py'
 & py -3 $combatRegression
 if ($LASTEXITCODE -ne 0) {

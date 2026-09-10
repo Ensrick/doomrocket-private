@@ -1,76 +1,69 @@
 # Project status
 
-Snapshot updated 2026-09-08. GitHub Issues is the live work queue; this page is
+Snapshot updated 2026-09-10. GitHub Issues is the live work queue; this page is
 the short re-entry map, not a second backlog.
 
 ## One-minute re-entry
 
 | Question | Answer |
 | --- | --- |
-| Stable player build | [Public alpha v0.1.55-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Experimental build | [Development TEST](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730) |
+| Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
+| Published experimental build | [Development TEST v0.1.65-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), known relocation crash; testing paused |
+| Unpublished source candidate | v0.1.66-dev: measured chimney smoke prototype, no hose physics |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
-## Current TEST build
+## Publication hold and current work
 
-**v0.1.65-dev is published and verified**, September 8 at 15:38:48 UTC. It
-addresses the close-range idle gap with one bounded reposition after a kick,
-tracked separately as [#13](https://github.com/Ensrick/doomrocket-private/issues/13).
-The kick cooldown, shove force, ammo handling, and 1.8 m launch floor are
-unchanged. Empty weapons finish reloading first; blocked routes fail safely.
+**TEST v0.1.65-dev is published, but not accepted as stable.** Crunch reported
+a relocation crash, tracked in [#14](https://github.com/Ensrick/doomrocket-private/issues/14).
+The action-network lookup needs correction and regression testing before a
+replacement TEST upload. Successful compilation and the earlier mocked tests
+did not establish runtime/network safety. Do not send testers back to the
+v0.1.65 reposition matrix as though that crash were resolved.
 
-Workshop item `3794172730` now has content handle `8123257090222204359`, exactly
-95,350,820 bytes. Clean compilation, all five material splices, 173 package
-tests (including 22 new reposition tests), ragdoll regressions, and source CI
-pass. Steam confirms the title, public visibility, unchanged TEST thumbnail,
-development warning, requirements, and bug-report links. See the
-[current evidence/build record](docs/testing/2026-09-08_TESTER_RESULTS.md),
-matching `v0.1.65-dev` tag/prerelease, and [portrait pipeline](docs/WARLOCK_PORTRAIT_PIPELINE.md).
+The source candidate **v0.1.66-dev is not on Workshop**. It adds a native
+Warpfire backpack smoke emitter at a measured chimney rim, with ownership and
+teardown guards. It does not fix #14, change the model/rig, or implement hose
+physics. Its coordinates and lifecycle are checked offline; visible placement,
+scale, host/client behavior, and runtime safety still require an in-game pass.
+See [hose/smoke research and acceptance](docs/research/BACKPACK_HOSE_AND_SMOKE.md).
 
-The first upload hit the SDK's Steam API initialization crash: Steam was
-elevated while the uploader was not. A normal graceful shutdown and
-non-elevated restart resolved it; the retried package matched all validated
-hashes. No force-kill, privilege elevation, game reinstall, or binary changes.
-Repositioning still awaits visible host/client playtest acceptance.
-
-Crunch's later September 7 capture **does load v0.1.64-dev** and visibly confirms
-that completed loads survive kicks without another reload. The host log also
-shows an interrupted unfinished reload restarting correctly. This supersedes
-the earlier v0.1.63-only report. [Evidence and limits](docs/testing/2026-09-08_TESTER_RESULTS.md):
-remote-client and final-second interruption checks remain; no visible portrait
-result has been supplied. Public alpha v0.1.55-alpha remains unchanged.
-
-Crunch's September 5 reports confirm the v0.1.63 fixes on host: 38 career
-changes without the reported crash, 16 active voice interruptions on death,
-and 35 consecutive shoves with close-range launches blocked. Read the
-[evidence and its limits](docs/testing/2026-09-05_TESTER_RESULTS.md).
-Remote-client checks for #9/#10/#11 remain outstanding. #7/#8 still need the
-full explosion/removal/stress matrix; incidental crash-free impacts do not
-complete that acceptance gate.
+The public Workshop item was separately updated to **v0.1.56-alpha** with the
+Engineer kill-feed portrait and narrow target guards, retaining its accepted
+baseline. [Public release record](https://github.com/Ensrick/doomrocket-public/releases/tag/v0.1.56-alpha).
+No development audio, combat, reposition, or smoke experiment was implicitly
+promoted. This hose/smoke work does not upload or alter either Workshop item.
 
 ## Feature state
 
 | Area | State |
 | --- | --- |
-| Accepted body, textures, weapon placement, death drop, host ragdoll | Public alpha; do not replace with unverified TEST work |
+| Accepted body, textures, weapon placement, death drop, host ragdoll | Public alpha; preserve this baseline |
+| Engineer kill-feed portrait | Published in public v0.1.56-alpha and TEST; visible acceptance still needed |
 | Career-switch crash | v0.1.63 host reproduction passes; remote-client verification remains |
-| Close-range shove, rocket exclusion, reload preservation | v0.1.64 host pass; v0.1.65 reposition published for host/client playtest; client/edge-case checks remain |
-| Engineer kill-feed portrait | New 60x70 artwork published in TEST v0.1.64; visible acceptance pending |
-| Stormvermin-style armor and health | Implemented; difficulty and damage parity still need explicit runtime checks |
-| Distance-aware ballistic aim | Implemented offline; runtime aiming verification remains |
-| Custom sound bank and voice events | Host playback and death interruption confirmed; remote-client behavior and final audio quality remain |
-| Flexible backpack tube, chimney smoke, final animation/rig work | Open development work |
+| Close-range shove, rocket exclusion, reload preservation | v0.1.64 host pass; client/edge-case checks remain |
+| Reposition after kick | v0.1.65 published with reported crash #14; not ready for further playtesting |
+| Stormvermin-style armor and health | Implemented in development; difficulty/damage parity needs explicit runtime checks |
+| Distance-aware ballistic aim | Implemented offline in development; runtime aiming verification remains |
+| Custom sound bank and voice events | Host playback and death interruption confirmed; clients and final audio quality remain |
+| Chimney smoke #4 | Measured native-effect prototype in unpublished v0.1.66; runtime acceptance pending |
+| Flexible hose physics #3 | Research complete for this pass; unrigged hose and opaque native constraint format prevent a safe implementation |
 
-## Exact next playtest
+## Retained evidence and next test
 
-Use `docs/TESTER_QUICKSTART.md` and the #13
-reposition matrix in `docs/testing/WARLOCK_COMBAT_TEST_PROTOCOL.md`. Verify
-`[doomrocket:LOAD] v0.1.65-dev`, then test open-ground retreats, pursuit,
-walls/corners, no route, and target/death/stagger interruptions. Retain the #12
-loaded and unfinished reload tests. Confirm aiming resumes with the correct
-weapon load. Verify the new portrait's
-red/green colors, size, and normal attacker/victim orientation. Capture both host and
-remote-client views/logs. Retain the #7/#8 impact matrix and existing
-career-switch/death-voice regressions in the multiplayer pass.
+The [September 8 record](docs/testing/2026-09-08_TESTER_RESULTS.md) confirms
+v0.1.64 host reload preservation and interrupted-reload recovery. Its original
+v0.1.65 playtest invitation is superseded by the #14 hold above. The
+[September 5 record](docs/testing/2026-09-05_TESTER_RESULTS.md) retains host
+career-switch, voice interruption, and close-range launch evidence.
+Remote-client checks for #9/#10/#11 remain outstanding; #7/#8 still need their
+full explosion/removal/stress matrix. Incidental crash-free impacts do not
+complete those gates.
+
+First fix and validate #14 separately, then publish a clearly identified TEST
+candidate. Only after that, use [the quickstart](docs/TESTER_QUICKSTART.md),
+the combat protocol, and [smoke acceptance](docs/research/BACKPACK_HOSE_AND_SMOKE.md#runtime-smoke-acceptance).
+Record the actual loaded banner and both host/client logs. Public portrait
+checks can proceed independently on v0.1.56-alpha with TEST disabled.

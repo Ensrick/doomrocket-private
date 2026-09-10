@@ -1,5 +1,12 @@
 # Development TEST quickstart
 
+September 10 hold: v0.1.66-dev chimney smoke is an **unpublished source
+candidate**. TEST still serves v0.1.65-dev, which has the confirmed relocation
+crash [#14](https://github.com/Ensrick/doomrocket-private/issues/14). Do not
+assign a smoke or relocation playtest until a corrected TEST build is explicitly
+published. The future smoke matrix is in
+[backpack research](research/BACKPACK_HOSE_AND_SMOKE.md#runtime-smoke-acceptance).
+
 Copy the block below into Discord when assigning a playtest.
 
 ```text

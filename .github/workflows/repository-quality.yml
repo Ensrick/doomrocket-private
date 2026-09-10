@@ -67,6 +67,12 @@ jobs:
       - name: Run weapon source and contract tests
         run: python tools/tests/test_warlock_weapon_pipeline.py
 
+      - name: Run chimney anchor source and compiled contracts
+        run: python tools/tests/test_doomrocket_chimney_anchor.py
+
+      - name: Run backpack smoke lifecycle tests
+        run: python tools/tests/test_doomrocket_backpack_smoke.py
+
       - name: Run ragdoll regression tests
         shell: pwsh
         run: ./tools/tests/Test-WarlockRagdollRegressions.ps1
