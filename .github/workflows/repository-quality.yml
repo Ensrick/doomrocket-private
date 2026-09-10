@@ -73,6 +73,21 @@ jobs:
       - name: Run backpack smoke lifecycle tests
         run: python tools/tests/test_doomrocket_backpack_smoke.py
 
+      - name: Run native chain authoring lab tests (no SDK)
+        run: python tools/hose_lab/native_chain/test_native_chain.py
+
+      - name: Run isolated compiler path guards (no SDK)
+        run: python tools/hose_lab/test_compile_paths.py
+
+      - name: Run compiled hose acceptance guard tests (no SDK)
+        run: python tools/hose_lab/compiled/test_verifier.py
+
+      - name: Run measured hose rig contract tests (no Blender)
+        run: python tools/hose_lab/rig/test_contract.py
+
+      - name: Run two-ended hose numerical tests (no engine)
+        run: python tools/hose_lab/solver/test_hose_xpbd.py
+
       - name: Run ragdoll regression tests
         shell: pwsh
         run: ./tools/tests/Test-WarlockRagdollRegressions.ps1

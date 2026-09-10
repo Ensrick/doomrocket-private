@@ -2,6 +2,11 @@
 
 Research/implementation snapshot: **2026-09-10**. Development only.
 
+**Later follow-up:** native chain authoring has now been recovered and a
+separate rig + two-ended physics prototype has been demonstrated offline.
+See [the hose follow-up](HOSE_RIG_AND_PHYSICS.md). The earlier no-go findings
+below describe the initial pass; the hose is still not enabled in game.
+
 ## Decisions and tracking
 
 - [#3: hose secondary physics](https://github.com/Ensrick/doomrocket-private/issues/3)

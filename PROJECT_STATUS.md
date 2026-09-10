@@ -49,7 +49,7 @@ promoted. This hose/smoke work does not upload or alter either Workshop item.
 | Distance-aware ballistic aim | Implemented offline in development; runtime aiming verification remains |
 | Custom sound bank and voice events | Host playback and death interruption confirmed; clients and final audio quality remain |
 | Chimney smoke #4 | Measured native-effect prototype in unpublished v0.1.66; runtime acceptance pending |
-| Flexible hose physics #3 | Research complete for this pass; unrigged hose and opaque native constraint format prevent a safe implementation |
+| Flexible hose physics #3 | Separate 29-control rig, two-ended Lua physics and SDK import demonstrated offline; not loaded by the mod. [Lab and remaining integration](docs/research/HOSE_RIG_AND_PHYSICS.md) |
 
 ## Retained evidence and next test
 
