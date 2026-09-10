@@ -18,6 +18,21 @@ def lexical_path(value: Path | str, relative_to: Path) -> Path:
     return Path(os.path.abspath(path if path.is_absolute() else relative_to / path))
 
 
+def normalize_repo_prefix(repo_root: Path, value: Path) -> tuple[Path, Path]:
+    """Expand only the supplied repo prefix, never uninspected descendants.
+
+    Windows may supply an 8.3 alias for an otherwise ordinary directory. Resolve
+    that known root once and carry over the lexical suffix, so .build and every
+    descendant still undergo lstat/reparse inspection before being resolved.
+    """
+    lexical_repo = lexical_path(repo_root, Path.cwd())
+    repo = lexical_repo.resolve(strict=True)
+    path = lexical_path(value, lexical_repo)
+    if path.is_relative_to(lexical_repo):
+        path = repo / path.relative_to(lexical_repo)
+    return repo, path
+
+
 def reject_redirect(path: Path) -> None:
     try:
         info = path.lstat()  # Do not follow a dangling symlink or Windows junction.
@@ -30,9 +45,8 @@ def reject_redirect(path: Path) -> None:
 
 
 def validate_probe(repo_root: Path, probe_root: Path) -> Path:
-    repo = repo_root.resolve(strict=True)
+    repo, probe = normalize_repo_prefix(repo_root, probe_root)
     boundary = repo / ".build"
-    probe = lexical_path(probe_root, repo)
     if probe == boundary or not probe.is_relative_to(boundary):
         raise ValueError("ProbeRoot must be a dedicated directory below this repository .build")
     # Inspect .build itself and every ancestor before resolving the target. In
@@ -62,7 +76,7 @@ def validate_probe(repo_root: Path, probe_root: Path) -> Path:
 def indexed_resources(repo_root: Path, probe_root: Path, data_root: Path,
                       resources: list[str]) -> list[Path]:
     probe = validate_probe(repo_root, probe_root)
-    data = lexical_path(data_root, repo_root.resolve())
+    _, data = normalize_repo_prefix(repo_root, data_root)
     if data == probe or not data.is_relative_to(probe) or not data.is_dir():
         raise ValueError("Data root must be an existing directory inside the dedicated probe")
     entries = re.findall(r'^"([^"\r\n]+)"\s*=\s*"([^"\r\n]+)"\s*$',

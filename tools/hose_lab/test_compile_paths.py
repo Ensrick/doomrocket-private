@@ -22,6 +22,7 @@ class CompilePathTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.repo = Path(self.temp.name) / "repo"
         self.repo.mkdir()
+        self.repo = self.repo.resolve()  # Windows TEMP may contain an 8.3 alias.
         self.probe = self.repo / ".build/probe"
         self.data = self.probe / "data"
 
@@ -35,6 +36,66 @@ class CompilePathTests(unittest.TestCase):
             (self.probe / directory).mkdir(parents=True, exist_ok=True)
         (self.probe / "compiler.stdout.log").write_text("old log")
         self.assertEqual(validate_probe(self.repo, self.probe), self.probe)
+
+    def assert_repo_alias_works(self, alias):
+        self.index('"data/12/1234" = "hose.unit"\n')
+        target = self.data / "data/12/1234"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"fixture")
+        for probe in (alias / ".build/probe", Path(".build/probe"), self.probe):
+            self.assertEqual(validate_probe(alias, probe), self.probe)
+        self.assertEqual(indexed_resources(alias, alias / ".build/probe",
+                                           alias / ".build/probe/data", ["hose.unit"]), [target])
+        arguments = self.rig_arguments(alias / ".build/probe")
+        arguments[arguments.index("--repo") + 1] = str(alias)
+        with patch.object(sys, "argv", arguments):
+            self.assertEqual(resolve_paths(), (self.probe, self.repo))
+
+    def mocked_alias_resolver(self, alias):
+        original_resolve = Path.resolve
+
+        def resolve(path, *args, **kwargs):
+            if path == alias:
+                return self.repo
+            if path.is_relative_to(alias):
+                raise AssertionError("Alias descendants must not be resolved before reparse inspection")
+            return original_resolve(path, *args, **kwargs)
+        return resolve
+
+    def test_known_lexical_repo_alias_is_mapped_without_resolving_descendants(self):
+        alias = self.repo.parent / "KNOWN~1"
+        with patch.object(Path, "resolve", self.mocked_alias_resolver(alias)):
+            self.assert_repo_alias_works(alias)
+            # An unrelated lexical prefix is not guessed or followed into scope.
+            with self.assertRaises(ValueError):
+                validate_probe(self.repo, alias / ".build/probe")
+
+    def test_known_repo_alias_does_not_bypass_existing_child_redirect_guard(self):
+        alias = self.repo.parent / "KNOWN~1"
+        self.data.mkdir(parents=True)
+        original = self.repo.parent / "outside.txt"
+        original.write_text("preserve")
+        os.link(original, self.data / "compiled-output")
+        with patch.object(Path, "resolve", self.mocked_alias_resolver(alias)):
+            with self.assertRaisesRegex(ValueError, "Hard-linked output"):
+                validate_probe(alias, alias / ".build/probe")
+        self.assertEqual(original.read_text(), "preserve")
+
+    @unittest.skipUnless(os.name == "nt", "Windows 8.3 alias regression")
+    def test_real_windows_short_repo_alias_if_available(self):
+        import ctypes
+        get_short = ctypes.windll.kernel32.GetShortPathNameW
+        get_short.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+        get_short.restype = ctypes.c_uint32
+        needed = get_short(str(self.repo), None, 0)
+        if not needed:
+            self.skipTest("GetShortPathNameW is unavailable for the temporary directory")
+        buffer = ctypes.create_unicode_buffer(needed)
+        self.assertGreater(get_short(str(self.repo), buffer, needed), 0)
+        alias = Path(buffer.value)
+        if alias == self.repo:
+            self.skipTest("The temporary filesystem does not provide a distinct 8.3 alias")
+        self.assert_repo_alias_works(alias)
 
     def test_root_and_traversal_and_prefix_sibling_are_rejected(self):
         for path in (self.repo / ".build", self.repo / ".build/../shipping",

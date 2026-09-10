@@ -179,12 +179,16 @@ Both endpoints in the demonstration are prescribed test transforms, not
 captured game animations. The preview's frame construction also needs
 continuity tests for large rotations before being used as a runtime driver.
 
-The local source-only lab run covered 77 tests: 76 passed; one file-symlink
+The local source-only lab run covered 80 tests: 79 passed; one file-symlink
 fixture was skipped because Windows did not grant symlink-creation privilege.
 Actual junction and hard-link rejection tests passed. Ten source/FBX checks,
 the Blender round-trip deformation checks, both guarded SDK compiler probes,
 and the existing source/weapon/ragdoll regression suites also passed. These
 are offline results, not substitutes for a game session.
+The first clean-environment run exposed Windows short-path aliases in its
+temporary directory. The path preflight now canonicalizes only the known
+repository prefix, retaining redirect checks on every output descendant;
+actual 8.3-path and non-bypass regressions cover this portability fix.
 
 ## Remaining steps before enabling it in game
 

@@ -16,12 +16,12 @@ def resolve_paths(*, blender=False):
     parser.add_argument("--output", type=Path, help="Owned output directory inside the checkout's ignored .build")
     argv = sys.argv[sys.argv.index("--")+1:] if blender and "--" in sys.argv else ([] if blender else sys.argv[1:])
     args = parser.parse_args(argv)
+    try:
+        base = validate_probe(args.repo, args.output or Path(".build/hose_rig_probe"))
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
     repo = args.repo.resolve()
     if not (repo / "AGENTS.md").is_file() or not (repo / "tools").is_dir():
         parser.error("--repo must identify the Doomrocket checkout")
-    try:
-        base = validate_probe(repo, args.output or Path(".build/hose_rig_probe"))
-    except (ValueError, OSError) as error:
-        parser.error(str(error))
     base.mkdir(parents=True, exist_ok=True)
     return base, repo
