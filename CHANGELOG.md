@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.68-dev - standalone TEST publication candidate
+
+- Includes the unpublished semi-rigid hose, chimney smoke, relocation action
+  registration fix (#14), and one-second aiming floor (#16) from v0.1.67.
+- Adapts the working Tweaker headless ship transaction to this standalone
+  repository, with committed build receipts, hosted QA, exact package proof
+  and item-specific upload verification. No game installation or deployment
+  is claimed. Host/client gameplay and visual acceptance remain pending.
+
+
 ## v0.1.66-dev — unpublished development candidate
 
 - Adds a cosmetic prototype using native Warpfire backpack smoke at the measured

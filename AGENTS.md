@@ -3,6 +3,23 @@
 This checkout is the experimental **development TEST** line. These instructions
 apply to human maintainers and AI coding agents.
 
+
+## Build, deploy and upload authority - user ruling, September 13, 2026
+
+Use the working Vermintide 2 Tweaker method exactly. Read
+`docs/RELEASE_CHANNELS.md` and the byte-for-byte upstream copy in
+`docs/upstream/vermintide-2-tweaker/PROJECT_STANDARDS.md`, section 6.6.
+This ruling supersedes older Warlock release/retry instructions below or in
+historical records. Do not invent a separate uploader, use the v0.5.6 baseline
+as a fallback, create an interactive launcher fork, or add a routine Steam
+restart requirement. The canonical workflow is headless and verifies the actual
+Workshop transaction and deployment hashes.
+
+The unchanged upstream snapshot retains Tweaker's original bindings. The
+operational adapter is `tools/ship/ship.ps1`, with standalone repository paths
+and explicit TEST identity. Keep the Warlock material splice and full asset
+pipeline at the build-validation boundary before recording the build receipt.
+
 ## Identity and boundaries
 
 - Canonical GitHub repository: `Ensrick/doomrocket-private`, remote `private`.
@@ -34,11 +51,9 @@ this maintenance line. Push development work only to `private`.
 - Never commit `bundleV2`, `.build`, `.mod_bundle`, downloaded logs, Wwise
   authoring output, or game-derived donor payloads.
 - Never use `vmblauncher all`; it uploads before the required material splice.
-- Build order is clean build, verified material splice, full pipeline, optional
-  local deploy, TEST upload, then Steam metadata/content verification.
-- After a verified Workshop publication, record its content handle and byte
-  size, then create one matching lightweight Git tag and GitHub prerelease at
-  the publication-record commit. Never leave a published version untagged.
+- The release tag and hosted receipt bind the reviewed source commit on the
+  live default branch. After verified publication, record its content handle
+  and byte size without moving the tag to a later documentation commit.
 - Both Workshop builds share the same internal mod identity. Never enable them
   together, and every multiplayer participant must use the same exact build.
 
@@ -49,8 +64,10 @@ py -3 tools/check_repository.py --channel development
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-WarlockPipeline.ps1
 ```
 
-For a release, prefer `tools/Invoke-DoomrocketRelease.ps1`. It runs the guarded
-sequence and is non-publishing unless `-Upload` is supplied explicitly.
+`tools/Invoke-DoomrocketRelease.ps1` delegates to the canonical standalone
+adapter. Generated bundles stay ignored; commit `.build-receipt.json` with
+source before hosted QA and merge. This release uses publication-only mode
+because the game is not installed; no deployment or game acceptance is claimed.
 
 See `docs/RELEASE_CHANNELS.md`, `CONTRIBUTING.md`, and
 `docs/TESTER_QUICKSTART.md` for the human workflows.
