@@ -13,43 +13,81 @@ instability warning, and use `item_preview_test.png`. Both packages retain the
 same internal mod identity, so never enable them together; every lobby member
 must use the same channel and exact version.
 
-## Development publication procedure
+## Build, deploy and upload method
 
-Preferred guarded command (from a clean, committed `private-copy` branch):
+User ruling, September 13, 2026: use Vermintide 2 Tweaker's working method
+without deviation. Its [exact documentation and implementation copy](upstream/vermintide-2-tweaker/README.md)
+is the authority. The source commit and every copied SHA-256 are in
+`upstream/vermintide-2-tweaker/COPY_MANIFEST.json`.
+
+The owning procedure is [PROJECT_STANDARDS.md section 6.6](upstream/vermintide-2-tweaker/PROJECT_STANDARDS.md#66-ship-doctrine-keyed-off-the-mod_version-suffix-canonical-2026-07-01):
+
+1. Acquire the machine-global mod/version claim; use the broker's version.
+2. Update source, version and changelog together. Canonical `ship.ps1 -BuildOnly`
+   builds and validates the artifact and its source/output proof.
+3. Commit source and its selected artifact authority together, push the feature
+   branch, pass hosted QA and merge through the protected default branch.
+4. Run canonical `ship.ps1 -Mod <registered-mod>` from clean live default HEAD.
+   It owns the machine transaction, exact-source validation, build parity,
+   configured deployment, authorization-backed GitHub release, Workshop upload
+   and verification. Public visibility uses its mechanical `-AllowPublic` flag.
+5. Verify the fresh item-specific Workshop start/outcome/finish-OK transaction
+   with the copied observer, and verify deployed file hashes. Uploader exit zero,
+   printed success, metadata and byte count alone do not prove transfer.
+
+Keep the source method's distinctions between tracked and receipt authority,
+local/remote deployment and publication-only mode. Keep one private launcher
+configuration bound to the invoking source tree and one approved launcher for
+the transaction. Never hand-copy files into a real Workshop content directory.
+Preserve the selected channel's existing item ID, title, thumbnail and visibility.
+
+For Warlock's assets, clean compilation must still be followed by the verified
+native-material splice and `tools/Test-WarlockPipeline.ps1` before recording the
+final artifact proof or deploying/uploading. An unspliced build is not the
+Warlock release artifact. Source/compiled checks do not establish game acceptance.
+
+## Headless operation and test refresh
+
+Follow the source workflow's noninteractive launcher path. The old v0.5.6
+launcher wrapper and `.build/interactive-launcher` experiment are superseded;
+do not revive them or replace the working method with another retry script.
+
+The author tests the hash-verified local deploy without restarting Steam.
+Volunteer testers refresh the Workshop subscription; restart Vermintide 2 and
+confirm `[doomrocket:LOAD]` with the exact version in the newest console log.
+A publication-only run has no local deployment to claim.
+
+Steam restart is exceptional recovery, not a normal build/upload/test step.
+Follow [Tweaker's recovery evidence](upstream/vermintide-2-tweaker/docs/PORTABLE_SETUP.md#sdk-prerequisites-and-exceptional-steam-recovery):
+check recent successful uploads and actual process contexts before treating an
+old failure as a current blocker. Do not infer a diagnosed cause from a stale
+registry value or impose a new interactive workflow.
+
+## Standalone repository entry point
+
+Warlock keeps its own development and live repositories. The operational
+`tools/ship/ship.ps1` adapts the copied helpers to root-level mod files and the
+development repository. VMBLauncher 0.6.4 adds explicit repository/channel
+bindings while retaining the existing hosted receipt gate. The reference copy
+under `docs/upstream` remains unchanged and must not be executed directly.
+
+Generated game assets remain ignored. BuildOnly records the exact source bytes,
+normalized package hashes and builder identity in `.build-receipt.json`, which
+must be committed with the source. Git attributes preserve compiler input bytes.
+The protected/default-branch QA and fresh hosted receipt steps are unchanged.
+
+Use the same approved launcher executable and existing VMB project settings in
+both phases. The adapter creates a private settings copy for launcher children.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\Invoke-DoomrocketRelease.ps1 -Upload
+./tools/ship/claim.ps1 -Mod doomrocket -RepoRoot $PWD
+./tools/ship/ship.ps1 -BuildOnly -LauncherPath $launcher -ConfigPath $config
+# Commit source plus .build-receipt.json, push, pass hosted qa-gate, merge,
+# and update this checkout to the clean live default HEAD.
+./tools/ship/ship.ps1 -AllowPublic -PublicationOnly -LauncherPath $launcher -ConfigPath $config
 ```
 
-Omit `-Upload` to build/splice/test without publishing, or use
-`-PreflightOnly` for a fast channel/metadata/clean-tree check. The equivalent
-manual sequence is:
-
-```powershell
-$vmbExe = 'C:\Users\danjo\source\repos\vmb-launcher-baseline-056-20260726\bin\Release\net9.0-windows\win-x64\publish\VMBLauncher.exe'
-$devCfg = 'C:\Users\danjo\source\repos\_doomrocket_vmb\vmblauncher.settings.json'
-
-py -3 tools/check_repository.py --channel development
-& $vmbExe build doomrocket --clean --config $devCfg
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\splice_warlock_materials.ps1 -UseVerifiedCache
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\Test-WarlockPipeline.ps1
-& $vmbExe deploy doomrocket --no-remote --config $devCfg
-& $vmbExe upload doomrocket --allow-public --config $devCfg
-```
-
-Afterward, verify the live Workshop title, public visibility, warning,
-ManifestID/time, and content size. Confirm the TEST thumbnail is still present.
-Never use `vmblauncher all`; it has no material-splice checkpoint.
-
-Every Workshop-published build also receives exactly one matching lightweight
-Git tag and GitHub prerelease in its owning repository. The version must match
-the Lua load marker and Workshop title exactly (`v<version>-dev` for TEST,
-`v<version>-alpha` for public alpha). Point the tag at the publication-record
-commit, and include the Workshop item, content handle, verified byte size,
-changes, completed gates, and outstanding runtime acceptance in the release
-notes. Do not tag source-only intermediate commits or backfill speculative tags
-for historical builds whose exact publication commit is unknown.
-
-Promotion is a deliberate second change: only runtime-accepted commits are
-ported into the public-alpha worktree, retested there, and uploaded to item
-`3771657344` using that repository's procedure.
+The current release is publication-only because the game is not installed.
+The adapter refuses the public-alpha item and performs no local or remote
+deployment. Its compatibility wrapper delegates to the same transaction.
+An upload is complete only after the fresh Steam transaction and metadata agree.

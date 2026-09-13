@@ -5,7 +5,7 @@ and select the gameplay/presentation, crash, or balance/design form.
 
 Before reporting:
 
-1. Fully restart Steam and Vermintide after the Workshop update.
+1. Use the verified local deploy, or refresh the Workshop subscription; restart Vermintide 2.
 2. Launch the Modded Realm with
    [Vermintide Mod Framework](https://steamcommunity.com/sharedfiles/filedetails/?id=1369573612)
    enabled above Warprocket Bombardier.

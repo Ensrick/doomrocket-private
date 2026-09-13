@@ -1,6 +1,6 @@
 # Project status
 
-Snapshot updated 2026-09-12. GitHub Issues is the live work queue; this page is
+Snapshot updated 2026-09-13. GitHub Issues is the live work queue; this page is
 the short re-entry map, not a second backlog.
 
 ## One-minute re-entry
@@ -9,25 +9,28 @@ the short re-entry map, not a second backlog.
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Development TEST v0.1.65-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), known relocation crash; testing paused |
-| Built candidate; upload blocked | v0.1.67-dev: semi-rigid hose, smoke, #14 lookup correction and #16 aiming delay. Full pipeline/CI pass; Steam session failure prevents publication |
+| Current release candidate | v0.1.68-dev: semi-rigid hose, smoke, #14 lookup correction and #16 aiming delay. Carried from the validated v0.1.67 candidate; standalone receipt-authority publication in preparation |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
 ## What changed; what is ready
 
-**Do not test the old v0.1.65-dev relocation build.** Candidate **v0.1.67-dev**
+**Do not test the old v0.1.65-dev relocation build.** Candidate **v0.1.68-dev**
 contains the actual hose runtime and registers the missing behavior-action
 network names behind [#14](https://github.com/Ensrick/doomrocket-private/issues/14).
 It still needs verified publication and matching in-game host/client results;
 source changes and automated checks are not acceptance.
 
-The September 12 guarded upload crashed at `ugc_tool.exe+0x4169` before
-submission. Steam's active-process record is blank despite a running client.
-The live TEST item is still v0.1.65-dev. Ask the user to normally restart/sign in
-to Steam before an upload-only retry; any SDK license agreement must be handled
-by the user, not automatically accepted. Do not rebuild or reinstall the game
-merely to address this uploader failure. [Validated package and retry evidence](docs/testing/2026-09-12_TEST_CANDIDATE.md#build-validation-and-blocked-upload).
+The September 12 baseline-uploader attempt failed before publication. Its
+session diagnostics do not establish a current root cause or a standing Steam
+blocker. A September 13 interactive retry transcript contains no completed
+upload result. The user's September 13 instruction supersedes that retry path:
+use [Vermintide 2 Tweaker's working build/deploy/upload method](docs/RELEASE_CHANNELS.md).
+The exact upstream method and documentation are copied and hash-recorded there.
+No routine Steam restart or separate interactive uploader is part of that method.
+The original package hashes and build evidence remain in the
+[candidate record](docs/testing/2026-09-12_TEST_CANDIDATE.md).
 
 The hose retains Crunch's authored shape with damped secondary motion. It is a
 separate 29-control, actor-free skin—not a loose rope or a replacement weapon.
@@ -67,9 +70,9 @@ Remote-client checks for #9/#10/#11 remain outstanding; #7/#8 still need their
 full explosion/removal/stress matrix. Incidental crash-free impacts do not
 complete those gates.
 
-After explicit v0.1.67 TEST publication confirmation, use
+After explicit v0.1.68 TEST publication confirmation, use
 [the quickstart](docs/TESTER_QUICKSTART.md) and
 [candidate checklist](docs/testing/2026-09-12_TEST_CANDIDATE.md).
-Check `[doomrocket:LOAD] v0.1.67-dev` on every peer; attach complete host/client
+Check `[doomrocket:LOAD] v0.1.68-dev` on every peer; attach complete host/client
 logs and a continuous hose/aiming video. Public portrait checks can proceed
 independently on v0.1.56-alpha with TEST disabled.

@@ -118,12 +118,13 @@ Steam's API still reports TEST **v0.1.65-dev**, handle `8123257090222204359`,
 publication. Public alpha remains **v0.1.56-alpha**, handle
 `1428725673095257484`, 92,596,852 bytes; its checkout and item were not changed.
 
-Next: user normally restarts Steam and signs in; recheck the session and these
-package hashes, then retry upload without rebuilding. The current VMB upload
-helper supplies an automatic affirmative license response; do not reuse that
-path unattended. The user must handle any SDK license prompt. Verify the live
-item's version, visibility, thumbnail, content handle and exact total size,
-then record publication and create the matching tag/prerelease.
+**Workflow correction, September 13:** the former instruction to use a
+separate interactive retry is superseded by the user's explicit direction to
+copy and follow Vermintide 2 Tweaker's working process. See
+[the release guide](../RELEASE_CHANNELS.md). Preserve the measured failure and
+validated hashes as historical evidence; do not turn the September 12 session
+observation into an ongoing Steam blocker. The later September 13 retry
+transcript has no completed publication result.
 
 Validated local package, **96,545,268 bytes** total:
 
