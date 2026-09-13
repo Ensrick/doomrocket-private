@@ -1,17 +1,104 @@
-# Two-ended hose: rig, compiler and physics prototype
+# Two-ended hose: production integration and research
 
-Follow-up investigation, **2026-09-10**. This supersedes the earlier
-[hose no-go finding](BACKPACK_HOSE_AND_SMOKE.md) for **offline prototyping**,
-not for game release. [Issue #3 remains open](https://github.com/Ensrick/doomrocket-private/issues/3).
+Updated **2026-09-12**. [Issue #3 remains open](https://github.com/Ensrick/doomrocket-private/issues/3).
+The **v0.1.67-dev candidate now includes the in-game controller**, not just the
+Blender lab. Workshop publication and visible host/client acceptance are not
+claimed here; see [the candidate record](../testing/2026-09-12_TEST_CANDIDATE.md).
 
-## Practical result
+## Production implementation — September 12
+
+The source keeps the reviewed FBX as
+`units/warlock_hose/warlock_hose.fbx`, separate from the untouched body/weapon.
+The Lua profile records both live endpoint frames, all 29 authored control
+frames, unequal lengths and the compiled control-to-bone transforms below.
+There are **zero physics actors**, no foreign animation controller and no
+per-bone linking into the character or launcher skeleton.
+
+The runtime uses the actual `j_backpack` and `pRocketLauncher` world poses.
+Only its own cosmetic hose bones are written in the safe animation callback;
+the mesh root moves with the backpack. Imported rest-bound culling is disabled
+using the SDK's authored `culling = "disabled"` policy (also used by its
+`core/units/cubemap_probe.unit`): live deformation can leave that static bound.
+The explicit nearest-eight/40 m runtime budget controls visibility instead.
+The material is hidden until the delayed, verified native-skinned
+`wb_hose_child` can be assigned. It uses the weapon's unchanged base/normal
+maps plus a new `MASE_Fix.rgb + MASE.a` packed map. The hose is non-emitting.
+The sixth material splice does not alter the accepted five body materials.
+
+### Semi-rigid motion, not a loose rope
+
+Distributed springs preserve Crunch's measured rest curve. Reset initializes
+from that curve rather than the lab's generic circle; subsequent frames retain
+real inertia and integrate gravity, not forced positions or a canned animation.
+Stiffness is **100 s^-2**, restoring acceleration is capped at **40 m/s²**, and
+the controller supplies exponential velocity damping **5 s^-1**.
+The existing 120 Hz fixed step/eight-substep maximum and 2% length-error guard
+remain. No segment rest length is stretched to accommodate an impossible span.
+
+Near full extension, an unchanged curved target would contradict the length
+constraints. The target bend therefore scales by
+`sqrt((length² - span²) / (length² - rest_span²))`, capped at one, with a zero
+lower bound. Crunch's curve is unchanged at its authored span and relaxes
+smoothly under tension. This fixed an actual 99.99%-extension reset loop;
+the regression forbids resets rather than accepting them as success.
+
+Frame transport preserves the original dense-curve tangent offset at each
+control and follows owner rotation before transporting along the new tangent.
+It avoids `Quaternion.look` poles and checks the resulting frame before native
+writes. Numerical tests cover full independent endpoint rotations as well as
+rigid-motion covariance and finite, right-handed frames.
+
+### Ownership and deliberate limits
+
+- A local cosmetic unit follows the exact current owner/outfit/launcher on
+  each viewing peer, with no custom hose RPC or networked physics.
+- Only the nearest **eight** eligible hoses within **40 m** are active. This
+  limits cosmetic cost, not the number of spawned Engineers.
+- There is **no body, wall or self-collision**. Clipping is a known initial
+  limitation; collision must not be claimed from the absence of physics actors.
+- Death, drop, inventory freeze/destruction and world teardown remove the
+  hose before the existing corpse/weapon handoff. The hose does not remain
+  physically attached to dead/dropped objects. Pause/teleport and module reset
+  have explicit handling; unknown worlds are not probed through stale handles.
+
+Run the production gates with:
+
+```powershell
+py -3 tools/tests/test_doomrocket_hose_assets.py
+py -3 tools/tests/test_doomrocket_hose_dynamics.py
+py -3 tools/tests/test_doomrocket_hose_lifecycle.py
+py -3 tools/tests/test_doomrocket_hose_dynamics.py --metrics
+py -3 tools/tests/test_doomrocket_hose_dynamics.py --benchmark
+```
+
+The dynamics measurements show unchanged authored geometry at zero gravity,
+approximately 11 cm maximum settled gravity deflection, and actual residual
+motion after the weapon stops. Twelve production dynamics tests and all 21
+earlier solver regressions pass; the numeric modules allocate no new tables
+over 2,000 warmed-up frames. A 20-hose physics-plus-frame run measured roughly
+7.4 ms mean / 11 ms maximum per 60 Hz frame, **excluding native bone writes and
+rendering**. These are not live performance or visual acceptance claims.
+
+Remaining acceptance: final inlet approval, visible material/pose/culling,
+host/client/late-join lifecycle, loaded/unloaded deaths and map transitions.
+Use the [short candidate checklist](../testing/2026-09-12_TEST_CANDIDATE.md).
+Public alpha is unchanged. Keep #3 open until actual matching logs and video
+support the result; a compile or mocked native API pass is insufficient.
+
+## September 10 offline lab record — historical
+
+The sections below retain the evidence that preceded production integration.
+Their prototype-only statements and original remaining-work list describe
+September 10, not the current source candidate.
+
+### Practical result at the end of the lab
 
 The hose is now rigged, exported and exercised with a real two-ended inertial
 simulation in Blender. The separate skinned asset also compiles through the
 installed VT2 SDK. It has **no physics actors** and does not replace or edit
 the accepted body or weapon.
 
-This is **not enabled in TEST or public**. No game process, deployment or
+At the end of that lab it was **not enabled in TEST or public**. No game process, deployment or
 Workshop upload was used for this investigation. The tools live under
 [`tools/hose_lab`](../../tools/hose_lab/); generated models and demonstrations
 remain under ignored `.build`. Engine integration, lifecycle, collision,
@@ -190,7 +277,11 @@ temporary directory. The path preflight now canonicalizes only the known
 repository prefix, retaining redirect checks on every output descendant;
 actual 8.3-path and non-bypass regressions cover this portability fix.
 
-## Remaining steps before enabling it in game
+## September 10 integration plan — superseded by the implementation above
+
+This original plan is retained for traceability. The candidate now implements
+the driver, frame transport, budget and lifecycle; collision remains explicitly
+absent, and visible game acceptance is still outstanding.
 
 1. Implement a separate cosmetic-unit driver using the verified compiled
    profile, reading actual live backpack and weapon transforms. Never write

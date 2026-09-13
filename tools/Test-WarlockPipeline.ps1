@@ -20,8 +20,8 @@ Assert-True ($itemConfig -match '(?m)^visibility\s*=\s*"public";\s*$') `
     "development TEST Workshop item must remain public"
 Assert-True ($itemConfig -match '(?m)^preview\s*=\s*"item_preview_test\.png";\s*$') `
     "development TEST build must use item_preview_test.png"
-Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0\.1\.66-dev";\s*$') `
-    "development title must be exactly Warprocket Bombardier TEST v0.1.66-dev"
+Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0\.1\.67-dev";\s*$') `
+    "development title must be exactly Warprocket Bombardier TEST v0.1.67-dev"
 Assert-True ($itemConfig -match 'DEVELOPMENT TEST BUILD') `
     "TEST Workshop description must begin with an explicit development-build warning"
 Assert-True ($itemConfig -match 'Do not enable it together with the public') `
@@ -59,7 +59,24 @@ $weaponRegression = Join-Path $PSScriptRoot 'tests\test_warlock_weapon_pipeline.
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("weapon source/runtime regression suite failed (exit $LASTEXITCODE)")
 }
+$hoseAssetRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_hose_assets.py'
+& py -3 $hoseAssetRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("hose source/skin/material/profile regression suite failed (exit $LASTEXITCODE)")
+}
+$hoseDynamicsRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_hose_dynamics.py'
+& py -3 $hoseDynamicsRegression
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("production semi-rigid hose physics/frame regression suite failed (exit $LASTEXITCODE)")
+}
 $portraitRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_portrait_pipeline.py'
+foreach ($integrationRegression in @('test_doomrocket_hose_lifecycle.py', 'test_doomrocket_hose_pose_adapter.py', 'test_doomrocket_crystal_anchor.py',
+        'test_doomrocket_action_lookup.py', 'test_doomrocket_aim_timing.py')) {
+    & py -3 (Join-Path $PSScriptRoot "tests\$integrationRegression")
+    if ($LASTEXITCODE -ne 0) {
+        [void]$failures.Add("$integrationRegression failed (exit $LASTEXITCODE)")
+    }
+}
 & py -3 $portraitRegression
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("kill-feed portrait source/compiled regression suite failed (exit $LASTEXITCODE)")
@@ -140,7 +157,7 @@ Assert-True ($mainPackage -notmatch 'child_materials') `
 
 $childPackage = Join-Path $repoRoot "resource_packages\doomrocket\warlock_child.package"
 Assert-True (Test-Path $childPackage) "missing warlock_child.package"
-$childMaterials = @("wb_armor_child", "wb_backpack_child", "wb_skin_child", "wb_fur_child", "wb_whiskers_child")
+$childMaterials = @("wb_armor_child", "wb_backpack_child", "wb_skin_child", "wb_fur_child", "wb_whiskers_child", "wb_hose_child")
 if (Test-Path $childPackage) {
     $childText = Get-Content $childPackage -Raw
     foreach ($name in $childMaterials) {
@@ -258,13 +275,13 @@ Assert-True ($slotNames.Count -eq 5) "expected 5 material slots in .unit, found 
 $bundleRoot = Join-Path $repoRoot "bundleV2"
 $childBundle = Join-Path $bundleRoot "f5283f9585ea8355.mod_bundle"
 if (Test-Path $childBundle) {
-    # Spliced payload sizes: 2x768 (Ratling armor family), 496/416/128
+    # Spliced payload sizes: 3x768 (Ratling armor/backpack/hose family), 496/416/128
     # (exact Stormvermin skin/fur/whiskers).
     # The SDK-compiled child materials are ~22 KB sources -> 185/321 KB payloads,
     # so tiny record sizes prove the splice actually ran on this bundle.
     $spliceTool = Join-Path $PSScriptRoot "splice_bundle_resource.py"
     $expected = @{ "wb_armor_child" = 768; "wb_backpack_child" = 768; "wb_skin_child" = 496;
-                   "wb_fur_child" = 416; "wb_whiskers_child" = 128 }
+                   "wb_fur_child" = 416; "wb_whiskers_child" = 128; "wb_hose_child" = 768 }
     foreach ($name in $expected.Keys) {
         # Dry-run output: "<bundle>: splicing (material, <hash>) <current> -> <new> bytes"
         $probe = & py -3 $spliceTool $childBundle --type material `

@@ -117,6 +117,16 @@ ScriptWorld={create_particles_linked=function(w,name,u,node,policy,pose)
  return id
 end}
 mod={}; function get_mod(name) assert(name=='doomrocket'); return mod end
+-- Isolate smoke assertions while executing shared production lifecycle hooks.
+-- Actual hose ownership/native boundary behavior is exercised independently in
+-- test_doomrocket_hose_lifecycle.py; these are not mocked smoke operations.
+mod._start_warlock_hose=function() end
+mod._stop_warlock_hose=function() end
+mod._stop_warlock_hose_item=function() end
+mod._queue_warlock_hose=function() end
+mod._reset_warlock_hose=function() end
+mod._release_warlock_hose=function() end
+mod._finish_release_warlock_hose=function() end
 function start(o,u) return mod._start_warlock_backpack_smoke(o or owner,u or outfit) end
 function stop(reason) return mod._stop_warlock_backpack_smoke(owner,reason) end
 function reset(reason) mod._reset_warlock_backpack_smoke(reason) end

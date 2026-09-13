@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.66-dev"
+local MOD_VERSION = "0.1.67-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -23,6 +23,11 @@ mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_pickup")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_audio")
 mod._doomrocket_chimney_anchor = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_chimney_anchor")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_backpack_smoke")
+mod._doomrocket_hose_profile = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_profile")
+mod._doomrocket_hose_solver = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_solver")
+mod._doomrocket_hose_frames = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_frames")
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_hose")
+mod:dofile("scripts/mods/doomrocket/utils/doomrocket_action_lookup")
 mod:dofile("scripts/mods/doomrocket/extensions/projectile_rocket")
 mod:dofile("scripts/mods/doomrocket/extensions/anim_emitter")
 -- Vanilla snapshots its threat_values table at boot, before this mod registers its breed,
@@ -175,10 +180,6 @@ for bt_name, bt_node in pairs(BreedBehaviors) do
     bt_node.name = bt_name .. "_GENERATED"
 end
 
-local num_acitons = #NetworkLookup.bt_action_names
-NetworkLookup.bt_action_names["fire_rocket"] = num_acitons + 1
-NetworkLookup.bt_action_names[num_acitons + 1] = "fire_rocket"
-
 local husk_num = #NetworkLookup.husks
 NetworkLookup.husks[husk_num + 1] = "units/rocket/SM_Rocket"
 NetworkLookup.husks["units/rocket/SM_Rocket"] = husk_num + 1
@@ -207,6 +208,7 @@ function mod.update(dt)
 end
 
 local function reset_warlock_runtime_state(reason, unload_bank)
+	mod._reset_warlock_hose(reason or "runtime_reset")
 	mod._reset_warlock_backpack_smoke(reason or "runtime_reset")
 	mod._shutdown_doomrocket_audio(reason or "runtime_reset", unload_bank == true)
 

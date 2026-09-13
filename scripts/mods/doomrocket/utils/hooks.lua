@@ -788,12 +788,14 @@ local function queue_warlock_death_drivers_for_world(world)
 	end
 end
 
-mod:hook_safe(World, "update_animations", function(world, ...)
+mod:hook_safe(World, "update_animations", function(world, dt, ...)
 	queue_warlock_death_drivers_for_world(world)
+	mod._queue_warlock_hose(world, dt)
 end)
 
-mod:hook_safe(World, "update_animations_with_callback", function(world, ...)
+mod:hook_safe(World, "update_animations_with_callback", function(world, dt, ...)
 	queue_warlock_death_drivers_for_world(world)
+	mod._queue_warlock_hose(world, dt)
 end)
 
 mod._reset_warlock_death_drivers = function()
@@ -808,6 +810,7 @@ mod._reset_warlock_death_drivers = function()
 end
 
 mod._prepare_warlock_death = function(owner_unit, source)
+	mod._stop_warlock_hose(owner_unit, "death_" .. tostring(source))
 	-- Cosmetic emitter ownership ends before the outfit enters its corpse handoff.
 	mod._stop_warlock_backpack_smoke(owner_unit, "death_" .. tostring(source))
 	-- Stop while the visible outfit and its backpack source are still alive. Later death
@@ -1116,6 +1119,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				-- each peer owns exactly one spatial loop on the visible backpack outfit.
 				mod._start_warlock_backpack_sound(unit, outfit_unit)
 				mod._start_warlock_backpack_smoke(unit, outfit_unit)
+				mod._start_warlock_hose(unit, outfit_unit, self)
 			end
 		end
 	end
@@ -1150,20 +1154,47 @@ end)
 
 -- Stop before native inventory teardown unlinks/deletes the parent outfit.
 mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
+	mod._stop_warlock_hose(self.unit, "inventory_destroy")
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_destroy")
 	return func(self, ...)
 end)
 
 mod:hook(AIInventoryExtension, "freeze", function(func, self, ...)
+	mod._stop_warlock_hose(self.unit, "inventory_freeze")
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_freeze")
 	return func(self, ...)
+end)
+
+-- Stop only when vanilla's drop eligibility allows this exact carried item.
+-- The cosmetic hose must disappear before any dropped actor is created.
+mod:hook(AIInventoryExtension, "drop_single_item", function(func, self, index, reason, ...)
+	local item_unit = self.inventory_item_units and self.inventory_item_units[index]
+	local item = self.inventory_item_definitions and self.inventory_item_definitions[index]
+	local dropped = self.dropped_items and self.dropped_items[index]
+	local extension = item_unit and Unit.alive(item_unit) and ScriptUnit.has_extension(item_unit, "ai_inventory_item_system")
+	local template = item and (item.unit_extension_template or "ai_inventory_item")
+	if dropped == nil and extension and not extension.dropped and item and item.drop_reasons and item.drop_reasons[reason]
+		and template ~= "ai_helmet_unit" and template ~= "ai_outfit_unit" and template ~= "ai_skin_unit" then
+		mod._stop_warlock_hose_item(self.unit, item_unit, "inventory_drop")
+	end
+	return func(self, index, reason, ...)
+end)
+
+mod:hook(AIInventoryExtension, "disable_inventory_item", function(func, self, item, item_unit, ...)
+	mod._stop_warlock_hose_item(self.unit, item_unit, "inventory_disable_item")
+	return func(self, item, item_unit, ...)
 end)
 
 -- Forget IDs before the engine releases the world. The engine owns destruction
 -- here; a later reset must never operate on a recycled particle/world handle.
 mod:hook(Application, "release_world", function(func, world, ...)
+	mod._release_warlock_hose(world)
 	mod._release_warlock_smoke_world(world)
-	return func(world, ...)
+	local function finish_release(...)
+		mod._finish_release_warlock_hose(world)
+		return ...
+	end
+	return finish_release(func(world, ...))
 end)
 
 -- these functions are needed so the client can properly spawn in the custom breed with right breed data set

@@ -90,8 +90,13 @@ end
 
 BreedActions.skaven_doomrocket = table.clone(BreedActions.skaven_ratling_gunner)
 BreedActions.skaven_doomrocket.fire_rocket = table.clone(BreedActions.skaven_doomrocket.shoot_ratling_gun)
+BreedActions.skaven_doomrocket.fire_rocket.name = "fire_rocket"
 BreedActions.skaven_doomrocket.shoot_ratling_gun = nil
 BreedActions.skaven_doomrocket.fire_rocket.light_weight_projectile_template_name = "doomrocket"
+-- #16: the old angular-only alignment could finish in one tick, so there is
+-- no fixed duration to double. Give the TEST aim/telegraph a one-second floor
+-- before its native firing animation starts; keep reload and shot cues intact.
+BreedActions.skaven_doomrocket.fire_rocket.minimum_aim_time = 1.0
 
 -- Reuse the Stormvermin's zero-damage shove and utility/cooldown tuning, but
 -- not its animation callback node.  The living Doomrocket uses the Ratling
@@ -106,6 +111,7 @@ BreedActions.skaven_doomrocket.push_attack.duration = 1.2
 -- A short ordinary navmesh walk after the kick creates room to resume aiming.
 -- This does not change the native shove's cooldown, damage, or push force.
 BreedActions.skaven_doomrocket.reposition = {
+	name = "reposition",
 	clear_distance = 3.5,
 	goal_distance = 4.0,
 	max_duration = 2.5,

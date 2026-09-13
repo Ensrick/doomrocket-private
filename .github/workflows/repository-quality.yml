@@ -49,6 +49,12 @@ jobs:
       - name: Run executable reposition lifecycle tests
         run: python tools/tests/test_doomrocket_reposition_lifecycle.py
 
+      - name: Run custom action network lookup regressions
+        run: python tools/tests/test_doomrocket_action_lookup.py
+
+      - name: Run minimum aim timing regressions
+        run: python tools/tests/test_doomrocket_aim_timing.py
+
       - name: Run projectile lifecycle contracts
         run: python tools/tests/test_doomrocket_projectile_lifecycle.py
 
@@ -66,6 +72,21 @@ jobs:
 
       - name: Run weapon source and contract tests
         run: python tools/tests/test_warlock_weapon_pipeline.py
+
+      - name: Run production hose skin and material contracts
+        run: python tools/tests/test_doomrocket_hose_assets.py
+
+      - name: Run production semi-rigid hose physics and frame contracts
+        run: python tools/tests/test_doomrocket_hose_dynamics.py
+
+      - name: Run production hose native lifecycle contracts
+        run: python tools/tests/test_doomrocket_hose_lifecycle.py
+
+      - name: Verify actual hose local-to-world bone writes
+        run: python tools/tests/test_doomrocket_hose_pose_adapter.py
+
+      - name: Run measured weapon crystal anchor contracts
+        run: python tools/tests/test_doomrocket_crystal_anchor.py
 
       - name: Run chimney anchor source and compiled contracts
         run: python tools/tests/test_doomrocket_chimney_anchor.py

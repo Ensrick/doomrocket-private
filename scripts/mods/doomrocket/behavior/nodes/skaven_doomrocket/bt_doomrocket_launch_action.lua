@@ -155,6 +155,7 @@ BTDoomrocketLaunchAction.leave = function (self, unit, blackboard, t, reason, de
 	data.shoot_duration = nil
 	data.shoot_start = nil
 	data.shots_fired = nil
+	data.align_start = nil
 	data.time_between_shots_at_start = nil
 	data.time_between_shots_at_end = nil
 	data.max_fire_rate_at_percentage_modifier = nil
@@ -226,6 +227,10 @@ BTDoomrocketLaunchAction.run = function (self, unit, blackboard, t, dt)
 		local done = self:_update_align_towards_target(unit, blackboard, t, dt)
 
 		if done and not script_data.disable_ratling_gun_fire then
+			-- A delayed callback from the previous animation must not release
+			-- this attempt before its new attack_shoot_start has produced one.
+			blackboard.anim_cb_attack_shoot_random_shot = nil
+			printf("[doomrocket:COMBAT] phase=aim_ready duration_s=%.3f", t - data.align_start)
 			self:_end_align_towards_target(unit, data)
 		end
 
@@ -549,6 +554,7 @@ BTDoomrocketLaunchAction._start_align_towards_target = function (self, unit, bla
 	blackboard.anim_cb_attack_shoot_random_shot = nil
 
 	Managers.state.network:anim_event(unit, "attack_shoot_align")
+	printf("[doomrocket:COMBAT] phase=aim_begin minimum_s=%.3f", action.minimum_aim_time or 0)
 end
 
 BTDoomrocketLaunchAction._end_align_towards_target = function (self, unit, data)
@@ -609,7 +615,11 @@ BTDoomrocketLaunchAction._update_align_towards_target = function (self, unit, bl
 
 	data.shoot_direction_box:store(new_shoot_direction)
 
+	-- Hold the aiming animation before its firing event, not after the native
+	-- fire callback. Continue turning/tracking throughout; a large turn can take
+	-- longer, and every target switch starts a fresh readable telegraph.
 	return math.abs(angle_left) < STOP_ANGLE
+		and t - data.align_start >= (action.minimum_aim_time or 0)
 end
 
 BTDoomrocketLaunchAction._angle_to_speed = function (self, angle_left)

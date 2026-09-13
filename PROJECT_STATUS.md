@@ -1,6 +1,6 @@
 # Project status
 
-Snapshot updated 2026-09-10. GitHub Issues is the live work queue; this page is
+Snapshot updated 2026-09-12. GitHub Issues is the live work queue; this page is
 the short re-entry map, not a second backlog.
 
 ## One-minute re-entry
@@ -9,32 +9,29 @@ the short re-entry map, not a second backlog.
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Development TEST v0.1.65-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), known relocation crash; testing paused |
-| Unpublished source candidate | v0.1.66-dev: measured chimney smoke prototype, no hose physics |
+| Candidate awaiting publication verification | v0.1.67-dev: in-game semi-rigid hose integration, chimney smoke, #14 lookup correction and #16 aiming delay |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
-## Publication hold and current work
+## What changed; what is ready
 
-**TEST v0.1.65-dev is published, but not accepted as stable.** Crunch reported
-a relocation crash, tracked in [#14](https://github.com/Ensrick/doomrocket-private/issues/14).
-The action-network lookup needs correction and regression testing before a
-replacement TEST upload. Successful compilation and the earlier mocked tests
-did not establish runtime/network safety. Do not send testers back to the
-v0.1.65 reposition matrix as though that crash were resolved.
+**Do not test the old v0.1.65-dev relocation build.** Candidate **v0.1.67-dev**
+contains the actual hose runtime and registers the missing behavior-action
+network names behind [#14](https://github.com/Ensrick/doomrocket-private/issues/14).
+It still needs verified publication and matching in-game host/client results;
+source changes and automated checks are not acceptance.
 
-The source candidate **v0.1.66-dev is not on Workshop**. It adds a native
-Warpfire backpack smoke emitter at a measured chimney rim, with ownership and
-teardown guards. It does not fix #14, change the model/rig, or implement hose
-physics. Its coordinates and lifecycle are checked offline; visible placement,
-scale, host/client behavior, and runtime safety still require an in-game pass.
-See [hose/smoke research and acceptance](docs/research/BACKPACK_HOSE_AND_SMOKE.md).
+The hose retains Crunch's authored shape with damped secondary motion. It is a
+separate 29-control, actor-free skin—not a loose rope or a replacement weapon.
+Only the nearest eight eligible hoses within 40 m run; world/body collision is
+not implemented. The hose disappears before death/drop so the accepted body,
+loaded warhead and launcher physics remain independent.
 
-The public Workshop item was separately updated to **v0.1.56-alpha** with the
-Engineer kill-feed portrait and narrow target guards, retaining its accepted
-baseline. [Public release record](https://github.com/Ensrick/doomrocket-public/releases/tag/v0.1.56-alpha).
-No development audio, combat, reposition, or smoke experiment was implicitly
-promoted. This hose/smoke work does not upload or alter either Workshop item.
+[Candidate contents and short test checklist](docs/testing/2026-09-12_TEST_CANDIDATE.md)
+are the next handoff. Public **v0.1.56-alpha remains unchanged**;
+[its release record](https://github.com/Ensrick/doomrocket-public/releases/tag/v0.1.56-alpha)
+is independent of this TEST work.
 
 ## Feature state
 
@@ -44,12 +41,13 @@ promoted. This hose/smoke work does not upload or alter either Workshop item.
 | Engineer kill-feed portrait | Published in public v0.1.56-alpha and TEST; visible acceptance still needed |
 | Career-switch crash | v0.1.63 host reproduction passes; remote-client verification remains |
 | Close-range shove, rocket exclusion, reload preservation | v0.1.64 host pass; client/edge-case checks remain |
-| Reposition after kick | v0.1.65 published with reported crash #14; not ready for further playtesting |
+| Reposition after kick #14 | Missing network-action lookup registration corrected in v0.1.67 candidate; host/client reproduction pending |
 | Stormvermin-style armor and health | Implemented in development; difficulty/damage parity needs explicit runtime checks |
-| Distance-aware ballistic aim | Implemented offline in development; runtime aiming verification remains |
+| Distance-aware ballistic aim / #16 | Candidate holds aim for at least one second before the firing animation, while tracking; visible timing and multiplayer checks remain |
 | Custom sound bank and voice events | Host playback and death interruption confirmed; clients and final audio quality remain |
-| Chimney smoke #4 | Measured native-effect prototype in unpublished v0.1.66; runtime acceptance pending |
-| Flexible hose physics #3 | Separate 29-control rig, two-ended Lua physics and SDK import demonstrated offline; not loaded by the mod. [Lab and remaining integration](docs/research/HOSE_RIG_AND_PHYSICS.md) |
+| Chimney smoke #4 | Measured native-effect runtime included in v0.1.67 candidate; placement and host/client acceptance pending |
+| Semi-rigid hose physics #3 | Production runtime, skin and lifecycle integrated in v0.1.67 candidate; visible in-game acceptance pending. [Implementation and evidence](docs/research/HOSE_RIG_AND_PHYSICS.md) |
+| Under-barrel crystal flame #15 | Crystal measured and identified; effect selection is unresolved, so no flame is included. [Research](docs/research/WEAPON_CRYSTAL_FIRE.md) |
 
 ## Retained evidence and next test
 
@@ -62,8 +60,9 @@ Remote-client checks for #9/#10/#11 remain outstanding; #7/#8 still need their
 full explosion/removal/stress matrix. Incidental crash-free impacts do not
 complete those gates.
 
-First fix and validate #14 separately, then publish a clearly identified TEST
-candidate. Only after that, use [the quickstart](docs/TESTER_QUICKSTART.md),
-the combat protocol, and [smoke acceptance](docs/research/BACKPACK_HOSE_AND_SMOKE.md#runtime-smoke-acceptance).
-Record the actual loaded banner and both host/client logs. Public portrait
-checks can proceed independently on v0.1.56-alpha with TEST disabled.
+After explicit v0.1.67 TEST publication confirmation, use
+[the quickstart](docs/TESTER_QUICKSTART.md) and
+[candidate checklist](docs/testing/2026-09-12_TEST_CANDIDATE.md).
+Check `[doomrocket:LOAD] v0.1.67-dev` on every peer; attach complete host/client
+logs and a continuous hose/aiming video. Public portrait checks can proceed
+independently on v0.1.56-alpha with TEST disabled.

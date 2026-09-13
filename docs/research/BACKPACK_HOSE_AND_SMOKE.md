@@ -1,13 +1,18 @@
 # Backpack hose physics and chimney smoke
 
-Research/implementation snapshot: **2026-09-10**. Development only.
+Initial research/implementation snapshot: **2026-09-10**. Development only.
+Status follow-up: **2026-09-12**.
 
-**Later follow-up:** native chain authoring has now been recovered and a
-separate rig + two-ended physics prototype has been demonstrated offline.
-See [the hose follow-up](HOSE_RIG_AND_PHYSICS.md). The earlier no-go findings
-below describe the initial pass; the hose is still not enabled in game.
+**Current candidate:** v0.1.67-dev includes the separate semi-rigid hose
+controller and the measured chimney-smoke runtime. The missing #14 action
+lookup has been corrected in source. Publication verification and in-game
+host/client acceptance remain outstanding; the public alpha is unchanged.
+See [the hose implementation](HOSE_RIG_AND_PHYSICS.md) and
+[September 12 checklist](../testing/2026-09-12_TEST_CANDIDATE.md).
+The no-go findings and publication hold below are the **historical initial
+pass**, retained as evidence rather than current implementation status.
 
-## Decisions and tracking
+## September 10 decisions and tracking — historical
 
 - [#3: hose secondary physics](https://github.com/Ensrick/doomrocket-private/issues/3)
   remains **open**. Native examples exist, but a safe, editable two-ended
@@ -248,9 +253,10 @@ Workshop upload, release tag, or GitHub prerelease was made.
 
 ## Runtime smoke acceptance
 
-**Not ready on published TEST v0.1.65-dev.** Correct #14 and publish a validated
-replacement first. Confirm the actual loaded banner on every peer; do not
-assume a source version is available on Steam.
+Use this matrix only after **v0.1.67-dev publication is explicitly confirmed**.
+The candidate includes the #14 lookup correction; the old published v0.1.65
+build is not an acceptable substitute. Confirm the actual loaded banner on
+every peer; do not assume a source version is already available on Steam.
 
 | Check | Required observation |
 | --- | --- |
@@ -266,4 +272,4 @@ assume a source version is available on Steam.
 
 Capture host/client logs plus a short visible clip of the chimney. Keep #4
 open until these observations are supplied. Keep #3 open independently;
-smoke implementation is not progress on a physics solver.
+a passed smoke test does not accept the hose physics.
