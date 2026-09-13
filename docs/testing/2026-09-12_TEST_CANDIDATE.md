@@ -1,7 +1,7 @@
 # September 12 TEST candidate — v0.1.67-dev
 
-**Publication pending verification.** This records implemented candidate work,
-not a claim that Steam has updated or that in-game tests have passed.
+**Built and validated; upload failed.** Steam still serves v0.1.65-dev.
+This is not a claim that Steam has updated or that in-game tests have passed.
 TEST item: [3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
 Public alpha v0.1.56-alpha is unchanged; never enable both versions together.
 
@@ -90,5 +90,51 @@ The [implementation record](../research/HOSE_RIG_AND_PHYSICS.md) retains details
 and the separate September 10 **offline** lab evidence. Automated results do
 not establish visual acceptance or native engine safety.
 
-Publication/content-handle verification and actual game-session results must
-be recorded separately after they occur; none is claimed by this candidate note.
+## Build validation and blocked upload
+
+Built source commit `84d42f991c9e5826bc0d153a7b70e031f3f4889b` using the clean,
+committed release wrapper on September 12. SDK compilation, all six verified
+native material splices, **320 Python tests**, and the PowerShell ragdoll
+regressions passed. The new hose tests include 15 source/compiled-asset checks,
+12 dynamics cases, 44 actual-controller/lifecycle checks and four independent
+local-to-world pose reconstruction cases. [Clean-environment source CI passed](https://github.com/Ensrick/doomrocket-private/actions/runs/34734238660).
+
+The first compile exposed duplicate weapon texture dependencies in the hose's
+SDK placeholder. Removing those placeholder dependencies fixed the package;
+the existing exact-once tests were not relaxed. Runtime texture bindings still
+come from the hash-verified native splice. The final rebuilt package passed
+the changed-Lua freshness gates too.
+
+The uploader then failed with `0xc0000005` at **ugc_tool.exe+0x4169** at
+21:58:59 CDT. This is the same previously inspected Steam-interface fault as
+September 5/8, not a game crash. Read-only diagnostics found live Steam PID
+28180, but HKCU Steam ActiveProcess PID/user were zero. This establishes an
+inconsistent recorded session; it does not prove the cause or current token
+integrity. No Steam restart, registry edit, DLL replacement or reinstall was
+performed in this turn.
+
+Steam's API still reports TEST **v0.1.65-dev**, handle `8123257090222204359`,
+95,350,820 bytes. No v0.1.67 tag or prerelease is created before verified
+publication. Public alpha remains **v0.1.56-alpha**, handle
+`1428725673095257484`, 92,596,852 bytes; its checkout and item were not changed.
+
+Next: user normally restarts Steam and signs in; recheck the session and these
+package hashes, then retry upload without rebuilding. The current VMB upload
+helper supplies an automatic affirmative license response; do not reuse that
+path unattended. The user must handle any SDK license prompt. Verify the live
+item's version, visibility, thumbnail, content handle and exact total size,
+then record publication and create the matching tag/prerelease.
+
+Validated local package, **96,545,268 bytes** total:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `209fb8c3c0a8c3a4.mod_bundle` | 1,021,841 | `B242782BC46EA2646616D9D25A51F87701C49B989537B347B6E1B7D0BED801EC` |
+| `4e6a9317aab221e1.mod_bundle` | 7,258 | `5C7BF2F4DD484FFA20EA5971068037E1B5DB1B5EB25530DFE664209532FF1DA8` |
+| `ac226cc769a897ae.mod_bundle` | 62,726,587 | `59F8ABE733E67B0863A065B3FD989A2945355A3B14E7581F9B7474FEE26F8D93` |
+| `doomrocket.mod` | 470 | `DBF17C3E8ED109834BBCF56E4BDF7700BFF937E6B699FD63D7E11E571F3165D2` |
+| `e7852992f40eb619.mod_bundle` | 304,489 | `E1A04E500F8255EBEDCAFFB4E35E829ADBD99EBF46C2B8B4CD89D26DCA4735E2` |
+| `f5283f9585ea8355.mod_bundle` | 32,484,623 | `263DE6994ABF8B6E6D5920D7B4D312DE293E5393AA5C4E626374EB5C1BB211F3` |
+
+No matching in-game session has run for this candidate. Keep the runtime
+issues open until their visible host/client checks pass.

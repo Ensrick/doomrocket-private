@@ -9,7 +9,7 @@ the short re-entry map, not a second backlog.
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Development TEST v0.1.65-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), known relocation crash; testing paused |
-| Candidate awaiting publication verification | v0.1.67-dev: in-game semi-rigid hose integration, chimney smoke, #14 lookup correction and #16 aiming delay |
+| Built candidate; upload blocked | v0.1.67-dev: semi-rigid hose, smoke, #14 lookup correction and #16 aiming delay. Full pipeline/CI pass; Steam session failure prevents publication |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
@@ -21,6 +21,13 @@ contains the actual hose runtime and registers the missing behavior-action
 network names behind [#14](https://github.com/Ensrick/doomrocket-private/issues/14).
 It still needs verified publication and matching in-game host/client results;
 source changes and automated checks are not acceptance.
+
+The September 12 guarded upload crashed at `ugc_tool.exe+0x4169` before
+submission. Steam's active-process record is blank despite a running client.
+The live TEST item is still v0.1.65-dev. Ask the user to normally restart/sign in
+to Steam before an upload-only retry; any SDK license agreement must be handled
+by the user, not automatically accepted. Do not rebuild or reinstall the game
+merely to address this uploader failure. [Validated package and retry evidence](docs/testing/2026-09-12_TEST_CANDIDATE.md#build-validation-and-blocked-upload).
 
 The hose retains Crunch's authored shape with damped secondary motion. It is a
 separate 29-control, actor-free skin—not a loose rope or a replacement weapon.
