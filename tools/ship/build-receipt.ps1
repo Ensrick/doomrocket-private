@@ -410,7 +410,7 @@ function Initialize-VtBuildMaterializationAttributes {
         -Arguments @('-c', 'core.quotepath=false', 'ls-files')
     foreach ($path in @($paths | Where-Object {
         $_ -ceq '.gitattributes' -or
-        ($_ -match ('^' + [regex]::Escape($Mod) + '/(?:.*/)?\.gitattributes$'))
+        ($_ -match ('^' + [regex]::Escape((Get-WarlockModPrefix $Mod)) + '(?:.*/)?\.gitattributes$'))
     })) {
         $null = Invoke-VtBuildGitCapture -RepoRoot $RepoRoot -Environment $Context.Environment `
             -Arguments @('checkout-index', '--force', "--prefix=$($Context.WorkTree.Replace('\', '/'))/", '--', $path)

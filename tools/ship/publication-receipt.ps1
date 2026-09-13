@@ -317,7 +317,7 @@ function Get-PublicationCommitSnapshot {
         throw 'Local source commit object bytes do not match source_commit.'
     }
     $treeBytes = Invoke-PublicationGitBytes -RepoRoot $root -ArgumentList @(
-        'ls-tree', '-r', '-z', '--full-tree', $SourceCommit, '--', $Mod
+        'ls-tree', '-r', '-z', '--full-tree', $SourceCommit, '--', (Get-WarlockModPathspec $Mod)
     )
     $tree = @{}
     $treeText = [System.Text.Encoding]::UTF8.GetString([byte[]]$treeBytes)
