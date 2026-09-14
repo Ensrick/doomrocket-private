@@ -13,7 +13,7 @@ try {
         'itemV2.cfg' = 'published_id = 3794172730L; preview = "item_preview_test.png"; visibility = "public";'
         'item_preview_test.png' = 'fixture-preview'
         'doomrocket.mod' = 'fixture-descriptor'
-        'scripts/mods/doomrocket/doomrocket.lua' = 'local MOD_VERSION = "0.1.70-dev"'
+        'scripts/mods/doomrocket/doomrocket.lua' = 'local MOD_VERSION = "0.1.71-dev"'
         'bundleV2/doomrocket.mod' = 'fixture-descriptor'
         'bundleV2/ac226cc769a897ae.mod_bundle' = 'fixture-bundle'
     }
@@ -31,7 +31,7 @@ try {
     [IO.File]::WriteAllText((Join-Path $fixture 'itemV2.cfg'), 'published_id = 3771657344L;')
     [IO.File]::WriteAllText((Join-Path $fixture 'bundleV2/ac226cc769a897ae.mod_bundle'), 'replacement')
     $snapshot = Get-PublicationCommitSnapshot -RepoRoot $fixture -SourceCommit $commit -Mod doomrocket
-    if ($snapshot.PublishedId -cne '3794172730' -or $snapshot.Version -cne '0.1.70-dev' -or $snapshot.BundleFiles.Count -ne 2 -or $snapshot.PreviewFile.Path -cne 'item_preview_test.png') { throw 'Standalone commit identity was not preserved.' }
+    if ($snapshot.PublishedId -cne '3794172730' -or $snapshot.Version -cne '0.1.71-dev' -or $snapshot.BundleFiles.Count -ne 2 -or $snapshot.PreviewFile.Path -cne 'item_preview_test.png') { throw 'Standalone commit identity was not preserved.' }
     $bundle = @($snapshot.BundleFiles | Where-Object Path -eq 'ac226cc769a897ae.mod_bundle')[0]
     if ([Text.Encoding]::UTF8.GetString($bundle.Bytes) -cne 'fixture-bundle') { throw 'Mutable bundle replaced committed bytes.' }
     $rejected = $false

@@ -11,6 +11,9 @@ param(
     [Parameter(Mandatory=$true)][string]$ConfigPath
 )
 $ErrorActionPreference = 'Stop'
+if (-not $env:VT2_SHIP_SESSION_ID -and -not $env:CLAUDE_SESSION_ID -and -not $env:CODEX_THREAD_ID) {
+    throw 'Standalone layout: set VT2_SHIP_SESSION_ID (or run under a Claude/Codex session id) before claim.ps1, BuildOnly and the ship. VMBLauncher derives the claim owner from the VMB project root, not from this repository path, so path-derived identities never match.'
+}
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 . (Join-Path $PSScriptRoot 'repository-profile.ps1')
 . (Join-Path $PSScriptRoot 'transaction-lease.ps1')
