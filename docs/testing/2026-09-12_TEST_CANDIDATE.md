@@ -139,3 +139,19 @@ Validated local package, **96,545,268 bytes** total:
 
 No matching in-game session has run for this candidate. Keep the runtime
 issues open until their visible host/client checks pass.
+
+## Publication verified: TEST v0.1.71-dev (2026-09-14)
+
+The candidate above shipped unchanged as **v0.1.71-dev** (0.1.68 through 0.1.70
+were built or allocated but never reached Steam; see `CHANGELOG.md`).
+
+| Evidence | Value |
+| --- | --- |
+| Source commit | `ce88c4ea0680dece5a4ca6b91b1c971d544962c3` (PR #19, squash) |
+| Steam `workshop_log.txt` | `[2026-09-14 01:57:17] Upload starting for workshop item 3794172730`; `[01:57:31] Uploaded new content ( ManifestID 447865338390972850 )`; `Upload finished ... : OK` |
+| Steam metadata (adapter check) | title `Warprocket Bombardier TEST v0.1.71-dev`, visibility public, `file_size` 96240779, `hcontent_file` 447865338390972850, `time_updated` 1789369051 |
+| Verified at | 2026-09-14T06:57:32Z (`.build/publication/verified-publication.json`) |
+| GitHub prerelease | `v0.1.71-dev` on Ensrick/doomrocket-private with `doomrocket-0.1.71-dev.zip` and the hosted publication receipt |
+
+Not proven: any in-game behavior. The acceptance checklist above still applies,
+now against the `[doomrocket:LOAD] v0.1.71-dev` banner.

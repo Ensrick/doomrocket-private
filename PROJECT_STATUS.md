@@ -8,7 +8,7 @@ the short re-entry map, not a second backlog.
 | Question | Answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Development TEST v0.1.65-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), known relocation crash; testing paused |
+| Published experimental build | [Development TEST v0.1.71-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-14 06:57 UTC (manifest 447865338390972850, 96,240,779 bytes); in-game host/client acceptance pending |
 | Current release candidate | v0.1.71-dev: semi-rigid hose, smoke, #14 lookup correction and #16 aiming delay. Carried from the validated v0.1.67 candidate; standalone receipt-authority publication in preparation |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
@@ -22,11 +22,13 @@ network names behind [#14](https://github.com/Ensrick/doomrocket-private/issues/
 It still needs verified publication and matching in-game host/client results;
 source changes and automated checks are not acceptance.
 
-The September 12 baseline-uploader attempt failed before publication. Its
-session diagnostics do not establish a current root cause or a standing Steam
-blocker. A September 13 interactive retry transcript contains no completed
-upload result. The user's September 13 instruction supersedes that retry path:
-use [Vermintide 2 Tweaker's working build/deploy/upload method](docs/RELEASE_CHANNELS.md).
+**Published 2026-09-14 as TEST v0.1.71-dev** through the canonical adapter from
+merged `ce88c4ea` (PR #19): Steam `workshop_log.txt` shows `Upload starting` 01:57:17,
+`Uploaded new content ( ManifestID 447865338390972850 )` 01:57:31 and `Upload finished ... OK`;
+the adapter verified the Steam metadata (title, public visibility, 96,240,779 bytes,
+content handle) before releasing the claim. v0.1.68-dev and v0.1.70-dev have GitHub
+prereleases but never reached Steam; the causes and the verified preflight are in
+[docs/RELEASE_CHANNELS.md](docs/RELEASE_CHANNELS.md#verified-preflight-2026-09-14).
 The exact upstream method and documentation are copied and hash-recorded there.
 No routine Steam restart or separate interactive uploader is part of that method.
 The original package hashes and build evidence remain in the
