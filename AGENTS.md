@@ -20,6 +20,11 @@ operational adapter is `tools/ship/ship.ps1`, with standalone repository paths
 and explicit TEST identity. Keep the Warlock material splice and full asset
 pipeline at the build-validation boundary before recording the build receipt.
 
+Verified preflight facts (host, launcher, claim identity, Steamworks registration
+recovery, lease contention, SDK sidecar policy) live in
+`docs/RELEASE_CHANNELS.md` under "Verified preflight"; read them before any
+build or publication attempt.
+
 ## Identity and boundaries
 
 - Canonical GitHub repository: `Ensrick/doomrocket-private`, remote `private`.

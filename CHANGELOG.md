@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.1.70-dev - reissue of the unpublished v0.1.68-dev TEST candidate
+
+- Same runtime content as v0.1.68-dev (semi-rigid hose, chimney smoke, #14
+  lookup correction, #16 aiming floor). v0.1.68-dev was built and hosted but
+  never reached Steam: its build receipt had captured the SDK's tool-only
+  `e7852992f40eb619.mod_bundle` (the Stingray LUT-generator sidecar), which
+  clean builds emit nondeterministically, so the publication snapshot could not
+  reproduce the receipt's output set. v0.1.69-dev was allocated and burned by
+  the claim broker during the renumbering.
+- `tools/mod-inventory.psd1` now carries the same `BuildArtifactExclusions`
+  policy as vermintide-2-tweaker, so build normalization strips that sidecar by
+  exact name and SHA-256 before any receipt or parity comparison.
+- `tools/ship/ship.ps1` waits the upstream 300 seconds for the machine-global
+  VMB transaction lease instead of 60 seconds; concurrent Tweaker builds on the
+  same machine no longer fail the ship with lock contention.
+- `docs/RELEASE_CHANNELS.md` documents the verified preflight: PowerShell host,
+  approved launcher path, claim identity, Steamworks registration recovery, and
+  the sidecar policy. No gameplay change; host/client acceptance remains open.
+
 ## v0.1.68-dev - standalone TEST publication candidate
 
 - Includes the unpublished semi-rigid hose, chimney smoke, relocation action

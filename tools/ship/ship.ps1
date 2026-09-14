@@ -61,7 +61,7 @@ try {
         $authorization = Assert-LiveAuthorization
     }
     $settings = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $ConfigPath)) | ConvertFrom-Json
-    $transaction = Enter-VmbMachineTransactionLease -Action $(if ($BuildOnly) {'build-only'} else {'ship'}) -Mod $Mod -ProjectRoot $settings.ProjectRoot -TimeoutMilliseconds 60000
+    $transaction = Enter-VmbMachineTransactionLease -Action $(if ($BuildOnly) {'build-only'} else {'ship'}) -Mod $Mod -ProjectRoot $settings.ProjectRoot -TimeoutMilliseconds 300000
     $launcherLease = Enter-VmbLauncherExecutableLease -LauncherPath $LauncherPath -RequireDirectPath
     $settings = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $ConfigPath)) | ConvertFrom-Json
     $selectedMod = Join-Path $settings.ProjectRoot $Mod
