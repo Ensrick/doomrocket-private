@@ -80,6 +80,8 @@ Use the same approved launcher executable and existing VMB project settings in
 both phases. The adapter creates a private settings copy for launcher children.
 
 ```powershell
+$env:VT2_SHIP_SESSION_ID = "warlock-<yyyymmdd>"   # same value for every step below
+$env:VT2_SHIP_VMB_LAUNCHER = $launcher            # approved standalone 0.6.4 build
 ./tools/ship/claim.ps1 -Mod doomrocket -RepoRoot $PWD
 ./tools/ship/ship.ps1 -BuildOnly -LauncherPath $launcher -ConfigPath $config
 # Commit source plus .build-receipt.json, push, pass hosted qa-gate, merge,
@@ -106,8 +108,13 @@ failed attempts on v0.1.68-dev. Each item names the failure it prevents.
    repository has no `tools\vmb-launcher` checkout, so the environment override
    is the only approved candidate the resolver accepts.
 3. **Claim identity.** `claim.ps1` binds a claim to `VT2_SHIP_SESSION_ID`,
-   `CLAUDE_SESSION_ID`, `CODEX_THREAD_ID`, or the checkout path, in that order.
-   The ship must run under the identity that claimed. A claim left by another
+   `CLAUDE_SESSION_ID`, `CODEX_THREAD_ID`, or the checkout path, in that order,
+   but VMB Launcher derives its own owner from the VMB project root
+   (`_doomrocket_vmb`), so in this standalone layout a path-derived identity
+   never matches and the launcher refuses the upload (`[claim-gate] REFUSING
+   publication: live claim belongs to ...`). Always set
+   `$env:VT2_SHIP_SESSION_ID` to a fixed value before `claim.ps1`, BuildOnly and
+   the ship; the adapter now fails closed without one. A claim left by another
    agent is released under that identity (`-Release`) and re-allocated; never
    edit the claim file. Claim BEFORE bumping: the broker reads the current
    `MOD_VERSION` and allocates the next patch.

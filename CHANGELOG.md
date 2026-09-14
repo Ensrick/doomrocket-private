@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.70-dev - reissue of the unpublished v0.1.68-dev TEST candidate
+## v0.1.71-dev - reissue of the unpublished v0.1.68-dev TEST candidate
 
 - Same runtime content as v0.1.68-dev (semi-rigid hose, chimney smoke, #14
   lookup correction, #16 aiming floor). v0.1.68-dev was built and hosted but
@@ -8,13 +8,21 @@
   `e7852992f40eb619.mod_bundle` (the Stingray LUT-generator sidecar), which
   clean builds emit nondeterministically, so the publication snapshot could not
   reproduce the receipt's output set. v0.1.69-dev was allocated and burned by
-  the claim broker during the renumbering.
+  the claim broker during the renumbering; v0.1.70-dev was burned when its claim
+  had to be re-taken under an explicit session identity (see below).
 - `tools/mod-inventory.psd1` now carries the same `BuildArtifactExclusions`
   policy as vermintide-2-tweaker, so build normalization strips that sidecar by
   exact name and SHA-256 before any receipt or parity comparison.
 - `tools/ship/ship.ps1` waits the upstream 300 seconds for the machine-global
   VMB transaction lease instead of 60 seconds; concurrent Tweaker builds on the
   same machine no longer fail the ship with lock contention.
+- Standalone layout lesson: VMB Launcher derives the claim owner from the VMB
+  project root (`_doomrocket_vmb`), while the copied `claim.ps1` derives it
+  from this repository path when no session variable is set, so the launcher's
+  claim gate refused the upload with two different `worktree:` owners. The
+  adapter now fails closed unless `VT2_SHIP_SESSION_ID` (or a Claude/Codex
+  session id) is set, and it must be set before `claim.ps1`, BuildOnly and the
+  ship alike.
 - `docs/RELEASE_CHANNELS.md` documents the verified preflight: PowerShell host,
   approved launcher path, claim identity, Steamworks registration recovery, and
   the sidecar policy. No gameplay change; host/client acceptance remains open.
