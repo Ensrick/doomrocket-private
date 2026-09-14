@@ -91,3 +91,49 @@ The current release is publication-only because the game is not installed.
 The adapter refuses the public-alpha item and performs no local or remote
 deployment. Its compatibility wrapper delegates to the same transaction.
 An upload is complete only after the fresh Steam transaction and metadata agree.
+
+## Verified preflight (2026-09-14)
+
+Recorded from the transaction that published TEST v0.1.70-dev after seven
+failed attempts on v0.1.68-dev. Each item names the failure it prevents.
+
+1. **Host.** Run `tools/ship/ship.ps1` from a native PowerShell host (pwsh 7 or
+   Windows PowerShell), never from Git Bash. MSYS `tar` shadows Windows `tar`
+   and the source-pin recovery step fails with
+   `/usr/bin/tar: Cannot connect to C: resolve failed`.
+2. **Launcher.** Pass the approved standalone VMB Launcher 0.6.4 build through
+   both `VT2_SHIP_VMB_LAUNCHER` and `-LauncherPath` (same path). This
+   repository has no `tools\vmb-launcher` checkout, so the environment override
+   is the only approved candidate the resolver accepts.
+3. **Claim identity.** `claim.ps1` binds a claim to `VT2_SHIP_SESSION_ID`,
+   `CLAUDE_SESSION_ID`, `CODEX_THREAD_ID`, or the checkout path, in that order.
+   The ship must run under the identity that claimed. A claim left by another
+   agent is released under that identity (`-Release`) and re-allocated; never
+   edit the claim file. Claim BEFORE bumping: the broker reads the current
+   `MOD_VERSION` and allocates the next patch.
+4. **Steamworks registration.** VMB 0.6.3+ refuses to upload (exit 3) when
+   `HKCU\Software\Valve\Steam\ActiveProcess\pid` is 0 or differs from the live
+   `steam.exe`. On this machine the registration was zeroed every time another
+   process launched `steam.exe` while Steam was already running (five times on
+   2026-09-13). The recovery that restored it every time, with no game and no
+   `ugc_tool` running: `steam.exe -shutdown`, wait for exit, `steam.exe -silent`,
+   wait until the registered PID equals the live PID and `connection_log.txt`
+   shows `processing complete`. Check the registration immediately before the
+   ship; an earlier `doctor` report is not evidence.
+5. **Lease contention.** Canonical Tweaker builds and ships hold the
+   machine-global `Global\Ensrick.VMBLauncher.Transaction.v1` lease for 5 to 15
+   minutes at a time. The adapter waits the upstream 300 seconds. If it still
+   reports another owner, wait for that process to exit and rerun once; never
+   run a parallel retry.
+6. **SDK sidecar.** Clean Stingray builds emit `e7852992f40eb619.mod_bundle`
+   (the `core/stingray_renderer/lookup_tables/generator/generate_luts` tool
+   bundle) only sometimes. `tools/mod-inventory.psd1` strips it by exact name
+   and SHA-256 `e1a04e500f8255ebedcaffb4e35e829adbd99ebf46c2b8b4cd89d26dca4735e2`
+   before any receipt or parity comparison. A receipt that captured it can
+   never be reproduced; that is what blocked v0.1.68-dev.
+7. **Same version, new bytes.** An existing `v<version>` release tag bound to a
+   different commit stops the ship. After any change to the receipt or source,
+   reissue under the next broker version instead of reusing the number.
+8. **Clean live HEAD.** `git status --short --branch` must be clean at the
+   merged default-branch commit and the hosted `qa-gate` check on that exact
+   commit must be green; the ship rechecks both.

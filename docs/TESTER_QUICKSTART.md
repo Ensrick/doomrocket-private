@@ -1,6 +1,6 @@
 # Development TEST quickstart
 
-September 12 candidate: **v0.1.68-dev** adds in-game semi-rigid hose integration,
+September 12 candidate: **v0.1.70-dev** adds in-game semi-rigid hose integration,
 chimney smoke, the #14 network-action correction and a one-second aiming floor.
 **Wait for explicit Workshop publication confirmation.** The older v0.1.65-dev
 has the reported relocation crash and is not the assigned test build.
@@ -17,7 +17,7 @@ Setup
 [ ] Launch the Modded Realm.
 [ ] Load Vermintide Mod Framework above Warprocket Bombardier.
 [ ] Enable TEST item 3794172730 only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.68-dev in the new console log on every peer.
+[ ] Confirm [doomrocket:LOAD] v0.1.70-dev in the new console log on every peer.
 [ ] If the version differs from the assigned build, stop and report the mismatch.
 [ ] Record whether you are host, remote client, or solo.
 

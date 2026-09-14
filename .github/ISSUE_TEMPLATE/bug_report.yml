@@ -30,7 +30,7 @@ body:
     attributes:
       label: Exact loaded build banner
       description: Copy the `[doomrocket:LOAD]` line from the reproducing log.
-      placeholder: "Paste the actual [doomrocket:LOAD] banner from your log (current source candidate: v0.1.68-dev), not just the Workshop title"
+      placeholder: "Paste the actual [doomrocket:LOAD] banner from your log (current source candidate: v0.1.70-dev), not just the Workshop title"
     validations:
       required: true
   - type: dropdown

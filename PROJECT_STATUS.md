@@ -9,14 +9,14 @@ the short re-entry map, not a second backlog.
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Development TEST v0.1.65-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), known relocation crash; testing paused |
-| Current release candidate | v0.1.68-dev: semi-rigid hose, smoke, #14 lookup correction and #16 aiming delay. Carried from the validated v0.1.67 candidate; standalone receipt-authority publication in preparation |
+| Current release candidate | v0.1.70-dev: semi-rigid hose, smoke, #14 lookup correction and #16 aiming delay. Carried from the validated v0.1.67 candidate; standalone receipt-authority publication in preparation |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
 ## What changed; what is ready
 
-**Do not test the old v0.1.65-dev relocation build.** Candidate **v0.1.68-dev**
+**Do not test the old v0.1.65-dev relocation build.** Candidate **v0.1.70-dev**
 contains the actual hose runtime and registers the missing behavior-action
 network names behind [#14](https://github.com/Ensrick/doomrocket-private/issues/14).
 It still needs verified publication and matching in-game host/client results;
@@ -73,6 +73,6 @@ complete those gates.
 After explicit v0.1.68 TEST publication confirmation, use
 [the quickstart](docs/TESTER_QUICKSTART.md) and
 [candidate checklist](docs/testing/2026-09-12_TEST_CANDIDATE.md).
-Check `[doomrocket:LOAD] v0.1.68-dev` on every peer; attach complete host/client
+Check `[doomrocket:LOAD] v0.1.70-dev` on every peer; attach complete host/client
 logs and a continuous hose/aiming video. Public portrait checks can proceed
 independently on v0.1.56-alpha with TEST disabled.
