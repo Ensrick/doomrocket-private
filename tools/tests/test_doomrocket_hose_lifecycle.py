@@ -166,9 +166,11 @@ Unit={
   check_unit(u);current(v);assert(u.name==hose_name,'moved source');assert(node==0)
   u.pose[1][4]=v.x;u.pose[2][4]=v.y;u.pose[3][4]=v.z
  end,
- set_animation_bone_mode=function(u,mode) check_unit(u);assert(u.name==hose_name);u.bone_mode=mode end,
- set_bones_lod=function(u,lod) check_unit(u);assert(u.name==hose_name);u.lod=lod end,
- disable_animation_state_machine=function(u) check_unit(u);assert(u.name==hose_name) end,
+ -- The production hose has a skin but no animation blender/controller (#20).
+ -- These APIs must not silently succeed for it in the native test double.
+ set_animation_bone_mode=function(u,mode) check_unit(u);error('hose has no animation blender') end,
+ set_bones_lod=function(u,lod) check_unit(u);error('hose has no animation blender') end,
+ disable_animation_state_machine=function(u) check_unit(u);error('hose has no animation state machine') end,
  set_material=function(u,slot,name) check_unit(u);assert(u.name==hose_name);events.materials=events.materials+1 end,
 }
 World={
@@ -248,6 +250,17 @@ class HoseLifecycleTests(unittest.TestCase):
                 (UTILS / ('doomrocket_hose_' + name + '.lua')).read_text(encoding='utf-8'))
         self.source = MODULE.read_text(encoding='utf-8')
         self.lua.execute(self.source)
+
+    def test_spawn_without_animation_blender_updates_skin_and_cleans_up(self):
+        self.lua.execute('''
+            assert(start());tick()
+            assert(events.spawned==1 and events.materials==1 and last_hose.visible)
+            assert(events.poses==30 and events.updated==1)
+            for node=2,30 do assert(last_hose.local_poses[node]) end
+            tick();assert(events.poses==60 and events.updated==2)
+            assert(stop('death_host') and events.destroyed==1 and record_count()==0)
+            assert(owner.alive and outfit.alive and weapon.alive)
+        ''')
 
     def test_one_cosmetic_per_owner_duplicate_is_idempotent(self):
         self.lua.execute('''

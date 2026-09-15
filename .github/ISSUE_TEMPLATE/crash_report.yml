@@ -15,7 +15,7 @@ body:
     id: loaded_banner
     attributes:
       label: Exact loaded build banner
-      placeholder: "Paste the actual [doomrocket:LOAD] banner from your log (current source candidate: v0.1.71-dev), not just the Workshop title"
+      placeholder: "Paste the actual [doomrocket:LOAD] banner from your log (current source candidate: v0.1.72-dev), not just the Workshop title"
     validations:
       required: true
   - type: input
