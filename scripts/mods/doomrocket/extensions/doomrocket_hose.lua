@@ -138,8 +138,9 @@ local function create_visual(entry)
     entry.nodes=nodes
     entry.solver=Solver.new(PROFILE.lengths,nil,5.0)
     entry.frames=Frames.new(PROFILE)
-    Unit.set_bones_lod(visual,0)
-    Unit.set_animation_bone_mode(visual,"ignore")
+    -- This skin has no animation blender. Animation LOD/mode APIs are not
+    -- applicable (set_bones_lod asserts on spawn, #20); update_entry writes
+    -- its scene-graph control poses directly, with no animation to suppress.
     Unit.set_material(visual,PROFILE.material_slot,PROFILE.material_child)
     printf("[doomrocket:HOSE] phase=start id=%d controls=%d actors=0 semi_rigid=true collision=none",entry.id,#nodes)
     return true

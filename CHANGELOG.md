@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.72-dev - fix hose creation crash (#20)
+
+- Removes animation LOD and animation bone-mode calls from the separate hose
+  skin, which has no animation blender. The v0.1.71-dev host crash log identifies
+  `Unit.set_bones_lod` during hose creation as the immediate spawn assertion.
+- Preserves the semi-rigid physics solver, gravity, damping, both endpoint
+  attachments, all 29 control-bone updates, visibility budget and death cleanup.
+- Corrects the native test doubles to reject animation-controller calls on the
+  hose and adds a spawn/update/cleanup regression. In-game host/client spawn,
+  hose movement and death/drop acceptance remain pending.
+
 ## v0.1.71-dev - reissue of the unpublished v0.1.68-dev TEST candidate
 
 - Same runtime content as v0.1.68-dev (semi-rigid hose, chimney smoke, #14
