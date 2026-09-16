@@ -285,7 +285,7 @@ and is passed to the engine as `false`. A whole-unit `true` write is also
 logged, then all carrier meshes are synchronously re-hidden before the hook
 returns. These hooks prevent known Lua-level ratling substitutions. They cannot
 observe engine-internal render state, skin culling, or whether the Warlock
-pixels are actually correct, so runtime video remains a hard gate.
+pixels are actually correct, so retain the tester's written visual observation.
 
 ## What v0.1.50 proved
 
@@ -386,7 +386,7 @@ Accept only when both runtime visuals and post-animation logs agree:
 - ordinary corpse cleanup still occurs, and leaving `StateIngame` produces no
   stale-driver callback or reload error.
 
-Video confirms visual identity and pose. Logs confirm writer timing, unit
+The tester's observation confirms visual identity and pose. Logs confirm writer timing, unit
 lifetime, visibility, and bounded error. Neither evidence class substitutes
 for the other.
 

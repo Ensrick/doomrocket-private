@@ -8,22 +8,29 @@ the short re-entry map, not a second backlog.
 | Question | Answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Development TEST v0.1.72-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-15 17:17 UTC (manifest 5073916577951013553, 96,240,966 bytes). Crunch reports no spawn crash but no visible hose |
-| Current release candidate | v0.1.73-dev: targeted missing-hose diagnostics; no claimed visibility fix. Publication pending |
+| Published experimental build | [Development TEST v0.1.73-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-16 03:03 UTC (manifest 992911228893621231, 96,242,858 bytes). Adds diagnostics; the missing hose remains unresolved |
+| Current release candidate | v0.1.74-dev: 2-second shove cooldown, 2.2 m trigger, 8-12 second retreat at run speed seeking 20 m separation. Publication pending; hose unresolved |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
 ## What changed; what is ready
 
+**v0.1.74-dev prepares the requested longer escape and quicker shove.** It runs
+instead of walking, chains safe 8/4/2 m navmesh segments, and preserves the
+loaded weapon. It stops after 8 seconds with 20 m clearance or at 12 seconds;
+blocked routes and combat interruptions can stop it earlier. Tester recording
+requests are removed. These are source changes, not an in-game acceptance claim.
+
 **v0.1.72-dev fixes the spawn assertion, but its hose is not visible.**
 [Crunch's PR #21 follow-up](https://github.com/Ensrick/doomrocket-private/pull/21#issuecomment-5690555871)
 and both matching v0.1.72-dev logs record one hose creation, no three-second
 simulation sample, then cleanup on death. Existing silent early exits prevent
-a reliable cause diagnosis. Candidate **v0.1.73-dev** adds bounded rejection
+a reliable cause diagnosis. Published **v0.1.73-dev** adds bounded rejection
 reasons, first pose-write readback and cleanup counters, with a log analyzer.
 The solver, rig, materials, animation ownership and safety guards are unchanged.
-Wait for verified publication before testing; visibility is not yet fixed.
+Crunch's report that the hose is missing is accepted. No recording is needed.
+No v0.1.73-dev log has been found in the repository reports yet.
 
 **Published 2026-09-14 as TEST v0.1.71-dev** through the canonical adapter from
 merged `ce88c4ea` (PR #19): Steam `workshop_log.txt` shows `Upload starting` 01:57:17,
@@ -75,9 +82,10 @@ Remote-client checks for #9/#10/#11 remain outstanding; #7/#8 still need their
 full explosion/removal/stress matrix. Incidental crash-free impacts do not
 complete those gates.
 
-After explicit v0.1.73 TEST publication confirmation, use
+For the published v0.1.73 TEST diagnostics, use
 [the quickstart](docs/TESTER_QUICKSTART.md) and
 [candidate checklist](docs/testing/2026-09-12_TEST_CANDIDATE.md).
 Check `[doomrocket:LOAD] v0.1.73-dev` on every peer; attach complete host/client
-logs and a continuous hose/aiming video. Public portrait checks can proceed
+logs and a written description of what was seen or heard. No video is needed.
+Public portrait checks can proceed
 independently on v0.1.56-alpha with TEST disabled.

@@ -54,7 +54,7 @@ in-game colors still require visible acceptance.
 3. Compare its placement with another special's kill-feed portrait. Allow the
    game's normal attacker/victim mirroring; do not pre-flip the artwork.
 4. Check the host and a remote client, including Engineer-caused player kills
-   where practical. Capture a screenshot or video and both complete logs.
+   where practical. Describe the result and attach both complete logs.
 
 Offline and compiled checks do not certify native shader rendering or
 multiplayer visibility. Leave runtime acceptance pending until those results

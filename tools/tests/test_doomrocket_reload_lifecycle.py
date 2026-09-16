@@ -190,7 +190,7 @@ class DoomrocketReloadLifecycleTests(unittest.TestCase):
             assert(blackboard.reloaded_rocket)
             blackboard.utility_actions.push_attack.time_since_last = 7.5
             assert(selected_close_combat_child() == 'push_attack')
-            blackboard.target_dist = 1.8
+            blackboard.target_dist = 2.2
             assert(selected_close_combat_child() == 'attack_pattern')
         """)
 

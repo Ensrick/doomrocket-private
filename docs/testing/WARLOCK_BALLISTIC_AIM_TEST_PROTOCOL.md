@@ -6,7 +6,7 @@ velocity, not along the straight line from the enemy to the target.
 
 Status: **v0.1.65-dev is a test candidate, not a runtime-accepted build.** Its
 offline checks can prove the solver and its call sites agree, but host and
-remote-client video are still required to prove that the animation constraint
+remote-client observations are still required to confirm that the animation constraint
 actually places the launcher on the visible trajectory.
 
 ## Source-of-truth contract
@@ -119,7 +119,9 @@ velocity, but it is sampled in AISystem before that tick's AimSystem and
 animation evaluation. It therefore observes the previously evaluated weapon
 pose, not necessarily the rendered release pose. Preserve it for diagnostics
 and trend comparisons; do not impose a numeric release threshold on it.
-Side-view release-frame video is authoritative for visible muzzle alignment.
+The tester's observation is authoritative for visible muzzle alignment. If a
+single-frame detail cannot be judged in normal play, mark it unassessed; do not
+ask the tester to record it or infer a pass from a log.
 
 ## No Blender/Maya correction in Lua
 
@@ -173,8 +175,8 @@ testing.
 
 ## Host/client capture matrix
 
-Record at least three complete shots in every lane. Capture the final aim pose,
-release frame, muzzle exit, early arc, and impact in one continuous video.
+Observe at least three complete shots in every lane. Describe the final aim pose,
+muzzle exit, early arc, and impact as seen in normal play. No recording is needed.
 
 | Lane | Placement | Expected evidence |
 | --- | --- | --- |
@@ -225,7 +227,7 @@ The candidate passes only when all of the following are true:
   `pose_error_deg <= 0.25`; `pose_error_deg == -1` rejects the shot;
 - `muzzle_error_deg` is retained and compared across repetitions, but is not a
   numeric release gate because it samples the prior evaluated pose;
-- frame-by-frame side-view video shows that the rendered launcher points along
+- the tester observes that the rendered launcher points along
   the rocket's initial tangent and holds that tangent through the release-frame
   behavior transition, without a direct-line snap;
 - the 2 m, 5 m, 15 m, and 30 m shots demonstrate the minimum, short-range,
@@ -241,12 +243,12 @@ The candidate passes only when all of the following are true:
 A clean `pose_error_deg` proves that Lua supplied the right tangent to the
 constraint, not that the animation graph rendered it. A large or invalid
 `muzzle_error_deg` is a triage signal, but must be interpreted with its one-tick
-sampling limitation and the video. A plausible-looking launcher without the
+sampling limitation and the tester's observation. A plausible-looking launcher without the
 version banner and complete host log is not auditable evidence.
 
 ## Test report
 
-Attach both original logs and the continuous videos. Record the results without
+Attach both original logs and written observations. Record the results without
 rounding away failures:
 
 | Peer | Scenario | Shots | Telemetry flat/full range(s) | Flight time(s) | Max pose error | Max muzzle error | Visual result | Errors |

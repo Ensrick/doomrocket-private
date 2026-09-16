@@ -76,19 +76,18 @@ because the Ratling donor already used armor category 2 before this change.
 
 Test on open, level ground with one Bombardier and no other enemies:
 
-1. Stay beyond 1.8 metres for at least ten seconds. The Bombardier must not
+1. Stay beyond 2.2 metres for at least ten seconds. The Bombardier must not
    shove and must continue its ranged behavior.
-2. Approach inside 1.8 metres while upright and moving away at less than
-   1.5 m/s. These are the native utility spline boundaries and are evaluated as
+2. Approach inside 2.2 metres while upright and moving away at less than
+   1.5 m/s. These are the TEST eligibility boundaries and are evaluated as
    strict thresholds. The log must contain `phase=shove_selected` followed by
    `phase=shove_begin`; their absence means the action was not selected.
 3. Confirm the existing `attack_shoot_align` visual starts, impact occurs once
    between 0.6 and 0.8 seconds, and the action ends between 1.2 and 1.5 seconds.
 4. Confirm the shove deals zero health damage, applies the `sv_push` response,
    and pushes forward at speed 7 with a cap of 8.
-5. Remain in range. The inherited shove cooldown keeps it unavailable for
-   7.5 seconds; v0.1.64 host captures show repeated selections just after that
-   boundary. During that cooldown it may reposition, but it must not
+5. Remain in range. v0.1.74 lowers the shove cooldown to 2 seconds, replacing
+   the 7.5-second baseline. During that cooldown it may reposition, but it must not
    launch a rocket while the target remains inside 1.8 metres. The log should
    show `reason=target_too_close`; after the cooldown it must shove again if the
    target remains eligible.
@@ -121,29 +120,31 @@ candidate) and use one Bombardier on open ground.
    loaded/empty weapon on both peers and attach both complete logs.
 
 The selector can interrupt both reload and aiming; no new aim-only restriction
-or stronger knockback is part of this fix. The existing shove cooldown and
-force remain the baseline for any later balance changes.
+or stronger knockback is part of the reload fix. v0.1.74 deliberately changes
+shove eligibility while preserving the existing force and impact timing.
 
 ## Reposition after a shove
 
 The September 8 follow-up, [issue #13](https://github.com/Ensrick/doomrocket-private/issues/13), targets the idle period between kicks by moving
-the Engineer to create space. It must preserve the 7.5-second shove cooldown;
-reducing the cooldown or increasing shove force is not the selected change.
+the Engineer to create space. The maintainer's later v0.1.74 request supersedes
+the short retreat: use a 2-second shove cooldown and run for 8-12 seconds,
+seeking 20 m separation. Push force remains unchanged.
 This section defines acceptance for the candidate, not a publication or
 runtime-pass claim. Record the exact announced candidate version from its
 `[doomrocket:LOAD]` banner; v0.1.64 is the baseline, not evidence that the new
 movement is present. See the [audited baseline](2026-09-08_TESTER_RESULTS.md).
 
-Use one Bombardier, record video alongside the complete console log, and run
+Use one Bombardier, retain the complete console log, and run
 these cases on host and with a remote client as the target:
 
 1. **Open ground:** finish a reload, approach for a successful shove, and watch
-   the follow-up movement. It should create navigable space rather than stand
-   idle through the cooldown. Once there is enough separation, it should
+   the follow-up movement. With safe routes available, it should run at 4 m/s
+   for 8-12 seconds, chaining destinations instead of stopping after one second.
+   After at least 8 seconds and 20 m separation, or at the 12-second limit, it should
    resume aiming and fire the retained rocket without an extra reload.
 2. **Persistent close target:** follow the Engineer during its movement and
-   stay inside 1.8 m. It must not fire into the player at point-blank range,
-   shorten the 7.5-second kick cooldown, or apply another impact from the same
+   stay inside 2.2 m. It must not fire into the player at point-blank range,
+   shorten the 2-second kick cooldown, or apply another impact from the same
    shove. A later eligible shove must still work after the cooldown.
 3. **Walls and corners:** place a wall behind it, then repeat near a corner,
    ledge, and narrow doorway. It must use a reachable route without passing
@@ -176,7 +177,7 @@ these cases on host and with a remote client as the target:
 9. **Host/client agreement:** compare movement, loaded/empty weapon state,
    kick timing and push response, and rocket firing on both peers. Only the
    host should decide the action. Capture both complete logs with matching
-   version banners and label which view each recording shows.
+   version banners and describe what each player observed.
 
 Record blocked-route outcomes as well as successful retreats. Preserve the
 existing armor/health, ragdoll, death-audio, career-switch, and explosion

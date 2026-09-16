@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.1.74-dev - faster shove and sustained escape
+
+- Reduces the shove cooldown from 7.5 to 2 seconds and increases its trigger
+  range from 1.8 to 2.2 m. Existing wind-up, push force and zero damage remain.
+- Runs at the Ratling carrier's 4 m/s instead of walking at 1.9 m/s. On open
+  ground, retreat lasts at least 8 seconds, seeks 20 m separation and ends by
+  12 seconds. Reachable 8/4/2 m segments allow continued escape; blocked routes,
+  death, stagger, target changes and another eligible shove can interrupt it.
+- Checks projected destinations still lead away from the player, distinguishes
+  successful legs from blocked retries, and logs retreat duration and speed.
+  Loaded ammunition, genuine reloads and the point-blank launch guard remain.
+- Removes tester video requests from the Workshop text, forms and instructions.
+  A written observation is accepted; logs diagnose the cause. The missing hose
+  remains unresolved and its v0.1.73 diagnostics and physics are unchanged.
+- Adds executable regressions for sustained movement, pursuit, short reachable
+  segments, projected goals toward the player and quicker shove selection.
+  Native navigation and host/client playtesting remain outstanding.
+
 ## v0.1.73-dev - diagnose missing hose after the spawn fix
 
 - Crunch's two v0.1.72-dev logs create the hose once, never reach the expected

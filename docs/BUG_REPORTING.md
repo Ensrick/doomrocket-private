@@ -18,7 +18,8 @@ Attach the complete matching file from
 `%APPDATA%\Fatshark\Vermintide 2\console_logs\`. Raw `.log`, `.txt`, `.zip`, and
 `.gz` files are accepted up to GitHub's attachment limit. Do not paste hundreds
 of kilobytes into the issue body. For a crash, also include the crash GUID and
-Crashify link. For visual, physics, or audio timing problems, a short continuous
-video is useful.
+Crashify link. For visual, physics, or audio timing problems, describe what you
+saw or heard. Your observation is sufficient to report a failure; no video or
+recording is needed. Logs help investigate the cause.
 
 Issues and attachments are public. Review the log before uploading it.

@@ -50,6 +50,10 @@ this maintenance line. Push development work only to `private`.
 
 ## Evidence and release rules
 
+- Accept a tester's written report of what they saw or heard as the runtime
+  observation. A reported missing hose is a failure even when offline checks
+  pass. Do not request videos or recordings; use matching console logs to
+  investigate the cause, not to dispute the tester's observation.
 - Static tests and a successful SDK build are not in-game acceptance. Keep a
   runtime issue open until a matching host/client log and visible test pass.
 - Never promote experimental work to `doomrocket-public` implicitly.

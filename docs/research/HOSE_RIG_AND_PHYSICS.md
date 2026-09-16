@@ -82,7 +82,7 @@ rendering**. These are not live performance or visual acceptance claims.
 Remaining acceptance: final inlet approval, visible material/pose/culling,
 host/client/late-join lifecycle, loaded/unloaded deaths and map transitions.
 Use the [short candidate checklist](../testing/2026-09-12_TEST_CANDIDATE.md).
-Public alpha is unchanged. Keep #3 open until actual matching logs and video
+Public alpha is unchanged. Keep #3 open until actual matching logs and tester observations
 support the result; a compile or mocked native API pass is insufficient.
 
 ## September 10 offline lab record — historical

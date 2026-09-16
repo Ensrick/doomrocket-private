@@ -5,13 +5,12 @@ require("scripts/entity_system/systems/behaviour/nodes/bt_node")
 BTDoomrocketShoveAction = class(BTDoomrocketShoveAction, BTNode)
 BTDoomrocketShoveAction.name = "BTDoomrocketShoveAction"
 
--- These are the positive-utility boundaries of the native Stormvermin shove
--- splines: distance 4 * 0.45, speed 10 * 0.15 and cooldown 15 * 0.5.
--- The Doomrocket keeps those combat values, but evaluates them directly because
--- the Ratling behavior tree does not run inside the Stormvermin BTUtilityNode.
-local SHOVE_MAX_DISTANCE = 1.8
+-- React before the player reaches the point-blank launch boundary. The shorter
+-- cooldown is deliberate TEST tuning; native push force/damage stay unchanged.
+-- Evaluate directly: the Ratling tree has no Stormvermin BTUtilityNode.
+local SHOVE_MAX_DISTANCE = 2.2
 local SHOVE_MAX_TARGET_SPEED_AWAY = 1.5
-local SHOVE_COOLDOWN_SECONDS = 7.5
+local SHOVE_COOLDOWN_SECONDS = 2.0
 
 -- A loaded weapon has nothing to reload while the target remains point-blank.
 -- Hold a native idle action between shoves instead of restarting the complete

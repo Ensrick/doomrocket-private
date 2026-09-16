@@ -98,7 +98,7 @@ BreedActions.skaven_doomrocket.fire_rocket.light_weight_projectile_template_name
 -- before its native firing animation starts; keep reload and shot cues intact.
 BreedActions.skaven_doomrocket.fire_rocket.minimum_aim_time = 1.0
 
--- Reuse the Stormvermin's zero-damage shove and utility/cooldown tuning, but
+-- Reuse the Stormvermin's zero-damage shove and push force, but
 -- not its animation callback node.  The living Doomrocket uses the Ratling
 -- state machine and the visible outfit only shares attack_shoot_align; the
 -- custom action applies the shove once from a timer instead of waiting for the
@@ -108,19 +108,22 @@ BreedActions.skaven_doomrocket.push_attack.attack_anim = "attack_shoot_align"
 BreedActions.skaven_doomrocket.push_attack.impact_time = 0.65
 BreedActions.skaven_doomrocket.push_attack.duration = 1.2
 
--- A short ordinary navmesh walk after the kick creates room to resume aiming.
--- This does not change the native shove's cooldown, damage, or push force.
+-- Sustained escape after the kick: run for 8-12 seconds and seek 20 m
+-- separation. Plan shorter safe segments so this does not require one long
+-- unobstructed ray. Blocked movement still terminates instead of looping.
 BreedActions.skaven_doomrocket.reposition = {
 	name = "reposition",
-	clear_distance = 3.5,
-	goal_distance = 4.0,
-	max_duration = 2.5,
-	max_plans = 2,
+	clear_distance = 20.0,
+	goal_distance = 8.0,
+	min_duration = 8.0,
+	max_duration = 12.0,
+	max_plans = 16,
+	max_blocked_plans = 2,
 	replan_interval = 0.75,
 	arrival_distance = 0.3,
 	minimum_progress = 0.15,
 	nav_height = 0.5,
-	move_speed = Breeds.skaven_doomrocket.walk_speed,
+	move_speed = Breeds.skaven_doomrocket.run_speed,
 	move_anim = "move_fwd",
 }
 

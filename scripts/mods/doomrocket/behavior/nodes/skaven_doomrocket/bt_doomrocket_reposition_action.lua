@@ -67,11 +67,15 @@ BTDoomrocketRepositionAction._plan = function (self, unit, blackboard, data, t)
 	local traverse_logic = navigation:traverse_logic()
 	local angle_away = math.atan2(away.y, away.x)
 
+	-- Try the longest useful segment first, with shorter safe options in tight
+	-- spaces. Every goal is relative to the Engineer, so reaching one can lead
+	-- to another instead of stopping at the old fixed radius around the player.
+	for _, segment_scale in ipairs({1, 0.5, 0.25}) do
 	for _, angle_offset in ipairs(REAR_ANGLES) do
 		local angle = angle_away + angle_offset
 		local candidate = Vector3(
-			target_position.x + math.cos(angle) * action.goal_distance,
-			target_position.y + math.sin(angle) * action.goal_distance,
+			position.x + math.cos(angle) * action.goal_distance * segment_scale,
+			position.y + math.sin(angle) * action.goal_distance * segment_scale,
 			position.z)
 
 		-- Every accepted segment initially moves away from the current target.
@@ -80,8 +84,11 @@ BTDoomrocketRepositionAction._plan = function (self, unit, blackboard, data, t)
 			local can_go, projected_start, projected_end = LocomotionUtils.ray_can_go_on_mesh(
 				blackboard.nav_world, position, candidate, traverse_logic, action.nav_height, action.nav_height)
 
-			if can_go and projected_end and math.abs(projected_end.z - position.z) <= action.nav_height then
+			if can_go and projected_end and math.abs(projected_end.z - position.z) <= action.nav_height
+				and Vector3.dot(Vector3.flat(projected_end - position), away) >= action.minimum_progress
+				and flat_distance(projected_end, target_position) > flat_distance(position, target_position) then
 				data.destination_box = Vector3Box(projected_end)
+				data.segment_start_box = Vector3Box(position)
 				data.progress_position_box = Vector3Box(position)
 				data.next_replan_t = t + action.replan_interval
 				navigation:move_to(projected_end)
@@ -92,6 +99,7 @@ BTDoomrocketRepositionAction._plan = function (self, unit, blackboard, data, t)
 			end
 		end
 	end
+	end
 
 	return false
 end
@@ -100,8 +108,11 @@ BTDoomrocketRepositionAction.enter = function (self, unit, blackboard, t)
 	local action = self._tree_node.action_data
 	local data = {
 		target_unit = blackboard.doomrocket_reposition_request_target,
+		start_t = t,
+		clearance_t = t + action.min_duration,
 		end_t = t + action.max_duration,
 		plan_attempts = 0,
+		blocked_plans = 0,
 		navigation_owned = false,
 	}
 
@@ -133,8 +144,8 @@ BTDoomrocketRepositionAction.enter = function (self, unit, blackboard, t)
 
 	Managers.state.network:anim_event(unit, action.move_anim)
 	blackboard.move_state = "moving"
-	printf("[doomrocket:COMBAT] phase=reposition_begin clear_distance=%.2f timeout_s=%.2f",
-		action.clear_distance, action.max_duration)
+	printf("[doomrocket:COMBAT] phase=reposition_begin clear_distance=%.2f minimum_s=%.2f timeout_s=%.2f speed=%.2f",
+		action.clear_distance, action.min_duration, action.max_duration, action.move_speed)
 end
 
 BTDoomrocketRepositionAction.run = function (self, unit, blackboard, t, dt)
@@ -160,7 +171,7 @@ BTDoomrocketRepositionAction.run = function (self, unit, blackboard, t, dt)
 	local position = POSITION_LOOKUP[unit]
 	local target_position = POSITION_LOOKUP[data.target_unit]
 
-	if flat_distance(position, target_position) >= action.clear_distance then
+	if t >= data.clearance_t and flat_distance(position, target_position) >= action.clear_distance then
 		data.outcome = "clearance_reached"
 
 		return "done"
@@ -179,15 +190,17 @@ BTDoomrocketRepositionAction.run = function (self, unit, blackboard, t, dt)
 	-- toward the player until the next planning interval.
 	local remaining_segment = Vector3.flat(data.destination_box:unbox() - position)
 	local away_from_target = Vector3.flat(position - target_position)
+	local planned_segment = Vector3.flat(data.destination_box:unbox() - data.segment_start_box:unbox())
+	local arrived = Vector3.length(remaining_segment) <= action.arrival_distance
+		or Vector3.dot(remaining_segment, planned_segment) <= 0
 
-	if Vector3.dot(remaining_segment, away_from_target) < 0 then
+	if not arrived and Vector3.dot(remaining_segment, away_from_target) < 0 then
 		data.outcome = "target_crossed_route"
 
 		return "done"
 	end
 
 	if t >= data.next_replan_t then
-		local arrived = flat_distance(position, data.destination_box:unbox()) <= action.arrival_distance
 		local stalled = flat_distance(position, data.progress_position_box:unbox()) < action.minimum_progress
 
 		-- Unlike blackboard.no_path_found, this native counter is reset when a
@@ -195,7 +208,10 @@ BTDoomrocketRepositionAction.run = function (self, unit, blackboard, t, dt)
 		local path_failed = blackboard.navigation_extension:number_failed_move_attempts() > 0
 
 		if path_failed or arrived or stalled then
-			if data.plan_attempts >= action.max_plans or not self:_plan(unit, blackboard, data, t) then
+			-- Successful legs do not spend the blocked-route retry budget.
+			data.blocked_plans = arrived and 0 or data.blocked_plans + 1
+			if data.blocked_plans >= action.max_blocked_plans or data.plan_attempts >= action.max_plans
+				or not self:_plan(unit, blackboard, data, t) then
 				data.outcome = "blocked"
 
 				return "done"
@@ -226,8 +242,9 @@ BTDoomrocketRepositionAction.leave = function (self, unit, blackboard, t, reason
 		end
 	end
 
-	printf("[doomrocket:COMBAT] phase=reposition_end reason=%s plans=%d",
-		data and data.outcome or tostring(reason), data and data.plan_attempts or 0)
+	printf("[doomrocket:COMBAT] phase=reposition_end reason=%s plans=%d elapsed_s=%.3f",
+		data and data.outcome or tostring(reason), data and data.plan_attempts or 0,
+		data and t - data.start_t or 0)
 	blackboard.doomrocket_reposition_active = nil
 	blackboard.doomrocket_reposition_data = nil
 	blackboard.active_node = nil
