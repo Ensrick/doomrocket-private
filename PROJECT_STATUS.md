@@ -8,15 +8,25 @@ the short re-entry map, not a second backlog.
 | Question | Answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Development TEST v0.1.73-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-16 03:03 UTC (manifest 992911228893621231, 96,242,858 bytes). Adds diagnostics; the missing hose remains unresolved |
-| Current release candidate | v0.1.74-dev: 2-second shove cooldown, 2.2 m trigger, 8-12 second retreat at run speed seeking 20 m separation. Publication pending; hose unresolved |
+| Published experimental build | [Development TEST v0.1.74-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-16 04:45 UTC (manifest 5684565432573281873, 96,243,881 bytes). Quicker shove and longer retreat; hose unresolved |
+| Current release candidate | v0.1.75-dev: distinct walk/run clips paced by movement, plus the missing visible-body aim constraint. Publication and in-game acceptance pending; hose unresolved |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
 ## What changed; what is ready
 
-**v0.1.74-dev prepares the requested longer escape and quicker shove.** It runs
+**v0.1.75-dev addresses gait and hand/weapon pose divergence.** The visible
+model previously played combat_run for move_fwd, ignored move_fwd_run and had
+no aim constraint, while the hidden native carrier drove the launcher with aim.
+The candidate restores distinct gaits paced from actual horizontal movement and
+authors the native spine aim mask on the custom skeleton. Static weapon axes
+remain unchanged. The clip aim-reference position is calibrated because the
+engine uses its position, not its matching axes. A tighter position tolerance
+also preserves hip motion lost during compilation under the 100x wrapper.
+Host/client foot contact and hand grip still require playtesting.
+
+**v0.1.74-dev published the requested longer escape and quicker shove.** It runs
 instead of walking, chains safe 8/4/2 m navmesh segments, and preserves the
 loaded weapon. It stops after 8 seconds with 20 m clearance or at 12 seconds;
 blocked routes and combat interruptions can stop it earlier. Tester recording
@@ -82,10 +92,10 @@ Remote-client checks for #9/#10/#11 remain outstanding; #7/#8 still need their
 full explosion/removal/stress matrix. Incidental crash-free impacts do not
 complete those gates.
 
-For the published v0.1.73 TEST diagnostics, use
+For the v0.1.75 TEST candidate after verified publication, use
 [the quickstart](docs/TESTER_QUICKSTART.md) and
 [candidate checklist](docs/testing/2026-09-12_TEST_CANDIDATE.md).
-Check `[doomrocket:LOAD] v0.1.73-dev` on every peer; attach complete host/client
+Check `[doomrocket:LOAD] v0.1.75-dev` on every peer; attach complete host/client
 logs and a written description of what was seen or heard. No video is needed.
 Public portrait checks can proceed
 independently on v0.1.56-alpha with TEST disabled.

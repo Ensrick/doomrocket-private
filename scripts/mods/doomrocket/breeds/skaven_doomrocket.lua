@@ -124,7 +124,7 @@ BreedActions.skaven_doomrocket.reposition = {
 	minimum_progress = 0.15,
 	nav_height = 0.5,
 	move_speed = Breeds.skaven_doomrocket.run_speed,
-	move_anim = "move_fwd",
+	move_anim = "move_fwd_run",
 }
 
 BreedActions.skaven_doomrocket.switch_weapons = {

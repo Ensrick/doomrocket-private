@@ -1,8 +1,9 @@
 # Development TEST quickstart
 
-Candidate **v0.1.74-dev** makes shoves quicker and retreat longer and farther.
-Wait for verified publication before testing this version. The hose is still
-reported missing; its physics and diagnostics remain unchanged.
+Candidate **v0.1.75-dev** addresses visible walk/run cadence and the missing
+aim adjustment on the visible torso and hands. Wait for verified publication
+before testing this version. The hose is still reported missing; its physics
+and diagnostics remain unchanged.
 [Candidate scope and acceptance](testing/2026-09-12_TEST_CANDIDATE.md).
 
 Copy the block below into Discord when assigning a playtest.
@@ -16,11 +17,15 @@ Setup
 [ ] Launch the Modded Realm.
 [ ] Load Vermintide Mod Framework above Warprocket Bombardier.
 [ ] Enable TEST item 3794172730 only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.74-dev in the new console log on every peer.
+[ ] Confirm [doomrocket:LOAD] v0.1.75-dev in the new console log on every peer.
 [ ] If the version differs from the assigned build, stop and report the mismatch.
 [ ] Record whether you are host, remote client, or solo.
 
 Test
+[ ] Watch ordinary walking, running, stopping and the long retreat: feet should
+    track movement without running in place or retaining an idle pose while moving.
+[ ] Check the grip while idle, walking, aiming high/low, firing and reloading.
+    Report remaining hand/launcher separation in words, including the action.
 [ ] Diagnostic priority: spawn one Engineer, observe for at least ten seconds,
     move/turn around him, then kill him. Attach the full log even if the hose
     stays invisible. It should now identify the blocked stage or completed writes.
@@ -57,6 +62,6 @@ Logs and issue attachments are public. Review them before uploading. A passing
 source test or clean-looking log does not override a tester's report of failure.
 Written observations supply the visual or audible result; recording is not required.
 
-Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.74-dev`.
+Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.75-dev`.
 The analyzer reports controller evidence; completed pose writes alone do not
 prove visible rendering. Retain the log and Crunch's visual observation together.

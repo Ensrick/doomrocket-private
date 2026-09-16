@@ -2,6 +2,7 @@ events = {
     enable = {}
     idle = {}
     move_fwd = {}
+    move_fwd_run = {}
     attack_shoot_align = {}
     attack_shoot_start = {}
     attack_shoot_loop = {}
@@ -24,6 +25,7 @@ layers = [
                 ]
                 loop_animation = true
                 name = "base/idle"
+                constraints = [ "warlock_aim" ]
                 randomization_type = "every_loop"
                 root_driving = "ignore"
                 speed = "1"
@@ -41,7 +43,129 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "attack_shoot_align"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/shoot_start"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "attack_shoot_start"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/shoot_loop"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "attack_shoot_loop"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/shoot_loop"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "wind_up_start"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/wind_up_start"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "wind_up_loop"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/wind_up_loop"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "reload_start"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/reload_start"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "reload_loop"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/reload_loop"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "stagger_bwd"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/stagger_bwd"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "hit_reaction"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/stagger_fwd"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "ragdoll"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/death"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "death"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/death"
+                    }
+                ]
+                weights = [
+                    "1.0"
+                ]
+            }
+            {
+                animations = [
+                    "units/warlock_bombardier/anims/combat_walk"
+                ]
+                loop_animation = true
+                name = "base/walk"
+                constraints = [ "warlock_aim" ]
+                randomization_type = "every_loop"
+                root_driving = "ignore"
+                speed = "warlock_move_speed / 1.9"
+                state_type = "regular"
+                transitions = [
+                    {
+                        blend_time = 0.25
+                        event = "idle"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/idle"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -130,10 +254,11 @@ layers = [
                     "units/warlock_bombardier/anims/combat_run"
                 ]
                 loop_animation = true
-                name = "base/move"
+                name = "base/run"
+                constraints = [ "warlock_aim" ]
                 randomization_type = "every_loop"
                 root_driving = "ignore"
-                speed = "1"
+                speed = "warlock_move_speed / 4"
                 state_type = "regular"
                 transitions = [
                     {
@@ -148,7 +273,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -238,6 +370,7 @@ layers = [
                 ]
                 loop_animation = false
                 name = "base/shoot_start"
+                constraints = [ "warlock_aim" ]
                 randomization_type = "every_loop"
                 root_driving = "ignore"
                 speed = "1"
@@ -255,7 +388,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -345,6 +485,7 @@ layers = [
                 ]
                 loop_animation = true
                 name = "base/shoot_loop"
+                constraints = [ "warlock_aim" ]
                 randomization_type = "every_loop"
                 root_driving = "ignore"
                 speed = "1"
@@ -362,7 +503,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -452,6 +600,7 @@ layers = [
                 ]
                 loop_animation = false
                 name = "base/wind_up_start"
+                constraints = [ "warlock_aim" ]
                 randomization_type = "every_loop"
                 root_driving = "ignore"
                 speed = "1"
@@ -469,7 +618,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -559,6 +715,7 @@ layers = [
                 ]
                 loop_animation = true
                 name = "base/wind_up_loop"
+                constraints = [ "warlock_aim" ]
                 randomization_type = "every_loop"
                 root_driving = "ignore"
                 speed = "1"
@@ -576,7 +733,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -666,6 +830,7 @@ layers = [
                 ]
                 loop_animation = false
                 name = "base/reload_start"
+                constraints = [ "warlock_aim" ]
                 randomization_type = "every_loop"
                 root_driving = "ignore"
                 speed = "1"
@@ -683,7 +848,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -773,6 +945,7 @@ layers = [
                 ]
                 loop_animation = true
                 name = "base/reload_loop"
+                constraints = [ "warlock_aim" ]
                 randomization_type = "every_loop"
                 root_driving = "ignore"
                 speed = "1"
@@ -790,7 +963,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -897,7 +1077,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -1004,7 +1191,14 @@ layers = [
                         event = "move_fwd"
                         mode = "direct"
                         on_beat = ""
-                        to = "base/move"
+                        to = "base/walk"
+                    }
+                    {
+                        blend_time = 0.25
+                        event = "move_fwd_run"
+                        mode = "direct"
+                        on_beat = ""
+                        to = "base/run"
                     }
                     {
                         blend_time = 0.25
@@ -1107,5 +1301,21 @@ layers = [
         ]
     }
 ]
-variables = {}
+variables = {
+    warlock_move_speed = 0
+}
 bones = "units/warlock_bombardier/warlock_bombardier_3p"
+blend_sets = {
+    warlock_aim = { j_spine = "0.5" j_spine1 = "1.0" }
+}
+constraint_targets = {
+    aim_target = { test_position = [ -1 2 0 ] }
+}
+constraints = {
+    warlock_aim = {
+        type = "aim"
+        blend_set = "warlock_aim"
+        target = "aim_target"
+        bone = "aim_target"
+    }
+}
