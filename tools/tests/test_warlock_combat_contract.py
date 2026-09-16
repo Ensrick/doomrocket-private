@@ -452,7 +452,7 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
             self.generated, r"local\s+node_idle\s*=\s*children\[7\]"
         )
 
-    def test_condition_uses_stormvermin_boundaries_without_utility_node_dependency(self) -> None:
+    def test_condition_uses_responsive_shove_boundaries_without_utility_node_dependency(self) -> None:
         condition_start = self.runtime.find(
             "BTConditions.doomrocket_should_shove = function"
         )
@@ -460,9 +460,9 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
         condition = self.runtime[condition_start : condition_start + 2400]
         active = re.search(r"shove[^\r\n]*active|active[^\r\n]*shove", condition)
         self.assertIsNotNone(active, "running shove must bypass fresh eligibility checks")
-        self.assertIn("local SHOVE_MAX_DISTANCE = 1.8", self.shove)
+        self.assertIn("local SHOVE_MAX_DISTANCE = 2.2", self.shove)
         self.assertIn("local SHOVE_MAX_TARGET_SPEED_AWAY = 1.5", self.shove)
-        self.assertIn("local SHOVE_COOLDOWN_SECONDS = 7.5", self.shove)
+        self.assertIn("local SHOVE_COOLDOWN_SECONDS = 2.0", self.shove)
         self.assertNotIn(
             "Utility.get_action_utility",
             condition,

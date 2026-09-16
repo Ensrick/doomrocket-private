@@ -30,7 +30,7 @@ body:
     attributes:
       label: Exact loaded build banner
       description: Copy the `[doomrocket:LOAD]` line from the reproducing log.
-      placeholder: "Paste the actual [doomrocket:LOAD] banner from your log (current source candidate: v0.1.73-dev), not just the Workshop title"
+      placeholder: "Paste the actual [doomrocket:LOAD] banner from your log (current source candidate: v0.1.74-dev), not just the Workshop title"
     validations:
       required: true
   - type: dropdown
@@ -79,8 +79,8 @@ body:
   - type: textarea
     id: media
     attributes:
-      label: Screenshots or video
-      description: Optional. Add continuous video when timing or repeated effects matter.
+      label: Additional observations
+      description: Optional. Describe what you saw or heard. No video or recording is needed.
     validations:
       required: false
   - type: checkboxes

@@ -42,6 +42,6 @@ body:
     id: evidence
     attributes:
       label: Optional evidence
-      description: Add a concise log excerpt, screenshot, or video. Use the bug/crash form when something malfunctioned.
+      description: Describe what you observed or add a concise log excerpt. No recording is needed. Use the bug/crash form when something malfunctioned.
     validations:
       required: false

@@ -50,14 +50,15 @@ class DoomrocketRepositionLifecycleTests(unittest.TestCase):
             assert(blackboard.target_dist == 2)
             assert(selected_close_combat_child() == 'reposition')
             assert(reposition:run(unit, blackboard, 1.8, 0.5) == 'running')
-            place_unit(0, -2.6, 0)
-            assert(reposition:run(unit, blackboard, 2.3, 0.5) == 'done')
-            reposition:leave(unit, blackboard, 2.3, 'done')
+            place_unit(0, -25, 0)
+            assert(reposition:run(unit, blackboard, 2.3, 0.5) == 'running')
+            assert(reposition:run(unit, blackboard, 9.3, 7) == 'done')
+            reposition:leave(unit, blackboard, 9.3, 'done')
             assert(not blackboard.doomrocket_reposition_active)
             assert(blackboard.navigation_extension.goal == nil)
             assert(selected_close_combat_child() == 'attack_pattern')
-            enter_reload(2.3)
-            assert(run_reload(2.3, 0, false) == 'done')
+            enter_reload(9.3)
+            assert(run_reload(9.3, 0, false) == 'done')
             assert(count_event('animations', 'wind_up_start') == 0)
         """)
 
@@ -75,9 +76,9 @@ class DoomrocketRepositionLifecycleTests(unittest.TestCase):
             request_reposition()
             reposition:enter(unit, blackboard, 1.3)
             reposition:run(unit, blackboard, 1.3, 0)
-            blackboard.utility_actions.push_attack.time_since_last = 7.49
+            blackboard.utility_actions.push_attack.time_since_last = 1.99
             assert(selected_close_combat_child() == 'reposition')
-            blackboard.utility_actions.push_attack.time_since_last = 7.5
+            blackboard.utility_actions.push_attack.time_since_last = 2.0
             assert(selected_close_combat_child() == 'push_attack')
             reposition:leave(unit, blackboard, 7.5, 'aborted')
             assert(not blackboard.doomrocket_reposition_active)
@@ -101,11 +102,11 @@ class DoomrocketRepositionLifecycleTests(unittest.TestCase):
             assert(selected_close_combat_child() == 'reposition')
             reposition:enter(unit, blackboard, 5.4)
             reposition:run(unit, blackboard, 5.4, 0)
-            place_unit(0, -2.6, 0)
-            assert(reposition:run(unit, blackboard, 6.8, 1.4) == 'done')
-            reposition:leave(unit, blackboard, 6.8, 'done')
-            enter_reload(6.8)
-            assert(run_reload(6.8, 0, false) == 'done')
+            place_unit(0, -25, 0)
+            assert(reposition:run(unit, blackboard, 13.4, 8) == 'done')
+            reposition:leave(unit, blackboard, 13.4, 'done')
+            enter_reload(13.4)
+            assert(run_reload(13.4, 0, false) == 'done')
             assert(count_event('rpcs', 'rpc_reload_rocket') == 1)
             assert(count_event('animations', 'wind_up_start') == 1)
         """)
@@ -133,7 +134,7 @@ class DoomrocketRepositionLifecycleTests(unittest.TestCase):
             if result == 'running' then result = reposition:run(unit, blackboard, 4, 2.7) end
             assert(result == 'done' or result == 'failed')
             reposition:leave(unit, blackboard, 4, result)
-            assert(#events.nav_goals == 0 and events.nav_queries <= 10)
+            assert(#events.nav_goals == 0 and events.nav_queries <= 15)
             local queries = events.nav_queries
             for frame = 1, 600 do
                 assert(selected_close_combat_child() == 'wait_at_close_range')
@@ -186,7 +187,7 @@ class DoomrocketRepositionLifecycleTests(unittest.TestCase):
     def test_pending_target_loss_or_clearance_does_not_trigger_retreat_later(self):
         self.lua.execute("""
             request_reposition()
-            blackboard.target_dist = 5
+            blackboard.target_dist = 21
             assert(selected_close_combat_child() == 'attack_pattern')
             assert(not blackboard.doomrocket_reposition_request_target)
             become_close()
@@ -304,7 +305,7 @@ class DoomrocketRepositionLifecycleTests(unittest.TestCase):
             assert(#events.nav_goals == 1)
             local goal = events.nav_goals[1]
             assert(goal.x == goal.x and goal.y == goal.y and goal.z == goal.z)
-            assert(Vector3.length(goal) > 0 and Vector3.length(goal) < 5)
+            assert(Vector3.length(goal) > 0 and Vector3.length(goal) <= 8)
         """)
 
     def test_live_frozen_navbot_cancels_without_unsafe_engine_calls(self):
@@ -328,13 +329,84 @@ class DoomrocketRepositionLifecycleTests(unittest.TestCase):
                 request_reposition(cycle * 10)
                 assert(selected_close_combat_child() == 'reposition')
                 reposition:enter(unit, blackboard, cycle * 10 + 1.3)
-                place_unit(0, -2.6, 0)
-                assert(reposition:run(unit, blackboard, cycle * 10 + 2.5, 1.2) == 'done')
-                reposition:leave(unit, blackboard, cycle * 10 + 2.5, 'done')
+                place_unit(0, -25, 0)
+                assert(reposition:run(unit, blackboard, cycle * 10 + 9.3, 8) == 'done')
+                reposition:leave(unit, blackboard, cycle * 10 + 9.3, 'done')
                 assert(not blackboard.doomrocket_reposition_request_target)
                 assert(blackboard.reloaded_rocket)
             end
             assert(#events.nav_goals == 3 and #events.rpcs == 0)
+        """)
+
+    def test_open_ground_retreat_keeps_moving_for_eight_seconds_across_multiple_goals(self):
+        self.lua.execute("""
+            request_reposition()
+            reposition:enter(unit, blackboard, 1.3)
+            assert(blackboard.navigation_extension.max_speed == blackboard.breed.run_speed)
+            local result
+            for frame=1,480 do
+                -- Prescribed locomotion, not a claim about the native navmesh.
+                place_unit(0, -frame * blackboard.breed.run_speed / 60, 0)
+                result = reposition:run(unit, blackboard, 1.3 + frame/60, 1/60)
+                if frame < 480 then assert(result == 'running', 'retreat ended early') end
+            end
+            assert(result == 'done')
+            assert(blackboard.doomrocket_reposition_data.outcome == 'clearance_reached')
+            assert(blackboard.target_dist >= 20)
+            assert(#events.nav_goals >= 3 and #events.nav_goals <= 16)
+            assert(events.nav_queries <= 16 * 15)
+            assert(#events.rpcs == 0 and events.spawns == 0)
+        """)
+
+    def test_pursuit_without_clearance_is_bounded_at_twelve_seconds(self):
+        self.lua.execute("""
+            request_reposition()
+            reposition:enter(unit, blackboard, 1.3)
+            for frame=1,720 do
+                local y=-frame * blackboard.breed.run_speed / 60
+                target.position=Vector3(0,y+3,0)
+                POSITION_LOOKUP[target]=target.position
+                place_unit(0,y,0)
+                local result=reposition:run(unit,blackboard,1.3+frame/60,1/60)
+                assert(result == (frame < 720 and 'running' or 'done'))
+            end
+            assert(blackboard.doomrocket_reposition_data.outcome == 'timeout')
+            assert(#events.nav_goals <= 16)
+        """)
+
+    def test_short_reachable_segments_continue_when_long_rays_are_blocked(self):
+        self.lua.execute("""
+            nav_policy=function(origin,goal)
+                return Vector3.length(goal-origin) <= 2.01, origin, goal
+            end
+            request_reposition()
+            reposition:enter(unit,blackboard,1.3)
+            assert(#events.nav_goals == 1 and events.nav_queries == 11)
+            assert(events.nav_goals[1].y == -2)
+            place_unit(0,-2,0)
+            assert(reposition:run(unit,blackboard,2.1,.8) == 'running')
+            assert(#events.nav_goals == 2 and events.nav_goals[2].y == -4)
+        """)
+
+    def test_navmesh_projection_toward_player_is_rejected(self):
+        self.lua.execute("""
+            nav_policy=function(origin,goal) return true,origin,Vector3(0,.5,0) end
+            request_reposition()
+            reposition:enter(unit,blackboard,1.3)
+            assert(#events.nav_goals == 0 and events.nav_queries == 15)
+            assert(reposition:run(unit,blackboard,1.4,.1) == 'done')
+        """)
+
+    def test_shove_is_ready_at_two_seconds_before_point_blank_range(self):
+        self.lua.execute("""
+            become_close()
+            blackboard.target_dist=2.1
+            blackboard.utility_actions.push_attack.time_since_last=1.99
+            assert(selected_close_combat_child() == 'wait_at_close_range')
+            blackboard.utility_actions.push_attack.time_since_last=2
+            assert(selected_close_combat_child() == 'push_attack')
+            blackboard.target_dist=2.2
+            assert(selected_close_combat_child() == 'attack_pattern')
         """)
 
 

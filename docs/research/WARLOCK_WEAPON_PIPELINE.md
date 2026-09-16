@@ -428,7 +428,7 @@ Analyze the new console log with its exact version:
 py -3 tools\analyze_warlock_ragdoll_log.py 'C:\path\to\console.log' --expected-version X.Y.Z-dev
 ```
 
-`[ragdoll-log] OK` is necessary for the body lane. Video or direct visual
+`[ragdoll-log] OK` is necessary for the body lane. The tester's direct visual
 observation is mandatory for hand/back placement, loaded-warhead closure,
 muzzle position, and projectile direction. Do not infer those from the absence
 of engine errors.

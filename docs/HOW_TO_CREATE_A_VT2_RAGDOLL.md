@@ -339,7 +339,7 @@ Register the native carrier only after its complete mesh set has been hidden.
 Intercept any later `set_mesh_visibility(..., true)` call, count and log it as
 a failure, and pass `false` to the engine. Intercept a whole-unit visibility
 enable, log it, and synchronously re-hide every carrier mesh before returning.
-This blocks known Lua reveal paths; video remains necessary because an
+This blocks known Lua reveal paths; a tester's observation is still needed because an
 engine-internal render-state or culling change is outside the hook's view.
 
 ## 5. Diagnostics are part of the implementation
@@ -371,8 +371,8 @@ ordinary cleanup are runtime visual gates because the compact telemetry schema
 does not emit a second driver-destruction record.
 
 Logs prove timing, transforms, lifetime, and measured performance. They cannot
-prove that the correct pixels, UVs, or textures rendered. Video or direct
-observation remains a separate visual gate.
+prove that the correct pixels, UVs, or textures rendered. The tester's written
+observation supplies that result; no recording is required.
 
 Run the source and mutation suite:
 

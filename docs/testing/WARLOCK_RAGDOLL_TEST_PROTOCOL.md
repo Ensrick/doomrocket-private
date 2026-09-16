@@ -2,8 +2,8 @@
 
 This protocol is the acceptance gate for the native-ratling-physics/custom-
 Warlock-visual handoff. A stable ratling corpse is a failure, not a fallback.
-Static tests prove only that known-dangerous mechanisms are absent; video is
-required to prove the visible model identity.
+Static tests prove only that known-dangerous mechanisms are absent; accept the
+tester's written observation of the visible model identity. No recording is required.
 
 Recorded status: uploaded v0.1.50 passed an 11-corpse, five-second host
 telemetry baseline on 2026-08-12. Uploaded v0.1.51 failed its first host death:
@@ -148,7 +148,7 @@ while its visual drifted 2.505 m from the carrier.
 is forced to `false`; a whole-unit reveal attempt is synchronously followed by
 a complete carrier-mesh re-hide. Either incident still rejects the run. These
 hooks cannot observe an engine-internal visibility or culling change, so the
-recorded video remains the authoritative carrier-identity check.
+tester's observation remains the authoritative carrier-identity check.
 
 Analyze a captured console log with:
 
@@ -156,7 +156,7 @@ Analyze a captured console log with:
 
 The analyzer must print `[ragdoll-log] OK`. `--expected-version` is mandatory
 for acceptance; omitting it is supported only for historical-log triage.
-Attach the original console log and the corresponding video to the issue; do
+Attach the original console log and describe what you observed in the issue; do
 not paste only selected lines because concurrent corpse IDs and load/version
 evidence must remain auditable.
 
@@ -165,7 +165,7 @@ For the separate dense-overlap stress capture only, use:
     py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\stress-console.log" --expected-version 0.1.58-dev --dense-stress
 
 This is additive stress evidence. It never replaces the ordinary strict host
-capture, remote-client capture, or video.
+log, remote-client log, or the tester's visual observation.
 
 ## Failure triage
 

@@ -13,7 +13,7 @@ TEST line; stable-player reports belong in
 
 Use the issue chooser rather than a blank issue. For crashes, attach the
 original console log plus the crash GUID/Crashify link. For visual or audio
-problems, add a short continuous video when practical. Follow
+problems, describe what you saw or heard; no recording is needed. Follow
 [`docs/TESTER_QUICKSTART.md`](docs/TESTER_QUICKSTART.md) so the report proves the
 exact loaded build and network role.
 

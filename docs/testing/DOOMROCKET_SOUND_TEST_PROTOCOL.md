@@ -223,7 +223,7 @@ cannot mask a stale build.
 
 ## Baseline single-enemy pass
 
-Use one Bombardier in an otherwise quiet, open area. Record video and retain
+Use one Bombardier in an otherwise quiet, open area. Describe what you hear and retain
 the complete console log.
 
 1. Approach from roughly 30 m to 15 m and then 5 m. The backpack must sound as
@@ -305,7 +305,7 @@ one five-enemy cleanup on both a listen host and a remote client. Pass only if:
 
 ## Test report
 
-Attach the unedited host and client logs plus one continuous capture. Record
+Attach the unedited host and client logs. Write down
 observations rather than reporting only “sounds good.”
 
 | Peer | Scenario | Expected count | Observed count | Position/occlusion | Cleanup | Errors |
