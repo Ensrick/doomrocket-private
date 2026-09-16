@@ -7,6 +7,7 @@ carrier, outfit or launcher are fatal. The actual Lua solver/frame builder run.
 """
 from pathlib import Path
 import re
+import sys
 import unittest
 
 from lupa.lua51 import LuaRuntime
@@ -16,11 +17,14 @@ MODULE = ROOT / 'scripts/mods/doomrocket/extensions/doomrocket_hose.lua'
 UTILS = ROOT / 'scripts/mods/doomrocket/utils'
 HOOKS = UTILS / 'hooks.lua'
 BOOTSTRAP = ROOT / 'scripts/mods/doomrocket/doomrocket.lua'
+sys.path.insert(0, str(ROOT / 'tools'))
+from analyze_hose_log import analyze
 
 HARNESS = r'''
 epoch=1
 events={spawn_attempts=0,spawned=0,destroyed=0,poses=0,updated=0,materials=0,queued=0,reads=0}
-function printf(...) end
+messages={}
+function printf(...) messages[#messages+1]=string.format(...) end
 local function current(v)
  assert(v and (not v.epoch or v.epoch==epoch),'expired native temporary')
  return v
@@ -261,6 +265,52 @@ class HoseLifecycleTests(unittest.TestCase):
             assert(stop('death_host') and events.destroyed==1 and record_count()==0)
             assert(owner.alive and outfit.alive and weapon.alive)
         ''')
+
+    def diagnostic_report(self):
+        text = '[doomrocket:LOAD] v0.1.73-dev\n' + self.lua.eval("table.concat(messages,'\\n')")
+        return analyze(text, '0.1.73-dev')['hoses']['1']
+
+    def test_diagnostics_prove_pose_updates_without_claiming_rendered_pixels(self):
+        self.lua.execute("assert(start()); for i=1,240 do tick() end; stop('death_unit')")
+        report = self.diagnostic_report()
+        self.assertTrue(report['pose_write_observed'])
+        self.assertTrue(report['sample_observed'])
+        self.assertEqual(int(report['stop']['writes']), 240)
+        self.assertEqual(int(report['stop']['callbacks']), 240)
+        self.assertIn('visible rendering needs visual evidence', report['finding'])
+
+    def test_rejected_endpoint_reports_scale_once_and_preserves_failure_guard(self):
+        self.lua.execute('''
+            assert(start());tick()
+            outfit.pose[1][1]=1;outfit.pose[2][2]=1;outfit.pose[3][3]=1
+            for i=1,240 do tick() end
+            stop('death_unit')
+        ''')
+        report = self.diagnostic_report()
+        self.assertEqual(len(report['diagnostics']), 1)
+        self.assertEqual(report['diagnostics'][0]['reason'], 'pack_pose_rejected')
+        self.assertIn('scale', report['diagnostics'][0])
+        self.assertEqual(int(report['stop']['writes']), 1)
+        self.assertEqual(report['stop']['last_reason'], 'pack_pose_rejected')
+
+    def test_lost_visual_is_reported_without_respawning_or_touching_dead_handle(self):
+        self.lua.execute('''
+            assert(start());tick();last_hose.alive=false
+            for i=1,240 do tick() end
+            stop('death_unit');assert(events.spawned==1 and events.destroyed==0)
+        ''')
+        report = self.diagnostic_report()
+        self.assertEqual([event['reason'] for event in report['diagnostics']], ['visual_dead'])
+        self.assertEqual(int(report['stop']['writes']), 1)
+
+    def test_start_only_legacy_log_does_not_establish_simulation_or_visibility(self):
+        report = analyze('[doomrocket:LOAD] v0.1.72-dev\n'
+                         '[doomrocket:HOSE] phase=start id=1 controls=29\n'
+                         '[doomrocket:HOSE] phase=stop id=1 reason=death_unit', '0.1.72-dev')
+        self.assertEqual(report['hoses']['1']['finding'],
+                         'No completed pose-update evidence; cause unresolved.')
+        with self.assertRaises(ValueError):
+            analyze('[doomrocket:LOAD] v0.1.72-dev', '0.1.73-dev')
 
     def test_one_cosmetic_per_owner_duplicate_is_idempotent(self):
         self.lua.execute('''

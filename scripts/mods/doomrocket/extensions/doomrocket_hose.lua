@@ -24,9 +24,27 @@ end
 local function live_in(unit,world)
     return unit and Unit.alive(unit) and Unit.world(unit)==world
 end
+-- One record per reason, capped per owner. Never turn a per-frame rejection
+-- into log spam; retain the last reason/counters for the terminal summary.
+local function diagnose(entry,reason,detail)
+    entry.last_reason=reason
+    entry.diagnostics=entry.diagnostics or {}
+    if entry.diagnostics[reason] or (entry.diagnostic_count or 0)>=16 then return end
+    entry.diagnostics[reason]=true
+    entry.diagnostic_count=(entry.diagnostic_count or 0)+1
+    printf("[doomrocket:HOSE] phase=diagnostic id=%d reason=%s updates=%d writes=%d %s",
+        entry.id,reason,entry.updates or 0,entry.written_frames or 0,detail or "")
+end
+local function pose_summary(pose)
+    if not Matrix4x4.is_valid(pose) then return "matrix_valid=false" end
+    local x,y,z,p=Matrix4x4.x(pose),Matrix4x4.y(pose),Matrix4x4.z(pose),Matrix4x4.translation(pose)
+    return string.format("scale=%.6g,%.6g,%.6g position=%.6g,%.6g,%.6g",
+        Vector3.length(x),Vector3.length(y),Vector3.length(z),p[1],p[2],p[3])
+end
 local function destroy_visual(entry)
     local visual=entry.visual
     entry.visual=nil
+    if visual then entry.visual_removals=(entry.visual_removals or 0)+1 end
     if visual and not state.releasing_worlds[entry.world] then
         if not known_world(entry.world) then
             -- Do not touch a world no longer registered with the manager, or later
@@ -45,7 +63,9 @@ local function stop(owner,reason)
     state.entries[owner]=nil
     if state.outfits[entry.outfit]==owner then state.outfits[entry.outfit]=nil end
     destroy_visual(entry)
-    printf("[doomrocket:HOSE] phase=stop id=%d reason=%s",entry.id,tostring(reason))
+    printf("[doomrocket:HOSE] phase=stop id=%d reason=%s callbacks=%d updates=%d writes=%d spawns=%d removals=%d last_reason=%s pending=%s",
+        entry.id,tostring(reason),entry.callbacks or 0,entry.updates or 0,entry.written_frames or 0,
+        entry.spawn_attempts or 0,entry.visual_removals or 0,tostring(entry.last_reason),tostring(state.pending))
     return true
 end
 
@@ -109,6 +129,7 @@ local function create_visual(entry)
         return false
     end
     entry.wait_reason=nil
+    entry.spawn_attempts=(entry.spawn_attempts or 0)+1
     local visual=World.spawn_unit(entry.world,PROFILE.unit,Vector3(unpack(entry.pack.position)))
     if not visual or not Unit.alive(visual) then
         entry.failed=true
@@ -118,19 +139,27 @@ local function create_visual(entry)
     entry.visual=visual
     Unit.set_unit_visibility(visual,false)
     if Unit.num_actors(visual)~=0 or not Unit.has_node(visual,PROFILE.parent_node) then
+        diagnose(entry,"asset_actors_or_parent")
         entry.failed=true; destroy_visual(entry); return false
     end
     local parent=Unit.node(visual,PROFILE.parent_node)
     local nodes={}
     for i=1,#PROFILE.controls do
         local control=PROFILE.controls[i]
-        if not Unit.has_node(visual,control.name) then entry.failed=true; destroy_visual(entry); return false end
+        if not Unit.has_node(visual,control.name) then
+            diagnose(entry,"control_missing","node="..control.name)
+            entry.failed=true; destroy_visual(entry); return false
+        end
         local node=Unit.node(visual,control.name)
-        if Unit.scene_graph_parent(visual,node)~=parent then entry.failed=true; destroy_visual(entry); return false end
+        if Unit.scene_graph_parent(visual,node)~=parent then
+            diagnose(entry,"control_parent","node="..control.name)
+            entry.failed=true; destroy_visual(entry); return false
+        end
         nodes[i]={node=node,bind=Matrix4x4Box(native_pose(control.bind))}
     end
     local root_pose,parent_pose=Unit.world_pose(visual,0),Unit.world_pose(visual,parent)
     if not matrix_valid(root_pose) or not matrix_valid(parent_pose) then
+        diagnose(entry,"bind_pose_invalid","root_"..pose_summary(root_pose).." parent_"..pose_summary(parent_pose))
         entry.failed=true; destroy_visual(entry); return false
     end
     entry.root_bind=Matrix4x4Box(root_pose)
@@ -146,18 +175,36 @@ local function create_visual(entry)
     return true
 end
 local function update_entry(entry,dt)
+    entry.updates=(entry.updates or 0)+1
     local pack_pose=Matrix4x4.multiply(entry.pack_local:unbox(),Unit.world_pose(entry.outfit,entry.pack_node))
     local weapon_pose=Matrix4x4.multiply(entry.weapon_local:unbox(),Unit.world_pose(entry.weapon,entry.weapon_node))
-    if not numbers(pack_pose,entry.pack) or not numbers(weapon_pose,entry.weapon_frame) then
+    if not numbers(pack_pose,entry.pack) then
+        diagnose(entry,"pack_pose_rejected",pose_summary(pack_pose))
+        destroy_visual(entry); return
+    end
+    if not numbers(weapon_pose,entry.weapon_frame) then
+        diagnose(entry,"weapon_pose_rejected",pose_summary(weapon_pose))
         destroy_visual(entry); return
     end
     if not entry.visual and not create_visual(entry) then return end
-    if not live_in(entry.visual,entry.world) then entry.failed=true; destroy_visual(entry); return end
+    if not live_in(entry.visual,entry.world) then
+        diagnose(entry,Unit.alive(entry.visual) and "visual_wrong_world" or "visual_dead")
+        entry.failed=true; destroy_visual(entry); return
+    end
     local solver,frames=entry.solver,entry.frames
-    if not frames:shape(solver,entry.pack,entry.weapon_frame) then destroy_visual(entry); return end
+    if not frames:shape(solver,entry.pack,entry.weapon_frame) then
+        diagnose(entry,"shape_rejected"); destroy_visual(entry); return
+    end
     local a,b=entry.pack.position,entry.weapon_frame.position
+    if not entry.endpoints_reported then
+        entry.endpoints_reported=true
+        printf("[doomrocket:HOSE] phase=endpoints id=%d dt=%.6f length=%.6f pack=%.6f,%.6f,%.6f weapon=%.6f,%.6f,%.6f",
+            entry.id,dt,solver.length,a[1],a[2],a[3],b[1],b[2],b[3])
+    end
     local visible,reason=solver:frame(dt,a[1],a[2],a[3],b[1],b[2],b[3])
-    if not visible or not frames:update(solver,entry.pack,entry.weapon_frame,reason~="simulated" and reason~="paused") then
+    local frames_valid=visible and frames:update(solver,entry.pack,entry.weapon_frame,reason~="simulated" and reason~="paused")
+    if not visible or not frames_valid then
+        diagnose(entry,not visible and "solver_hidden" or "frame_rejected","solver_reason="..tostring(reason))
         Unit.set_unit_visibility(entry.visual,false)
         if entry.hide_reason~=reason then printf("[doomrocket:HOSE] phase=hide id=%d reason=%s",entry.id,tostring(reason)) end
         entry.hide_reason=reason
@@ -169,18 +216,30 @@ local function update_entry(entry,dt)
     local root=entry.root_bind:unbox()
     Matrix4x4.set_translation(root,Vector3(unpack(a)))
     local parent=Matrix4x4.multiply(entry.parent_to_root:unbox(),root)
-    if not matrix_valid(parent) then destroy_visual(entry); return end
+    if not matrix_valid(parent) then
+        diagnose(entry,"parent_pose_rejected",pose_summary(parent)); destroy_visual(entry); return
+    end
     local inverse_parent=Matrix4x4.inverse(parent)
     Unit.set_local_pose(entry.visual,0,root)
     for i=1,#entry.nodes do
         local node=entry.nodes[i]
         local world_pose=Matrix4x4.multiply(node.bind:unbox(),native_pose(frames.poses[i]))
         local local_pose=Matrix4x4.multiply(world_pose,inverse_parent)
-        if not matrix_valid(local_pose) then destroy_visual(entry); return end
+        if not matrix_valid(local_pose) then
+            diagnose(entry,"control_pose_rejected","control="..i.." "..pose_summary(local_pose))
+            destroy_visual(entry); return
+        end
         Unit.set_local_pose(entry.visual,node.node,local_pose)
     end
     World.update_unit(entry.world,entry.visual)
     Unit.set_unit_visibility(entry.visual,true)
+    entry.written_frames=(entry.written_frames or 0)+1
+    entry.last_reason=nil
+    if entry.written_frames==1 then
+        printf("[doomrocket:HOSE] phase=pose_write id=%d controls=%d visibility_requested=true first_%s last_%s",
+            entry.id,#entry.nodes,pose_summary(Unit.world_pose(entry.visual,entry.nodes[1].node)),
+            pose_summary(Unit.world_pose(entry.visual,entry.nodes[#entry.nodes].node)))
+    end
     entry.elapsed=(entry.elapsed or 0)+dt
     if not entry.sampled and entry.elapsed>=3 then
         entry.sampled=true
@@ -267,10 +326,14 @@ mod._queue_warlock_hose=function(world,dt)
         table.sort(candidates,function(a,b) return a.distance==b.distance and a.id<b.id or a.distance<b.distance end)
         for i=1,#candidates do
             local entry=candidates[i]
+            entry.callbacks=(entry.callbacks or 0)+1
             if state.entries[entry.owner]~=entry then -- A reentrant lifecycle callback already removed it.
             elseif not valid_entry(entry) then stop(entry.owner,"context_removed")
             elseif i<=MAX_ACTIVE and entry.distance<=MAX_DISTANCE then update_entry(entry,dt)
-            else destroy_visual(entry) end
+            else
+                diagnose(entry,"visibility_budget",string.format("rank=%d distance=%.3f",i,entry.distance))
+                destroy_visual(entry)
+            end
         end
     end)
 end

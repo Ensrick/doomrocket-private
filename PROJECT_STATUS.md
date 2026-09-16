@@ -1,6 +1,6 @@
 # Project status
 
-Snapshot updated 2026-09-15. GitHub Issues is the live work queue; this page is
+Snapshot updated 2026-09-16. GitHub Issues is the live work queue; this page is
 the short re-entry map, not a second backlog.
 
 ## One-minute re-entry
@@ -8,21 +8,22 @@ the short re-entry map, not a second backlog.
 | Question | Answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Development TEST v0.1.71-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-14 06:57 UTC (manifest 447865338390972850, 96,240,779 bytes); in-game host/client acceptance pending |
-| Current release candidate | v0.1.72-dev: fixes the #20 hose-creation animation-blender assertion; semi-rigid physics and endpoint/bone updates remain enabled. Publication and in-game acceptance pending |
+| Published experimental build | [Development TEST v0.1.72-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-15 17:17 UTC (manifest 5073916577951013553, 96,240,966 bytes). Crunch reports no spawn crash but no visible hose |
+| Current release candidate | v0.1.73-dev: targeted missing-hose diagnostics; no claimed visibility fix. Publication pending |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
 ## What changed; what is ready
 
-**v0.1.71-dev crashes on spawn:** [#20](https://github.com/Ensrick/doomrocket-private/issues/20)
-contains the matching host log: hose creation calls `Unit.set_bones_lod` on a
-skin without an animation blender. Candidate **v0.1.72-dev** removes the
-animation-control calls, retaining the solver and direct bone updates. The
-regression now rejects those calls instead of silently accepting them.
-Wait for verified publication before testing the new version; host/client
-spawning, visible hose motion and death/drop behavior remain unaccepted.
+**v0.1.72-dev fixes the spawn assertion, but its hose is not visible.**
+[Crunch's PR #21 follow-up](https://github.com/Ensrick/doomrocket-private/pull/21#issuecomment-5690555871)
+and both matching v0.1.72-dev logs record one hose creation, no three-second
+simulation sample, then cleanup on death. Existing silent early exits prevent
+a reliable cause diagnosis. Candidate **v0.1.73-dev** adds bounded rejection
+reasons, first pose-write readback and cleanup counters, with a log analyzer.
+The solver, rig, materials, animation ownership and safety guards are unchanged.
+Wait for verified publication before testing; visibility is not yet fixed.
 
 **Published 2026-09-14 as TEST v0.1.71-dev** through the canonical adapter from
 merged `ce88c4ea` (PR #19): Steam `workshop_log.txt` shows `Upload starting` 01:57:17,
@@ -74,9 +75,9 @@ Remote-client checks for #9/#10/#11 remain outstanding; #7/#8 still need their
 full explosion/removal/stress matrix. Incidental crash-free impacts do not
 complete those gates.
 
-After explicit v0.1.72 TEST publication confirmation, use
+After explicit v0.1.73 TEST publication confirmation, use
 [the quickstart](docs/TESTER_QUICKSTART.md) and
 [candidate checklist](docs/testing/2026-09-12_TEST_CANDIDATE.md).
-Check `[doomrocket:LOAD] v0.1.72-dev` on every peer; attach complete host/client
+Check `[doomrocket:LOAD] v0.1.73-dev` on every peer; attach complete host/client
 logs and a continuous hose/aiming video. Public portrait checks can proceed
 independently on v0.1.56-alpha with TEST disabled.
