@@ -20,8 +20,8 @@ Assert-True ($itemConfig -match '(?m)^visibility\s*=\s*"public";\s*$') `
     "development TEST Workshop item must remain public"
 Assert-True ($itemConfig -match '(?m)^preview\s*=\s*"item_preview_test\.png";\s*$') `
     "development TEST build must use item_preview_test.png"
-Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0.1.74-dev";\s*$') `
-    "development title must be exactly Warprocket Bombardier TEST v0.1.74-dev"
+Assert-True ($itemConfig -match '(?m)^title\s*=\s*"Warprocket Bombardier TEST v0.1.75-dev";\s*$') `
+    "development title must be exactly Warprocket Bombardier TEST v0.1.75-dev"
 Assert-True ($itemConfig -match 'DEVELOPMENT TEST BUILD') `
     "TEST Workshop description must begin with an explicit development-build warning"
 Assert-True ($itemConfig -match 'Do not enable it together with the public') `
@@ -71,7 +71,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 $portraitRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_portrait_pipeline.py'
 foreach ($integrationRegression in @('test_doomrocket_hose_lifecycle.py', 'test_doomrocket_hose_pose_adapter.py', 'test_doomrocket_crystal_anchor.py',
-        'test_doomrocket_action_lookup.py', 'test_doomrocket_aim_timing.py')) {
+        'test_doomrocket_action_lookup.py', 'test_doomrocket_aim_timing.py',
+        'test_doomrocket_locomotion_animation.py', 'test_doomrocket_visible_aim.py')) {
     & py -3 (Join-Path $PSScriptRoot "tests\$integrationRegression")
     if ($LASTEXITCODE -ne 0) {
         [void]$failures.Add("$integrationRegression failed (exit $LASTEXITCODE)")

@@ -1,3 +1,30 @@
+local mod = get_mod("doomrocket")
+
+-- The visible outfit owns a separately compiled aim constraint. Resolve its
+-- name on that exact unit; the carrier's numeric constraint index is invalid
+-- on another skeleton. Death removes this outfit from the living registry.
+local function aim_visible_outfit(unit, data, target)
+	local outfit = mod._warlock_outfits and mod._warlock_outfits[unit]
+	if not outfit or not Unit.alive(outfit) or not HEALTH_ALIVE or not HEALTH_ALIVE[unit]
+		or not Vector3.is_valid(target) then
+		data.visible_aim_outfit = nil
+		data.visible_aim_constraint = nil
+		return
+	end
+
+	if data.visible_aim_outfit ~= outfit then
+		data.visible_aim_outfit = outfit
+		data.visible_aim_constraint = nil
+		if Unit.animation_has_constraint_target(outfit, "aim_target") then
+			data.visible_aim_constraint = Unit.animation_find_constraint_target(outfit, "aim_target")
+		end
+	end
+
+	if data.visible_aim_constraint then
+		Unit.animation_set_constraint_target(outfit, data.visible_aim_constraint, target)
+	end
+end
+
 AimTemplates.doomrocket = {
 	owner = {
 		init = function (unit, data)
@@ -41,6 +68,7 @@ AimTemplates.doomrocket = {
 
 			if data.constraint_target and not Unit.has_animation_event(unit, "doomrocket_reload_start") then
                 Unit.animation_set_constraint_target(unit, data.constraint_target, aim_target)
+                aim_visible_outfit(unit, data, aim_target)
             end
 
 			local game = Managers.state.network:game()
@@ -68,6 +96,7 @@ AimTemplates.doomrocket = {
 
 				if data.constraint_target and not Unit.has_animation_event(unit, "doomrocket_reload_start") then
                     Unit.animation_set_constraint_target(unit, data.constraint_target, aim_target)
+                    aim_visible_outfit(unit, data, aim_target)
                 end
 			else
 				local look_direction = Quaternion.forward(Unit.local_rotation(unit, 0))
@@ -75,6 +104,7 @@ AimTemplates.doomrocket = {
 
 				if data.constraint_target and not Unit.has_animation_event(unit, "doomrocket_reload_start") then
                     Unit.animation_set_constraint_target(unit, data.constraint_target, aim_target)
+                    aim_visible_outfit(unit, data, aim_target)
                 end
 			end
 		end,

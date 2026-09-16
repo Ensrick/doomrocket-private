@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.74-dev"
+local MOD_VERSION = "0.1.75-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -27,6 +27,7 @@ mod._doomrocket_hose_profile = mod:dofile("scripts/mods/doomrocket/utils/doomroc
 mod._doomrocket_hose_solver = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_solver")
 mod._doomrocket_hose_frames = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_frames")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_hose")
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_locomotion_animation")
 mod:dofile("scripts/mods/doomrocket/utils/doomrocket_action_lookup")
 mod:dofile("scripts/mods/doomrocket/extensions/projectile_rocket")
 mod:dofile("scripts/mods/doomrocket/extensions/anim_emitter")
@@ -208,6 +209,7 @@ function mod.update(dt)
 end
 
 local function reset_warlock_runtime_state(reason, unload_bank)
+	mod._reset_warlock_locomotion_animation()
 	mod._reset_warlock_hose(reason or "runtime_reset")
 	mod._reset_warlock_backpack_smoke(reason or "runtime_reset")
 	mod._shutdown_doomrocket_audio(reason or "runtime_reset", unload_bank == true)

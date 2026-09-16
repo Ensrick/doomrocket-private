@@ -127,6 +127,14 @@ mod._queue_warlock_hose=function() end
 mod._reset_warlock_hose=function() end
 mod._release_warlock_hose=function() end
 mod._finish_release_warlock_hose=function() end
+-- The shared callbacks also notify the independent visible gait controller.
+-- Its native variable/lifetime behavior has its own executable suite; smoke
+-- operations and their strict ownership assertions remain real here.
+mod._start_warlock_locomotion_animation=function() end
+mod._stop_warlock_locomotion_animation=function() end
+mod._reset_warlock_locomotion_animation=function() end
+mod._release_warlock_locomotion_world=function() end
+mod._update_warlock_locomotion_animation=function() end
 function start(o,u) return mod._start_warlock_backpack_smoke(o or owner,u or outfit) end
 function stop(reason) return mod._stop_warlock_backpack_smoke(owner,reason) end
 function reset(reason) mod._reset_warlock_backpack_smoke(reason) end

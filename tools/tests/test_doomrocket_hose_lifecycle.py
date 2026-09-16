@@ -218,6 +218,14 @@ ScriptUnit={has_extension=function(u,kind)
 end}
 ScriptUnit.extension=ScriptUnit.has_extension
 mod={_warlock_outfits={[owner]=outfit}}
+-- Shared hooks also notify the independent visible gait controller. Its native
+-- variable/lifetime contract is exercised in test_doomrocket_locomotion_animation.py;
+-- retain the strict hose engine doubles and all hose assertions in this harness.
+mod._start_warlock_locomotion_animation=function() end
+mod._stop_warlock_locomotion_animation=function() end
+mod._reset_warlock_locomotion_animation=function() end
+mod._release_warlock_locomotion_world=function() end
+mod._update_warlock_locomotion_animation=function() end
 function mod:package_status(name)
  assert(name=='resource_packages/doomrocket/warlock_child')
  return unavailable_package and 'not_loaded' or 'loaded'

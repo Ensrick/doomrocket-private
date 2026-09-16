@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.1.75-dev - visible movement cadence and aiming
+
+- Fixes the visible state machine's missing move_fwd_run event. Ordinary walking
+  uses combat_walk, running uses combat_run, and the sustained retreat sends the
+  native run event. Previously move_fwd always played a fixed-speed run clip.
+- Paces each visible locomotion clip from measured horizontal movement and its
+  native gait speed (1.9 m/s walk, 4 m/s run), on host and interpolated husks.
+  Stops, teleports, pauses, death and world teardown have explicit guards.
+- Authors the native Ratling spine aim mask on the visible skeleton and sends
+  both owner and husk aim targets to its independently name-resolved constraint.
+  The launcher previously received this aiming adjustment while the visible
+  hands did not. No carrier indices or foreign state machines are forwarded.
+- Calibrates the animation helper's position to the native aiming reference.
+  Its axes already matched, but the old point introduced an 8-10 degree
+  reference-ray difference. The engine's aim constraint uses that point.
+- Tightens animation position tolerance for the rig's 100x wrapper. The former
+  0.01 local-unit tolerance allowed 1 m world error and flattened intermediate
+  hip translations, separating the visible hands from the native-carried gun.
+  The new 0.00001 tolerance targets 1 mm at compiled samples; rotation/scale
+  tolerances are unchanged. SDK resampling still introduces up to 7.2 mm between
+  source keys in ordinary/death clips and 19.1 mm in stagger clips.
+- Preserves accepted weapon geometry, attachment orientation, body/weapon drop
+  physics and the unresolved hose's solver/diagnostics. Hand contact through all
+  animation phases and visible gait remain in-game acceptance requirements.
+
 ## v0.1.74-dev - faster shove and sustained escape
 
 - Reduces the shove cooldown from 7.5 to 2 seconds and increases its trigger

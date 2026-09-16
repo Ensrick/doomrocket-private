@@ -328,14 +328,13 @@ end)
 
 -- NO raw-index animation mirroring. v0.1.25 crash: the rat's aim system
 -- called animation_set_constraint_target(rat, 0, aim_target); forwarding that
--- raw index to the outfit - whose own state machine has no constraints - is
+-- raw index to the outfit - whose old state machine had no constraints - is
 -- an engine assert that pcall CANNOT catch (same uncatchable class as the
 -- v0.1.24 AnimationBlender crash). Variable and constraint indices are only
--- meaningful within one compiled state machine. If our SM ever needs
--- variable/aim mirroring, it must translate by NAME (capture the rat's
--- animation_find_variable name->index calls, re-find on the outfit), never
--- by index. Events are mirrored above because they are name-based and gated
--- on Unit.has_animation_event.
+-- meaningful within one compiled state machine. Locomotion and visible aim
+-- now resolve their own named variable/constraint on the outfit, guarded by
+-- the matching animation_has_* query. Never forward carrier indices. Events
+-- are mirrored above by name and gated on Unit.has_animation_event.
 
 
 -- Runtime material swap for the warlock body (Pusfume native contract).
@@ -788,6 +787,18 @@ local function queue_warlock_death_drivers_for_world(world)
 	end
 end
 
+-- Feed the outfit's own speed variable before its animation evaluation. The
+-- owner has already moved; using this world's dt also covers interpolated husks.
+mod:hook(World, "update_animations", function(func, world, dt, ...)
+	mod._update_warlock_locomotion_animation(world, dt)
+	return func(world, dt, ...)
+end)
+
+mod:hook(World, "update_animations_with_callback", function(func, world, dt, ...)
+	mod._update_warlock_locomotion_animation(world, dt)
+	return func(world, dt, ...)
+end)
+
 mod:hook_safe(World, "update_animations", function(world, dt, ...)
 	queue_warlock_death_drivers_for_world(world)
 	mod._queue_warlock_hose(world, dt)
@@ -810,6 +821,7 @@ mod._reset_warlock_death_drivers = function()
 end
 
 mod._prepare_warlock_death = function(owner_unit, source)
+	mod._stop_warlock_locomotion_animation(owner_unit)
 	mod._stop_warlock_hose(owner_unit, "death_" .. tostring(source))
 	-- Cosmetic emitter ownership ends before the outfit enters its corpse handoff.
 	mod._stop_warlock_backpack_smoke(owner_unit, "death_" .. tostring(source))
@@ -1113,6 +1125,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 					Unit.animation_event(outfit_unit, "idle")
 				end
 				mod._warlock_outfits[unit] = outfit_unit
+				mod._start_warlock_locomotion_animation(unit, outfit_unit)
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 				-- This runs on the authoritative unit and every husk, including hot-joins, so
@@ -1154,12 +1167,14 @@ end)
 
 -- Stop before native inventory teardown unlinks/deletes the parent outfit.
 mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
+	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_destroy")
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_destroy")
 	return func(self, ...)
 end)
 
 mod:hook(AIInventoryExtension, "freeze", function(func, self, ...)
+	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_freeze")
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_freeze")
 	return func(self, ...)
@@ -1188,6 +1203,7 @@ end)
 -- Forget IDs before the engine releases the world. The engine owns destruction
 -- here; a later reset must never operate on a recycled particle/world handle.
 mod:hook(Application, "release_world", function(func, world, ...)
+	mod._release_warlock_locomotion_world(world)
 	mod._release_warlock_hose(world)
 	mod._release_warlock_smoke_world(world)
 	local function finish_release(...)

@@ -60,6 +60,12 @@ jobs:
       - name: Run minimum aim timing regressions
         run: python tools/tests/test_doomrocket_aim_timing.py
 
+      - name: Run visible locomotion animation regressions
+        run: python tools/tests/test_doomrocket_locomotion_animation.py
+
+      - name: Run visible aim ownership and compiled constraint regressions
+        run: python tools/tests/test_doomrocket_visible_aim.py
+
       - name: Run projectile lifecycle contracts
         run: python tools/tests/test_doomrocket_projectile_lifecycle.py
 
