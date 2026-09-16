@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.1.73-dev - diagnose missing hose after the spawn fix
+
+- Crunch's two v0.1.72-dev logs create the hose once, never reach the expected
+  simulation sample, and clean up on death. The reported spawn crash is gone;
+  the cause of the invisible hose is not yet established.
+- Adds bounded diagnostics for rejected live endpoint/bone transforms, lost
+  visuals, solver/frame failures and visibility limits. Records the first
+  completed bone update and native endpoint-bone readback, with callback,
+  update, write and removal counts at cleanup.
+- Adds an exact-version log analyzer and regressions for healthy updates,
+  rejected endpoint scale, deleted visuals and inconclusive older logs.
+  Physics, rig, materials, animation ownership and all existing guards remain
+  unchanged. This is a diagnostic TEST release, not a claimed visibility fix.
+
 ## v0.1.72-dev - fix hose creation crash (#20)
 
 - Removes animation LOD and animation bone-mode calls from the separate hose

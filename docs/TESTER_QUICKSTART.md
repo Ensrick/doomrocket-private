@@ -1,9 +1,9 @@
 # Development TEST quickstart
 
-September 15 candidate: **v0.1.72-dev** fixes the hose-creation assertion in #20.
-The semi-rigid physics, endpoint attachment and bone updates remain enabled.
-**Wait for explicit Workshop publication confirmation.** v0.1.71-dev has the
-reported spawn crash and is not the assigned test build.
+Current candidate: **v0.1.73-dev** diagnoses the invisible hose reported after
+v0.1.72-dev resolved the spawn assertion. The visibility cause is still unknown.
+Physics and the existing safety guards remain enabled and unchanged.
+**Wait for explicit Workshop publication confirmation.**
 [Candidate scope and acceptance](testing/2026-09-12_TEST_CANDIDATE.md).
 
 Copy the block below into Discord when assigning a playtest.
@@ -17,11 +17,14 @@ Setup
 [ ] Launch the Modded Realm.
 [ ] Load Vermintide Mod Framework above Warprocket Bombardier.
 [ ] Enable TEST item 3794172730 only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.72-dev in the new console log on every peer.
+[ ] Confirm [doomrocket:LOAD] v0.1.73-dev in the new console log on every peer.
 [ ] If the version differs from the assigned build, stop and report the mismatch.
 [ ] Record whether you are host, remote client, or solo.
 
 Test
+[ ] Diagnostic priority: spawn one Engineer, observe for at least ten seconds,
+    move/turn around him, then kill him. Attach the full log even if the hose
+    stays invisible. It should now identify the blocked stage or completed writes.
 [ ] Spawn a loaded Engineer repeatedly: no animation-blender assertion or Lua error.
 [ ] Hose: inspect both ends while idle, turning, aiming, firing, reloading and stowed.
     It should keep its general shape and wiggle, not become a loose hanging rope.
@@ -50,3 +53,7 @@ has been added to the under-barrel crystal (#15).
 
 Logs and issue attachments are public. Review them before uploading. A passing
 source test or clean-looking log does not substitute for visible in-game results.
+
+Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.73-dev`.
+The analyzer reports controller evidence; completed pose writes alone do not
+prove visible rendering. Retain the log and Crunch's visual observation together.
