@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.1.78-dev - firmer hose rest shape and launcher-pose diagnosis
+
+- Crunch confirms the v0.1.77-dev hose is visible and has physics, but says it
+  hangs too loosely at rest. Doubles only its authored-curve restoring spring
+  from 100 to 200 s^-2. Gravity, damping, acceleration cap, length constraints,
+  endpoint tracking and secondary motion remain active. Offline settled sag
+  falls from about 11 cm to 5.9 cm; in-game shape approval remains open under #3.
+- Records bounded same-frame launcher/hand attachment poses during normal TEST
+  play to investigate #28. The launcher still follows the hidden carrier while
+  visible hands use a separate animation controller. Compiled clip comparison
+  rules out an obvious static mesh rotation; it does not prove the live cause.
+  This is diagnostic only, not a claimed grip fix.
+- Updates the issue-label and tester instructions to accept solo written
+  observations, remove the invented two-player gate, and keep blocked issues
+  distinct from ready-to-test work. Closed host crashes #9/#14 and death-voice
+  bug #10 no longer carry testing labels. Public alpha is unchanged.
+
 ## v0.1.77-dev - accept the native Ratling hose endpoint scale
 
 - Crunch's matching v0.1.76-dev host log confirms seven working ragdolls and no

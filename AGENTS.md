@@ -54,8 +54,10 @@ this maintenance line. Push development work only to `private`.
   observation. A reported missing hose is a failure even when offline checks
   pass. Do not request videos or recordings; use matching console logs to
   investigate the cause, not to dispute the tester's observation.
-- Static tests and a successful SDK build are not in-game acceptance. Keep a
-  runtime issue open until a matching host/client log and visible test pass.
+- Static tests and a successful SDK build are not in-game acceptance. Accept
+  the tester's written visual or audio verdict and use a matching build log
+  where it helps diagnose behavior. A solo report is sufficient; multiplayer
+  testing is not a standing acceptance gate.
 - Never promote experimental work to `doomrocket-public` implicitly.
 - Never commit `bundleV2`, `.build`, `.mod_bundle`, downloaded logs, Wwise
   authoring output, or game-derived donor payloads.

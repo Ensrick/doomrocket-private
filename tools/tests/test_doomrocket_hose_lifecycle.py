@@ -226,6 +226,14 @@ mod._stop_warlock_locomotion_animation=function() end
 mod._reset_warlock_locomotion_animation=function() end
 mod._release_warlock_locomotion_world=function() end
 mod._update_warlock_locomotion_animation=function() end
+-- The read-only grip probe is exercised with strict pose doubles in its own suite.
+mod._start_warlock_weapon_pose_probe=function() end
+mod._stop_warlock_weapon_pose_probe=function() end
+mod._stop_warlock_weapon_pose_probe_item=function() end
+mod._reset_warlock_weapon_pose_probe=function() end
+mod._release_warlock_weapon_pose_probe_world=function() end
+mod._queue_warlock_weapon_pose_probe=function() end
+mod._note_warlock_weapon_pose_event=function() end
 function mod:package_status(name)
  assert(name=='resource_packages/doomrocket/warlock_child')
  return unavailable_package and 'not_loaded' or 'loaded'
@@ -720,6 +728,11 @@ class HoseHookIntegrationTests(unittest.TestCase):
                 assert(not captured[class][name]);captured[class][name]=fn
             end
             mod.hook_safe=mod.hook
+            function mod:pcall(fn,...)
+                local ok,result=pcall(fn,...)
+                if not ok then self.last_error=result end
+                return ok,result
+            end
             mod._stop_warlock_backpack_smoke=function() end
             mod._release_warlock_smoke_world=function() end
             function queue_warlock_death_drivers_for_world(w) end
@@ -789,6 +802,36 @@ class HoseHookIntegrationTests(unittest.TestCase):
                     assert(mod._doomrocket_hose_state.entries[owner].weapon==weapon)
                     tick();assert(events.spawned==1 and events.poses>0)
                 ''')
+
+    def test_probe_start_error_does_not_abort_native_inventory_setup(self):
+        self.load_hook('AIInventoryExtension', '_setup_configuration')
+        self.lua.execute('''
+            mod._warlock_outfits={};mod._warlock_carriers={}
+            mod._prune_armor_bridge=function() end
+            Unit.set_animation_bone_mode=function() end
+            Unit.set_bones_lod=function() end
+            Unit.enable_animation_state_machine=function() end
+            Unit.has_animation_event=function() return false end
+            mod._apply_warlock_child_materials=function() end
+            mod._start_warlock_backpack_sound=function() end
+            mod._start_warlock_backpack_smoke=function() end
+            function hide_warlock_carrier_meshes() return 1,1,true end
+            mod._start_warlock_weapon_pose_probe=function() error('probe start failed') end
+            inventory.inventory_item_units={};inventory.inventory_item_outfit_units={}
+            local native_calls=0
+            local result=captured[AIInventoryExtension]._setup_configuration(
+                function(self,u)
+                    assert(self==inventory and u==owner)
+                    native_calls=native_calls+1
+                    self.inventory_item_units={outfit,weapon}
+                    self.inventory_item_outfit_units={outfit}
+                    return 'native_result'
+                end,inventory,owner,1,'configuration','init_data')
+            assert(result=='native_result' and native_calls==1)
+            assert(mod._warlock_outfits[owner]==outfit)
+            assert(record_count()==1 and mod._doomrocket_hose_state.entries[owner].weapon==weapon)
+            assert(mod.last_error and mod.last_error:find('probe start failed',1,true))
+        ''')
 
     def test_drop_single_item_stops_before_native_actor_creation(self):
         self.load_hook('AIInventoryExtension', 'drop_single_item')

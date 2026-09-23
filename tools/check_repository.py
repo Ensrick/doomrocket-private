@@ -92,8 +92,10 @@ def check_issue_forms(failures: list[str], version: str) -> None:
                 failures.append(f"{filename}: must explicitly accept a .log upload")
             elif log_uploads[0].get("validations", {}).get("required") is not True:
                 failures.append(f"{filename}: console log upload must be required")
-            if f"v{version}" not in source:
-                failures.append(f"{filename}: loaded-banner guidance must name v{version}")
+            # The form must request the actual loaded banner, not advertise a
+            # hard-coded source version that becomes stale after publication.
+            if "[doomrocket:LOAD]" not in source:
+                failures.append(f"{filename}: loaded-banner guidance is missing")
 
 
 def check_local_vmb_target(failures: list[str]) -> None:

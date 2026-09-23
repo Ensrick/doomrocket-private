@@ -66,6 +66,8 @@ function mod._queue_warlock_hose(w,dt)
  if w.hose_error then error('hose failed') end
  callbacks[#callbacks+1]=function() event('hose_pose:'..w.name) end
 end
+-- The independent grip probe's queue and lifetime are covered by its own suite.
+function mod._queue_warlock_weapon_pose_probe(w,dt) end
 animation_system={add_safe_animation_callback=function(self,cb)
  event('ragdoll_queue'); callbacks[#callbacks+1]=cb
 end}

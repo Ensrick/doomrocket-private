@@ -117,6 +117,9 @@ ScriptWorld={create_particles_linked=function(w,name,u,node,policy,pose)
  return id
 end}
 mod={}; function get_mod(name) assert(name=='doomrocket'); return mod end
+function mod:pcall(fn,...)
+ local ok,result=pcall(fn,...);if not ok then self.last_error=result end;return ok,result
+end
 -- Isolate smoke assertions while executing shared production lifecycle hooks.
 -- Actual hose ownership/native boundary behavior is exercised independently in
 -- test_doomrocket_hose_lifecycle.py; these are not mocked smoke operations.
@@ -135,6 +138,14 @@ mod._stop_warlock_locomotion_animation=function() end
 mod._reset_warlock_locomotion_animation=function() end
 mod._release_warlock_locomotion_world=function() end
 mod._update_warlock_locomotion_animation=function() end
+-- The read-only grip probe has its own strict pose and lifecycle suite.
+mod._start_warlock_weapon_pose_probe=function() end
+mod._stop_warlock_weapon_pose_probe=function() end
+mod._stop_warlock_weapon_pose_probe_item=function() end
+mod._queue_warlock_weapon_pose_probe=function() end
+mod._reset_warlock_weapon_pose_probe=function() end
+mod._release_warlock_weapon_pose_probe_world=function() end
+mod._note_warlock_weapon_pose_event=function() end
 function start(o,u) return mod._start_warlock_backpack_smoke(o or owner,u or outfit) end
 function stop(reason) return mod._stop_warlock_backpack_smoke(owner,reason) end
 function reset(reason) mod._reset_warlock_backpack_smoke(reason) end

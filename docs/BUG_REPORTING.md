@@ -11,8 +11,8 @@ Before reporting:
    enabled above Warprocket Bombardier.
 3. Enable TEST item `3794172730` only; disable public item `3771657344`.
 4. Confirm the exact `[doomrocket:LOAD]` banner in the reproducing log.
-5. Record whether you were host, remote client, or solo and whether every lobby
-   member used the same build.
+5. If you were playing with others, identify your network role and confirm
+   everyone used the same build. Solo reports need no second player.
 
 Attach the complete matching file from
 `%APPDATA%\Fatshark\Vermintide 2\console_logs\`. Raw `.log`, `.txt`, `.zip`, and

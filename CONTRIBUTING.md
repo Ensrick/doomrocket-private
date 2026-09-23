@@ -14,8 +14,8 @@ TEST line; stable-player reports belong in
 Use the issue chooser rather than a blank issue. For crashes, attach the
 original console log plus the crash GUID/Crashify link. For visual or audio
 problems, describe what you saw or heard; no recording is needed. Follow
-[`docs/TESTER_QUICKSTART.md`](docs/TESTER_QUICKSTART.md) so the report proves the
-exact loaded build and network role.
+[`docs/TESTER_QUICKSTART.md`](docs/TESTER_QUICKSTART.md) to identify the exact
+loaded build. Solo play is sufficient for ordinary issue acceptance.
 
 ## Code and documentation
 
@@ -62,13 +62,18 @@ Labels describe separate dimensions and may be combined deliberately:
 
 - kind: `bug`, `enhancement`, `documentation`, or `question`;
 - channel: `dev-test` here and `public-alpha` in the player repository;
-- evidence/workflow: `needs-triage`, `needs-info`, `confirmed`, and `testing`;
+- evidence/workflow: `needs-triage`, `needs-info`, `confirmed`, `blocked`,
+  `ready-for-testing`, and `testing`;
 - impact/priority: `crash` and `release-blocker`.
 
 New issue forms add `needs-triage`. Remove it as soon as the report is reviewed;
-add `confirmed` only with reproducible evidence, and add `testing` while a fix
-or feature awaits in-game acceptance. `confirmed` and `testing` can coexist:
-one records the evidence and the other records the current work phase. Reserve
-`crash` for an application crash or assertion and `release-blocker` for work
-that must pass before the TEST line can be promoted. Closed dedicated
-validation tasks may use only the channel plus `testing` labels.
+add `confirmed` when the tester's observation or other evidence establishes the
+problem. Use `blocked` when implementation or a decision is needed before
+another useful test. Use both `ready-for-testing` and `testing` when the current
+published build has a concrete playtest question. These two states are mutually
+exclusive; remove all three status labels when closing an issue. `confirmed`
+can coexist with either open state because it describes evidence, not work
+phase. Reserve `crash` for an application crash or assertion and
+`release-blocker` for work that must pass before the TEST line can be promoted.
+Do not create a standing two-player test gate; a tester can report multiplayer
+behavior when it naturally arises.
