@@ -63,6 +63,9 @@ jobs:
       - name: Run visible locomotion animation regressions
         run: python tools/tests/test_doomrocket_locomotion_animation.py
 
+      - name: Run animation callback ownership regressions
+        run: python tools/tests/test_doomrocket_animation_callbacks.py
+
       - name: Run visible aim ownership and compiled constraint regressions
         run: python tools/tests/test_doomrocket_visible_aim.py
 

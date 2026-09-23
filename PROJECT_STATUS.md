@@ -1,6 +1,6 @@
 # Project status
 
-Snapshot updated 2026-09-16. GitHub Issues is the live work queue; this page is
+Snapshot updated 2026-09-22. GitHub Issues is the live work queue; this page is
 the short re-entry map, not a second backlog.
 
 ## One-minute re-entry
@@ -8,13 +8,22 @@ the short re-entry map, not a second backlog.
 | Question | Answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Development TEST v0.1.74-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-16 04:45 UTC (manifest 5684565432573281873, 96,243,881 bytes). Quicker shove and longer retreat; hose unresolved |
-| Current release candidate | v0.1.75-dev: distinct walk/run clips paced by movement, plus the missing visible-body aim constraint. Publication and in-game acceptance pending; hose unresolved |
+| Published experimental build | [Development TEST v0.1.75-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-16 05:37 UTC (manifest 4259111273035701945, 96,322,161 bytes). Tester reports frozen corpses and invisible hose. |
+| Current release candidate | v0.1.76-dev: restore the shared post-animation callback and smooth retreat turns. Build, publication and in-game acceptance pending. |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
 ## What changed; what is ready
+
+**v0.1.76-dev addresses the reported frozen corpse and missing hose.** The
+matching v0.1.75-dev host log shows VMF rejecting two duplicate animation-hook
+registrations. Six deaths start their ragdoll handoff but never receive a pose
+sample; all six hose lifetimes record zero updates and bone writes. The candidate
+uses one hook for both sides of each animation pass so corpse and hose drivers
+run again. Its retreat route hands off earlier with a blended heading while
+retaining the established speed, duration, distance and route-safety checks.
+These source changes still need a fresh, version-matched visible test.
 
 **v0.1.75-dev addresses gait and hand/weapon pose divergence.** The visible
 model previously played combat_run for move_fwd, ignored move_fwd_run and had
@@ -92,10 +101,9 @@ Remote-client checks for #9/#10/#11 remain outstanding; #7/#8 still need their
 full explosion/removal/stress matrix. Incidental crash-free impacts do not
 complete those gates.
 
-For the v0.1.75 TEST candidate after verified publication, use
-[the quickstart](docs/TESTER_QUICKSTART.md) and
-[candidate checklist](docs/testing/2026-09-12_TEST_CANDIDATE.md).
-Check `[doomrocket:LOAD] v0.1.75-dev` on every peer; attach complete host/client
+For the v0.1.76 TEST candidate after verified publication, use
+[the quickstart](docs/TESTER_QUICKSTART.md).
+Check `[doomrocket:LOAD] v0.1.76-dev` on every peer; attach complete host/client
 logs and a written description of what was seen or heard. No video is needed.
 Public portrait checks can proceed
 independently on v0.1.56-alpha with TEST disabled.

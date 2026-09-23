@@ -1,10 +1,11 @@
 # Development TEST quickstart
 
-Candidate **v0.1.75-dev** addresses visible walk/run cadence and the missing
-aim adjustment on the visible torso and hands. Wait for verified publication
-before testing this version. The hose is still reported missing; its physics
-and diagnostics remain unchanged.
-[Candidate scope and acceptance](testing/2026-09-12_TEST_CANDIDATE.md).
+Candidate **v0.1.76-dev** restores the post-animation callback that
+v0.1.75-dev lost for both corpse pose transfer and hose simulation. It also
+smooths turns in the longer retreat. Check verified publication before testing.
+The prior written reports of a frozen corpse and invisible hose are accepted;
+the new build still needs visible confirmation.
+[Current scope and acceptance](../PROJECT_STATUS.md).
 
 Copy the block below into Discord when assigning a playtest.
 
@@ -17,7 +18,7 @@ Setup
 [ ] Launch the Modded Realm.
 [ ] Load Vermintide Mod Framework above Warprocket Bombardier.
 [ ] Enable TEST item 3794172730 only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.75-dev in the new console log on every peer.
+[ ] Confirm [doomrocket:LOAD] v0.1.76-dev in the new console log on every peer.
 [ ] If the version differs from the assigned build, stop and report the mismatch.
 [ ] Record whether you are host, remote client, or solo.
 
@@ -33,10 +34,12 @@ Test
 [ ] Hose: inspect both ends while idle, turning, aiming, firing, reloading and stowed.
     It should keep its general shape and wiggle, not become a loose hanging rope.
 [ ] Death/drop: kill both a loaded and an unloaded Engineer; hose should disappear.
-    Body ragdoll and loaded launcher/warhead must remain stable.
+    Body should move naturally as a ragdoll rather than freeze in its death pose;
+    loaded launcher/warhead must remain stable.
 [ ] Kick/reposition: shove eligible every 2 seconds inside 2.2 m. On open ground,
     he should run for 8-12 seconds and gain at least 20 m separation. Walls,
-    pursuit into shove range, stagger or death may interrupt the retreat.
+    pursuit into shove range, stagger or death may interrupt the retreat. Check
+    whether turns between destinations feel smooth rather than angular.
 [ ] Let him finish retreating and resume fire with the retained rocket.
     No crash, duplicated reload, or point-blank rocket.
 [ ] Aim: after reloading, he should track/aim for at least one second before firing.
@@ -62,6 +65,6 @@ Logs and issue attachments are public. Review them before uploading. A passing
 source test or clean-looking log does not override a tester's report of failure.
 Written observations supply the visual or audible result; recording is not required.
 
-Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.75-dev`.
+Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.76-dev`.
 The analyzer reports controller evidence; completed pose writes alone do not
 prove visible rendering. Retain the log and Crunch's visual observation together.
