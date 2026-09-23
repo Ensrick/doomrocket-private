@@ -87,11 +87,22 @@ local function new_frame() return {x_axis={},y_axis={},z_axis={},position={}} en
 local function numbers(m,frame)
     if not matrix_valid(m) then return false end
     local x,y,z,p=Matrix4x4.x(m),Matrix4x4.y(m),Matrix4x4.z(m),Matrix4x4.translation(m)
-    if math.abs(Vector3.length(x)-1)>.01 or math.abs(Vector3.length(y)-1)>.01
-        or math.abs(Vector3.length(z)-1)>.01 then return false end
+    local sx,sy,sz=Vector3.length(x),Vector3.length(y),Vector3.length(z)
+    -- The endpoint profile cancels the exported 100x wrapper, but the cloned
+    -- Ratling breed also applies size_variation_range={1.1,1.1} on host/husk.
+    -- Accept only the unscaled attachment frame or that native uniform size.
+    -- Solver frames need rotation alone; the translated outlet/inlet already
+    -- includes the owner's scale and must stay in its exact world position.
+    if math.abs(sx-sy)>.001 or math.abs(sx-sz)>.001
+        or not ((math.abs(sx-1)<=.01 and math.abs(sy-1)<=.01 and math.abs(sz-1)<=.01)
+            or (math.abs(sx-1.1)<=.01 and math.abs(sy-1.1)<=.01 and math.abs(sz-1.1)<=.01))
+        or Vector3.dot(x,Vector3.cross(y,z))<=0
+        or math.abs(Vector3.dot(x,y)/(sx*sy))>.001
+        or math.abs(Vector3.dot(x,z)/(sx*sz))>.001
+        or math.abs(Vector3.dot(y,z)/(sy*sz))>.001 then return false end
     for i=1,3 do if math.abs(p[i])>1e6 then return false end end
     for i=1,3 do
-        frame.x_axis[i],frame.y_axis[i],frame.z_axis[i],frame.position[i]=x[i],y[i],z[i],p[i]
+        frame.x_axis[i],frame.y_axis[i],frame.z_axis[i],frame.position[i]=x[i]/sx,y[i]/sy,z[i]/sz,p[i]
     end
     return true
 end

@@ -1,6 +1,6 @@
 # Project status
 
-Snapshot updated 2026-09-22. GitHub Issues is the live work queue; this page is
+Snapshot updated 2026-09-23. GitHub Issues is the live work queue; this page is
 the short re-entry map, not a second backlog.
 
 ## One-minute re-entry
@@ -8,22 +8,32 @@ the short re-entry map, not a second backlog.
 | Question | Answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Development TEST v0.1.75-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-16 05:37 UTC (manifest 4259111273035701945, 96,322,161 bytes). Tester reports frozen corpses and invisible hose. |
-| Current release candidate | v0.1.76-dev: restore the shared post-animation callback and smooth retreat turns. Build, publication and in-game acceptance pending. |
+| Published experimental build | [Development TEST v0.1.76-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified upload 2026-09-23 02:51 UTC (manifest 6554451787565527082, 96,320,635 bytes). Host ragdolls restored; hose still fails after one write. |
+| Current release candidate | v0.1.77-dev: accept the native Ratling's rigid uniform 1.1-scale hose endpoint. Build, publication and visible hose acceptance pending. |
 | Development reports | [Issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; use exactly one. |
 
 ## What changed; what is ready
 
-**v0.1.76-dev addresses the reported frozen corpse and missing hose.** The
+**v0.1.77-dev targets the remaining hose rejection.** Crunch's v0.1.76-dev
+host log records seven hose spawns and one bone write each, followed by a
+`pack_pose_rejected` diagnostic at uniform scale 1.1 and no sustained updates.
+The native Ratling breed spawns at that scale. The candidate normalizes only
+validated rigid endpoint axes while retaining their scaled world positions;
+the hose rig, solver and malformed-pose guards stay in place. In-game hose
+appearance and host/client behavior remain unconfirmed.
+
+**v0.1.76-dev restored corpse and hose callback scheduling.** The
 matching v0.1.75-dev host log shows VMF rejecting two duplicate animation-hook
 registrations. Six deaths start their ragdoll handoff but never receive a pose
-sample; all six hose lifetimes record zero updates and bone writes. The candidate
+sample; all six hose lifetimes record zero updates and bone writes. The release
 uses one hook for both sides of each animation pass so corpse and hose drivers
 run again. Its retreat route hands off earlier with a blended heading while
 retaining the established speed, duration, distance and route-safety checks.
-These source changes still need a fresh, version-matched visible test.
+Crunch's matching host test confirms ragdolls across repeated deaths; the hose
+callback runs again, but its 1.1-scale endpoint is rejected after the first
+write. The smoother retreat turns still need a visible tester verdict.
 
 **v0.1.75-dev addresses gait and hand/weapon pose divergence.** The visible
 model previously played combat_run for move_fwd, ignored move_fwd_run and had
@@ -79,6 +89,7 @@ is independent of this TEST work.
 | Area | State |
 | --- | --- |
 | Accepted body, textures, weapon placement, death drop, host ragdoll | Public alpha; preserve this baseline |
+| Hose-spawn animation-blender crash #20 | Fixed in v0.1.72; Crunch reports no recurrence through v0.1.76 and the host issue is closed |
 | Engineer kill-feed portrait | Published in public v0.1.56-alpha and TEST; visible acceptance still needed |
 | Career-switch crash | v0.1.63 host reproduction passes; remote-client verification remains |
 | Close-range shove, rocket exclusion, reload preservation | v0.1.64 host pass; client/edge-case checks remain |
@@ -87,7 +98,7 @@ is independent of this TEST work.
 | Distance-aware ballistic aim / #16 | Candidate holds aim for at least one second before the firing animation, while tracking; visible timing and multiplayer checks remain |
 | Custom sound bank and voice events | Host playback and death interruption confirmed; clients and final audio quality remain |
 | Chimney smoke #4 | Measured native-effect runtime included in v0.1.67 candidate; placement and host/client acceptance pending |
-| Semi-rigid hose physics #3 | Production runtime, skin and lifecycle integrated in v0.1.67 candidate; visible in-game acceptance pending. [Implementation and evidence](docs/research/HOSE_RIG_AND_PHYSICS.md) |
+| Semi-rigid hose physics #3 | v0.1.76 host log shows one write then scale rejection; v0.1.77 candidate addresses the native 1.1 pose. Visible host/client acceptance pending. [Implementation and evidence](docs/research/HOSE_RIG_AND_PHYSICS.md) |
 | Under-barrel crystal flame #15 | Crystal measured and identified; effect selection is unresolved, so no flame is included. [Research](docs/research/WEAPON_CRYSTAL_FIRE.md) |
 
 ## Retained evidence and next test
@@ -101,9 +112,9 @@ Remote-client checks for #9/#10/#11 remain outstanding; #7/#8 still need their
 full explosion/removal/stress matrix. Incidental crash-free impacts do not
 complete those gates.
 
-For the v0.1.76 TEST candidate after verified publication, use
+For the v0.1.77 TEST candidate after verified publication, use
 [the quickstart](docs/TESTER_QUICKSTART.md).
-Check `[doomrocket:LOAD] v0.1.76-dev` on every peer; attach complete host/client
+Check `[doomrocket:LOAD] v0.1.77-dev` on every peer; attach complete host/client
 logs and a written description of what was seen or heard. No video is needed.
 Public portrait checks can proceed
 independently on v0.1.56-alpha with TEST disabled.

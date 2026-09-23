@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.1.77-dev - accept the native Ratling hose endpoint scale
+
+- Crunch's matching v0.1.76-dev host log confirms seven working ragdolls and no
+  recurrence of the old hose-spawn animation-blender assertion. The hose still
+  fails after one pose write: all seven instances reject the backpack endpoint
+  when the native Ratling's legitimate uniform 1.1 scale reaches the pose.
+- Accepts only validated rigid endpoint frames at the expected unit or Ratling
+  scale, then normalizes their axes for the hose solver. World-space endpoint
+  positions keep the native scale. Malformed, sheared, reflected, nonuniform
+  and extreme transforms still fail closed. The skin, control bind scales,
+  segment lengths, spring solver, rendering budget and death cleanup are
+  unchanged.
+- Adds executable lifecycle coverage for the observed first-frame 1-to-1.1
+  transition and malformed transforms. Sustained host/client hose visibility
+  remains an in-game acceptance requirement. The v0.1.76-dev retreat turn
+  smoothing also awaits a visible tester verdict. Public alpha is unchanged.
+
 ## v0.1.76-dev - restore animation callbacks and smooth retreat turns
 
 - Fixes a VMF hook-registration collision introduced in v0.1.75-dev. Its new
