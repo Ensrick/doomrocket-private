@@ -1,10 +1,10 @@
 # Development TEST quickstart
 
-Candidate **v0.1.76-dev** restores the post-animation callback that
-v0.1.75-dev lost for both corpse pose transfer and hose simulation. It also
-smooths turns in the longer retreat. Check verified publication before testing.
-The prior written reports of a frozen corpse and invisible hose are accepted;
-the new build still needs visible confirmation.
+Candidate **v0.1.77-dev** accepts the native Ratling's validated uniform
+1.1-scale hose endpoint. v0.1.76-dev restored host ragdolls, but its hose
+still received only one pose write before the scale guard removed the visual.
+Check verified publication before testing. Written reports of a missing hose
+remain accepted; this build still needs visible host and client confirmation.
 [Current scope and acceptance](../PROJECT_STATUS.md).
 
 Copy the block below into Discord when assigning a playtest.
@@ -18,7 +18,7 @@ Setup
 [ ] Launch the Modded Realm.
 [ ] Load Vermintide Mod Framework above Warprocket Bombardier.
 [ ] Enable TEST item 3794172730 only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.76-dev in the new console log on every peer.
+[ ] Confirm [doomrocket:LOAD] v0.1.77-dev in the new console log on every peer.
 [ ] If the version differs from the assigned build, stop and report the mismatch.
 [ ] Record whether you are host, remote client, or solo.
 
@@ -65,6 +65,6 @@ Logs and issue attachments are public. Review them before uploading. A passing
 source test or clean-looking log does not override a tester's report of failure.
 Written observations supply the visual or audible result; recording is not required.
 
-Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.76-dev`.
+Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.77-dev`.
 The analyzer reports controller evidence; completed pose writes alone do not
 prove visible rendering. Retain the log and Crunch's visual observation together.

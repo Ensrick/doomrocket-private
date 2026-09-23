@@ -301,6 +301,98 @@ class HoseLifecycleTests(unittest.TestCase):
         self.assertEqual(int(report['stop']['writes']), 1)
         self.assertEqual(report['stop']['last_reason'], 'pack_pose_rejected')
 
+    def test_native_size_variation_keeps_hose_alive_after_first_animation_frame(self):
+        self.lua.execute('''
+            assert(start());tick()
+            local visual=last_hose
+            -- v0.1.76 rejected the backpack's 1.1 scale after its first write.
+            -- Exercise that native spawn-scale transition on both endpoints.
+            for _,u in ipairs({outfit,weapon}) do
+                for axis=1,3 do u.pose[axis][axis]=110 end
+            end
+            for i=1,240 do tick() end
+            local entry=mod._doomrocket_hose_state.entries[owner]
+            assert(entry.visual==visual and visual.visible)
+            assert(events.spawned==1 and events.destroyed==0)
+            assert(entry.written_frames==241 and entry.solver.steps>0)
+            for _,frame in ipairs({entry.pack,entry.weapon_frame}) do
+                for _,axis in ipairs({'x_axis','y_axis','z_axis'}) do
+                    local v=frame[axis]
+                    assert(math.abs(v[1]^2+v[2]^2+v[3]^2-1)<1e-6)
+                end
+            end
+            -- The correction must not resize the 100x compiled control bind
+            -- or change the authored segment lengths / physical dynamics.
+            local parent=Matrix4x4.multiply(entry.parent_to_root:unbox(),Unit.local_pose(visual,0))
+            local pose=Matrix4x4.multiply(Unit.local_pose(visual,visual.nodes.j_hose_00),parent)
+            assert(math.abs(Vector3.length(Matrix4x4.x(pose))-100)<.001)
+            local length=0
+            for _,value in ipairs(mod._doomrocket_hose_profile.lengths) do length=length+value end
+            assert(entry.solver.length==length)
+            stop('death_unit')
+            assert(events.destroyed==1)
+        ''')
+        report = self.diagnostic_report()
+        self.assertEqual(report['diagnostics'], [])
+        self.assertTrue(report['sample_observed'])
+        self.assertEqual(int(report['stop']['writes']), 241)
+
+    def test_size_variation_normalizes_orientation_without_moving_endpoint(self):
+        self.lua.execute('''
+            -- Rotate both endpoint parents 90 degrees and translate far from
+            -- the world origin: stripping scale must never divide translation.
+            for _,u in ipairs({outfit,weapon}) do
+                u.pose[1][1]=0;u.pose[1][2]=-110
+                u.pose[2][1]=110;u.pose[2][2]=0;u.pose[3][3]=110
+                u.pose[1][4]=u.pose[1][4]+288
+                u.pose[2][4]=-300;u.pose[3][4]=5
+            end
+            assert(start());tick()
+            local entry=mod._doomrocket_hose_state.entries[owner]
+            for _,item in ipairs({
+                {unit=outfit,node=entry.pack_node,offset=entry.pack_local,frame=entry.pack},
+                {unit=weapon,node=entry.weapon_node,offset=entry.weapon_local,frame=entry.weapon_frame}
+            }) do
+                local expected=Matrix4x4.multiply(item.offset:unbox(),Unit.world_pose(item.unit,item.node))
+                local position=Matrix4x4.translation(expected)
+                local x,y,z=Matrix4x4.x(expected),Matrix4x4.y(expected),Matrix4x4.z(expected)
+                for i=1,3 do
+                    assert(math.abs(item.frame.position[i]-position[i])<1e-9)
+                    assert(math.abs(item.frame.x_axis[i]-x[i]/Vector3.length(x))<1e-9)
+                    assert(math.abs(item.frame.y_axis[i]-y[i]/Vector3.length(y))<1e-9)
+                    assert(math.abs(item.frame.z_axis[i]-z[i]/Vector3.length(z))<1e-9)
+                end
+            end
+            assert(last_hose.visible and entry.written_frames==1)
+        ''')
+
+    def test_size_variation_does_not_admit_invalid_endpoint_frames(self):
+        mutations = {
+            'nonuniform': 'u.pose[1][1]=110;u.pose[2][2]=105;u.pose[3][3]=110',
+            'shear': 'u.pose[1][1]=110;u.pose[2][2]=110;u.pose[3][3]=110;u.pose[1][2]=11',
+            'reflection': 'u.pose[1][1]=-110;u.pose[2][2]=110;u.pose[3][3]=110',
+            'zero': 'u.pose[1][1]=0',
+            'nan': 'u.pose[1][1]=0/0',
+            'infinity': 'u.pose[1][1]=math.huge',
+            'uncancelled_wrapper': 'u.pose[1][1]=10000;u.pose[2][2]=10000;u.pose[3][3]=10000',
+            'unsupported_scale': 'u.pose[1][1]=150;u.pose[2][2]=150;u.pose[3][3]=150',
+            'invalid_position': 'u.pose[1][4]=math.huge',
+        }
+        for endpoint in ('outfit', 'weapon'):
+            for name, mutation in mutations.items():
+                with self.subTest(endpoint=endpoint, mutation=name):
+                    self.setUp()
+                    self.lua.execute('assert(start());tick();local u=' + endpoint + ';' + mutation)
+                    self.lua.execute('''
+                        for i=1,10 do tick() end
+                        local entry=mod._doomrocket_hose_state.entries[owner]
+                        assert(entry.written_frames==1)
+                        assert(entry.visual==nil and events.destroyed==1 and events.spawned==1)
+                    ''')
+                    report = self.diagnostic_report()
+                    reason = 'pack_pose_rejected' if endpoint == 'outfit' else 'weapon_pose_rejected'
+                    self.assertEqual([event['reason'] for event in report['diagnostics']], [reason])
+
     def test_lost_visual_is_reported_without_respawning_or_touching_dead_handle(self):
         self.lua.execute('''
             assert(start());tick();last_hose.alive=false
