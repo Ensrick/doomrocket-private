@@ -787,26 +787,25 @@ local function queue_warlock_death_drivers_for_world(world)
 	end
 end
 
--- Feed the outfit's own speed variable before its animation evaluation. The
--- owner has already moved; using this world's dt also covers interpolated husks.
+-- VMF accepts only one hook per mod/method, even across hook and hook_safe.
+-- Keep pre-animation gait updates and post-animation corpse/hose queueing in
+-- the same hook; registering a second hook silently leaves death bones frozen.
+-- This vararg tail preserves every native return value, including nil slots.
+local function finish_warlock_animation_update(world, dt, ...)
+	mod:pcall(queue_warlock_death_drivers_for_world, world)
+	mod:pcall(mod._queue_warlock_hose, world, dt)
+	return ...
+end
+
+-- The owner has already moved; this world's dt also covers interpolated husks.
 mod:hook(World, "update_animations", function(func, world, dt, ...)
 	mod._update_warlock_locomotion_animation(world, dt)
-	return func(world, dt, ...)
+	return finish_warlock_animation_update(world, dt, func(world, dt, ...))
 end)
 
 mod:hook(World, "update_animations_with_callback", function(func, world, dt, ...)
 	mod._update_warlock_locomotion_animation(world, dt)
-	return func(world, dt, ...)
-end)
-
-mod:hook_safe(World, "update_animations", function(world, dt, ...)
-	queue_warlock_death_drivers_for_world(world)
-	mod._queue_warlock_hose(world, dt)
-end)
-
-mod:hook_safe(World, "update_animations_with_callback", function(world, dt, ...)
-	queue_warlock_death_drivers_for_world(world)
-	mod._queue_warlock_hose(world, dt)
+	return finish_warlock_animation_update(world, dt, func(world, dt, ...))
 end)
 
 mod._reset_warlock_death_drivers = function()

@@ -402,6 +402,9 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
                 b"reposition_end",
                 b"max_plans",
                 b"destination_box",
+                b"heading_box",
+                b"handoff_distance",
+                b"handoff_attempted",
             ),
             "scripts/mods/doomrocket/behavior/nodes/skaven_doomrocket/bt_doomrocket_reload_action": (
                 b"reload_in_progress",

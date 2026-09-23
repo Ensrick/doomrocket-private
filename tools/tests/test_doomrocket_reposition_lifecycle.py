@@ -397,6 +397,136 @@ class DoomrocketRepositionLifecycleTests(unittest.TestCase):
             assert(reposition:run(unit,blackboard,1.4,.1) == 'done')
         """)
 
+    def test_goal_handoff_precedes_arrival_even_between_progress_polls(self):
+        for fps in (30, 60, 120):
+            with self.subTest(fps=fps):
+                self.setUp()
+                self.lua.globals().fps = fps
+                self.lua.execute("""
+                    request_reposition()
+                    reposition:enter(unit, blackboard, 1.3)
+                    local first_goal=events.nav_goals[1]
+                    local handed_off=false
+                    for frame=1,3*fps do
+                        place_unit(0,-frame*blackboard.breed.run_speed/fps,0)
+                        local before_poll=1.3+frame/fps < blackboard.doomrocket_reposition_data.next_replan_t
+                        assert(reposition:run(unit,blackboard,1.3+frame/fps,1/fps)=='running')
+                        if #events.nav_goals==2 then
+                            local remaining=Vector3.distance(first_goal,unit.position)
+                            assert(remaining>1 and remaining<=1.5)
+                            assert(before_poll, 'handoff waited for the old polling timer')
+                            assert(events.nav_stops==1, 'handoff stopped the active navbot')
+                            assert(events.nav_goals[2].y<first_goal.y)
+                            handed_off=true
+                            break
+                        end
+                    end
+                    assert(handed_off)
+                    assert(count_event('animations','move_fwd_run')==1)
+                """)
+
+    def test_opening_diagonal_keeps_heading_continuity_while_turning_away(self):
+        self.lua.execute("""
+            nav_policy=function(origin,goal) return math.abs(goal.x)>.1,origin,goal end
+            request_reposition()
+            reposition:enter(unit,blackboard,1.3)
+            local original=Vector3.normalize(events.nav_goals[1]-unit.position)
+            place_unit(original.x*6.8,original.y*6.8,0)
+            target.position=Vector3(unit.position.x,1,0)
+            POSITION_LOOKUP[target]=target.position
+            local away=Vector3.normalize(unit.position-target.position)
+            nav_policy=nil
+            assert(reposition:run(unit,blackboard,3.6,.1)=='running')
+            assert(#events.nav_goals==2)
+            local next_heading=Vector3.normalize(events.nav_goals[2]-unit.position)
+            -- A 45-degree desired change becomes an approximately 11-degree
+            -- handoff, while still bending toward the safer away direction.
+            assert(Vector3.dot(original,next_heading)>math.cos(math.pi/12))
+            assert(Vector3.dot(next_heading,away)>Vector3.dot(original,away))
+            assert(Vector3.dot(next_heading,away)<.99)
+        """)
+
+    def test_blocked_blended_heading_uses_only_a_checked_safe_fallback(self):
+        self.lua.execute("""
+            nav_policy=function(origin,goal) return math.abs(goal.x)>.1,origin,goal end
+            request_reposition()
+            reposition:enter(unit,blackboard,1.3)
+            local direction=Vector3.normalize(events.nav_goals[1])
+            place_unit(direction.x*6.8,direction.y*6.8,0)
+            target.position=Vector3(unit.position.x,1,0)
+            POSITION_LOOKUP[target]=target.position
+            local queries=events.nav_queries
+            nav_policy=function(origin,goal)
+                return math.abs(goal.x-origin.x)<.01,origin,goal
+            end
+            assert(reposition:run(unit,blackboard,3.6,.1)=='running')
+            assert(events.nav_queries==queries+2)
+            assert(#events.nav_goals==2)
+            assert(math.abs(events.nav_goals[2].x-unit.position.x)<.01)
+            assert(events.nav_goals[2].y<unit.position.y)
+        """)
+
+    def test_failed_handoff_keeps_old_goal_and_does_not_query_every_frame(self):
+        self.lua.execute("""
+            request_reposition()
+            reposition:enter(unit,blackboard,1.3)
+            local old_goal=blackboard.navigation_extension.goal
+            place_unit(0,-6.6,0)
+            nav_policy=function() return false end
+            assert(reposition:run(unit,blackboard,3.5,.1)=='running')
+            local queries=events.nav_queries
+            assert(queries<=19)
+            for frame=1,20 do
+                assert(reposition:run(unit,blackboard,3.5+frame/60,1/60)=='running')
+                assert(blackboard.navigation_extension.goal==old_goal)
+                assert(events.nav_queries==queries)
+            end
+            nav_policy=nil
+            place_unit(0,-8,0)
+            assert(reposition:run(unit,blackboard,4.3,.1)=='running')
+            assert(#events.nav_goals==2 and events.nav_stops==1)
+        """)
+
+    def test_handoff_rejects_other_floors_and_projection_back_toward_player(self):
+        for projection in ('Vector3(goal.x,goal.y,8)', 'target.position'):
+            with self.subTest(projection=projection):
+                self.setUp()
+                self.lua.execute("""
+                    request_reposition()
+                    reposition:enter(unit,blackboard,1.3)
+                    old_goal=blackboard.navigation_extension.goal
+                    place_unit(0,-6.6,0)
+                """)
+                self.lua.execute('nav_policy=function(origin,goal) return true,origin,'+projection+' end')
+                self.lua.execute("""
+                    assert(reposition:run(unit,blackboard,3.5,.1)=='running')
+                    assert(#events.nav_goals==1)
+                    assert(blackboard.navigation_extension.goal==old_goal)
+                """)
+
+    def test_short_smoothed_legs_preserve_full_twelve_second_pursuit_budget(self):
+        self.lua.execute("""
+            nav_policy=function(origin,goal)
+                return Vector3.length(goal-origin)<=2.01,origin,goal
+            end
+            blackboard.breed.run_speed=4
+            BreedActions.skaven_doomrocket.reposition.move_speed=4
+            request_reposition()
+            reposition:enter(unit,blackboard,1.3)
+            for frame=1,720 do
+                local y=-frame*4/60
+                target.position=Vector3(0,y+3,0)
+                POSITION_LOOKUP[target]=target.position
+                place_unit(0,y,0)
+                local result=reposition:run(unit,blackboard,1.3+frame/60,1/60)
+                assert(result==(frame<720 and 'running' or 'done'), 'short-leg budget ended retreat early')
+            end
+            assert(blackboard.doomrocket_reposition_data.outcome=='timeout')
+            assert(#events.nav_goals>16 and #events.nav_goals<=32)
+            assert(events.nav_queries<=32*18)
+            assert(events.nav_stops==1)
+        """)
+
     def test_shove_is_ready_at_two_seconds_before_point_blank_range(self):
         self.lua.execute("""
             become_close()

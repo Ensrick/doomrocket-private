@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.1.76-dev - restore animation callbacks and smooth retreat turns
+
+- Fixes a VMF hook-registration collision introduced in v0.1.75-dev. Its new
+  pre-animation locomotion hook displaced the existing post-animation hook on
+  each World animation entry point. The matching tester log shows the skipped
+  callbacks: corpses froze after death setup and all six hoses had zero updates.
+  One hook per entry point now feeds locomotion before the animation pass and
+  queues the corpse/hose drivers afterward, with VMF-safe error containment.
+- Keeps the existing carrier ragdoll pose bridge, actor-free hose rig, spring
+  solver and visible-body aiming. The report establishes their failure in game;
+  the source fix still requires version-matched host and client visual checks.
+- Begins the next safe retreat leg before reaching the previous endpoint and
+  biases its heading toward the existing travel direction. Every candidate
+  still needs navmesh, same-floor and away-from-player validation. The 4 m/s
+  run, 8–12 second window, distance goal, shove and ammunition guards remain.
+- Adds executable coverage for VMF single-hook registration, both callback
+  consumers and safe retreat handoff. The TEST Workshop update does not deploy
+  to a local game installation; the public alpha is unchanged.
+
 ## v0.1.75-dev - visible movement cadence and aiming
 
 - Fixes the visible state machine's missing move_fwd_run event. Ordinary walking

@@ -619,7 +619,7 @@ class HoseHookIntegrationTests(unittest.TestCase):
         self.assertEqual(len(matches), 1, f'Expected one actual shipping callback in {path}')
         return matches[0]
 
-    def load_hook(self, target, method, safe=False):
+    def load_hook(self, target, method, safe=False, prefix=''):
         self.lua.execute('''
             AIInventoryExtension=AIInventoryExtension or {}
             captured=captured or {}
@@ -633,7 +633,7 @@ class HoseHookIntegrationTests(unittest.TestCase):
             function queue_warlock_death_drivers_for_world(w) end
         ''')
         hook_name = 'hook_safe' if safe else 'hook'
-        self.lua.execute(self.extract_one(
+        self.lua.execute(prefix + '\n' + self.extract_one(
             HOOKS, rf'^mod:{hook_name}\({target}, "{method}", function.*?^end\)'))
 
     def test_inventory_destroy_and_freeze_stop_before_native_unlink(self):
@@ -771,15 +771,41 @@ class HoseHookIntegrationTests(unittest.TestCase):
         for method in ('update_animations', 'update_animations_with_callback'):
             with self.subTest(method=method):
                 self.setUp()
-                self.load_hook('World', method, safe=True)
+                finish = self.extract_one(
+                    HOOKS, r'^local function finish_warlock_animation_update\(.*?^end\s*$')
+                self.load_hook('World', method, prefix=finish)
                 self.lua.globals().method = method
                 self.lua.execute('''
-                    assert(start());captured[World][method](world,1/60)
-                    assert(#callbacks==1 and events.spawned==0)
+                    function mod:pcall(fn,...)
+                        local ok,err=pcall(fn,...)
+                        assert(ok,err);return ok
+                    end
+                    local order={}
+                    mod._update_warlock_locomotion_animation=function(w,dt)
+                        assert(w==world);order[#order+1]='gait'
+                    end
+                    local queue_before=animation.add_safe_animation_callback
+                    function animation:add_safe_animation_callback(fn)
+                        assert(order[#order]=='engine','hose queued before native animation')
+                        order[#order+1]='queue';return queue_before(self,fn)
+                    end
+                    local function native(w,dt,arg)
+                        assert(w==world and arg=='native_callback')
+                        assert(order[#order]=='gait','gait must run before native animation')
+                        assert(#callbacks==0,'pose work already queued before native animation')
+                        order[#order+1]='engine';return 'native_result'
+                    end
+                    assert(start())
+                    local result=captured[World][method](native,world,1/60,'native_callback')
+                    assert(result=='native_result' and table.concat(order,',')=='gait,engine,queue')
+                    assert(#callbacks==1 and events.spawned==0 and events.poses==0)
                     drain();assert(events.spawned==1 and events.poses>0)
                     local solver=mod._doomrocket_hose_state.entries[owner].solver
                     local steps=solver.steps
-                    captured[World][method](world,0);drain();assert(solver.steps==steps)
+                    local writes=events.poses
+                    captured[World][method](native,world,0,'native_callback')
+                    assert(events.poses==writes,'hook wrote hose bones before safe callback drain')
+                    drain();assert(solver.steps==steps)
                 ''')
 
     def test_application_world_release_hook_forgets_before_engine(self):

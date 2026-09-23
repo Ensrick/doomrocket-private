@@ -66,13 +66,28 @@ BTDoomrocketRepositionAction._plan = function (self, unit, blackboard, data, t)
 	local navigation = blackboard.navigation_extension
 	local traverse_logic = navigation:traverse_logic()
 	local angle_away = math.atan2(away.y, away.x)
+	local angles = {}
+
+	-- Keep some of the previous heading when the target moves or a diagonal
+	-- escape opens out. The blended ray is validated just like every fallback;
+	-- smoothing must never cut an unchecked corner or steer toward the player.
+	if data.heading_box then
+		local heading = data.heading_box:unbox() * 0.75 + away * 0.25
+
+		if Vector3.length_squared(heading) > 0.0001 then
+			angles[1] = math.atan2(heading.y, heading.x)
+		end
+	end
+
+	for _, angle_offset in ipairs(REAR_ANGLES) do
+		angles[#angles + 1] = angle_away + angle_offset
+	end
 
 	-- Try the longest useful segment first, with shorter safe options in tight
 	-- spaces. Every goal is relative to the Engineer, so reaching one can lead
 	-- to another instead of stopping at the old fixed radius around the player.
 	for _, segment_scale in ipairs({1, 0.5, 0.25}) do
-	for _, angle_offset in ipairs(REAR_ANGLES) do
-		local angle = angle_away + angle_offset
+	for _, angle in ipairs(angles) do
 		local candidate = Vector3(
 			position.x + math.cos(angle) * action.goal_distance * segment_scale,
 			position.y + math.sin(angle) * action.goal_distance * segment_scale,
@@ -90,6 +105,11 @@ BTDoomrocketRepositionAction._plan = function (self, unit, blackboard, data, t)
 				data.destination_box = Vector3Box(projected_end)
 				data.segment_start_box = Vector3Box(position)
 				data.progress_position_box = Vector3Box(position)
+				local segment = Vector3.flat(projected_end - position)
+				data.heading_box = Vector3Box(Vector3.normalize(segment))
+				data.handoff_distance = math.min(action.move_speed * action.handoff_lookahead,
+					Vector3.length(segment) * 0.25)
+				data.handoff_attempted = false
 				data.next_replan_t = t + action.replan_interval
 				navigation:move_to(projected_end)
 				printf("[doomrocket:COMBAT] phase=reposition_plan attempt=%d target_distance=%.3f",
@@ -198,6 +218,23 @@ BTDoomrocketRepositionAction.run = function (self, unit, blackboard, t, dt)
 		data.outcome = "target_crossed_route"
 
 		return "done"
+	end
+
+	-- Replace a viable leg before the navbot reaches its endpoint and brakes.
+	-- One speculative handoff per leg bounds queries; if no safe continuation
+	-- exists yet, retain the current safe goal and retry only after arrival.
+	-- This proximity check is independent of the slower stalled-path timer.
+	if not arrived and not data.handoff_attempted
+		and Vector3.length(remaining_segment) <= data.handoff_distance
+		and data.plan_attempts < action.max_plans
+		and blackboard.navigation_extension:number_failed_move_attempts() == 0 then
+		data.handoff_attempted = true
+
+		if self:_plan(unit, blackboard, data, t) then
+			data.blocked_plans = 0
+
+			return "running"
+		end
 	end
 
 	if t >= data.next_replan_t then
