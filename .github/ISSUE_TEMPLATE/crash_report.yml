@@ -15,7 +15,7 @@ body:
     id: loaded_banner
     attributes:
       label: Exact loaded build banner
-      placeholder: "Paste the actual [doomrocket:LOAD] banner from your log (current source candidate: v0.1.77-dev), not just the Workshop title"
+      placeholder: "Paste the actual [doomrocket:LOAD] banner from your log, not just the Workshop title"
     validations:
       required: true
   - type: input
@@ -28,7 +28,7 @@ body:
   - type: dropdown
     id: network_role
     attributes:
-      label: Your network role
+      label: Your network role, if relevant
       options:
         - Host
         - Remote client
@@ -69,7 +69,7 @@ body:
       options:
         - label: I restarted after the Workshop update and verified the exact loaded banner.
           required: true
-        - label: The public alpha was disabled, and every lobby member used this same TEST version.
+        - label: The public alpha was disabled; if multiplayer, everyone used this same TEST version.
           required: true
         - label: I understand that this report and its attachments are public.
           required: true

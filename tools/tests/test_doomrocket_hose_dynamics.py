@@ -213,8 +213,10 @@ class HoseDynamicsTests(unittest.TestCase):
 
     def test_gravity_deflects_but_springs_preserve_semi_rigid_rest_shape(self):
         result = runtime().globals().static(-9.81, 8)
-        self.assertGreater(result.final, .005)
-        self.assertLess(result.final, .15)
+        # The shape should settle visibly firmer than the original 11 cm sag,
+        # without becoming a rigid copy of the authored target.
+        self.assertGreater(result.final, .03)
+        self.assertLess(result.final, .07)
         self.assertLess(result.speed, .001)
         self.assertLess(result.links, .02)
         self.assertEqual(result.resets, 1)
@@ -226,9 +228,9 @@ class HoseDynamicsTests(unittest.TestCase):
             with self.subTest(fps=fps):
                 result = runtime().globals().moving(fps)
                 self.assertGreater(result.held_speed, .02)
-                self.assertGreater(result.held_displacement, .002)
+                self.assertGreater(result.held_displacement, .004)
                 self.assertLess(result.end_speed, .002)
-                self.assertLess(result.shape_error, .15)
+                self.assertLess(result.shape_error, .07)
                 self.assertLess(result.links, .02)
                 self.assertLess(result.frames, 2e-6)
                 self.assertEqual(result.render_resets, 0)

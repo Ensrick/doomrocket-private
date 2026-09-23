@@ -1,9 +1,11 @@
 # Two-ended hose: production integration and research
 
-Updated **2026-09-12**. [Issue #3 remains open](https://github.com/Ensrick/doomrocket-private/issues/3).
-The **v0.1.67-dev candidate now includes the in-game controller**, not just the
-Blender lab. Workshop publication and visible host/client acceptance are not
-claimed here; see [the candidate record](../testing/2026-09-12_TEST_CANDIDATE.md).
+Updated **2026-09-23**. [Issue #3 remains open](https://github.com/Ensrick/doomrocket-private/issues/3).
+Crunch confirmed the published v0.1.77-dev hose is visible and has physics;
+its resting shape needs more rigidity. The 0.1.78-dev source candidate doubles
+the rest-shape spring stiffness while preserving motion. The visual effect of
+that change still needs an in-game verdict. The September 12 record below
+documents the original controller and its offline evidence.
 
 ## Production implementation — September 12
 
@@ -30,7 +32,8 @@ The sixth material splice does not alter the accepted five body materials.
 Distributed springs preserve Crunch's measured rest curve. Reset initializes
 from that curve rather than the lab's generic circle; subsequent frames retain
 real inertia and integrate gravity, not forced positions or a canned animation.
-Stiffness is **100 s^-2**, restoring acceleration is capped at **40 m/s²**, and
+The v0.1.78-dev candidate uses **200 s^-2** stiffness (v0.1.77-dev used 100),
+restoring acceleration is capped at **40 m/s²**, and
 the controller supplies exponential velocity damping **5 s^-1**.
 The existing 120 Hz fixed step/eight-substep maximum and 2% length-error guard
 remain. No segment rest length is stretched to accommodate an impossible span.
@@ -71,19 +74,19 @@ py -3 tools/tests/test_doomrocket_hose_dynamics.py --metrics
 py -3 tools/tests/test_doomrocket_hose_dynamics.py --benchmark
 ```
 
-The dynamics measurements show unchanged authored geometry at zero gravity,
-approximately 11 cm maximum settled gravity deflection, and actual residual
+The v0.1.78-dev offline measurements show unchanged authored geometry at zero
+gravity, approximately 5.9 cm maximum settled gravity deflection (11 cm in
+v0.1.77-dev), and actual residual
 motion after the weapon stops. Twelve production dynamics tests and all 21
 earlier solver regressions pass; the numeric modules allocate no new tables
 over 2,000 warmed-up frames. A 20-hose physics-plus-frame run measured roughly
 7.4 ms mean / 11 ms maximum per 60 Hz frame, **excluding native bone writes and
 rendering**. These are not live performance or visual acceptance claims.
 
-Remaining acceptance: final inlet approval, visible material/pose/culling,
-host/client/late-join lifecycle, loaded/unloaded deaths and map transitions.
-Use the [short candidate checklist](../testing/2026-09-12_TEST_CANDIDATE.md).
-Public alpha is unchanged. Keep #3 open until actual matching logs and tester observations
-support the result; a compile or mocked native API pass is insufficient.
+Crunch's matching v0.1.77-dev host log and written observation establish visible
+physics. The remaining #3 question is whether the new resting shape looks right
+in game. Public alpha is unchanged; an offline solver pass cannot answer that
+visual question.
 
 ## September 10 offline lab record — historical
 
@@ -298,6 +301,5 @@ absent, and visible game acceptance is still outstanding.
 5. Correct and verify the separate TEST relocation crash #14 before a TEST
    Workshop upload. Keep public v0.1.56-alpha unchanged.
 
-Keep #3 open until matched host/client logs and visible in-game tests support
-the complete lifecycle. This lab is not a reason to close the existing
-ragdoll, impact or multiplayer issues.
+This September 10 plan is historical. Current #3 acceptance is the rest-shape
+visual verdict on a published TEST build; no two-player gate remains.

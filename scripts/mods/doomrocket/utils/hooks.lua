@@ -315,9 +315,11 @@ mod:hook(Unit, "animation_event", function(func, unit, event, ...)
 
 	if outfit then
 		if Unit.alive(outfit) then
-			if has_animation_event(outfit, event) then
+			local mirrored = has_animation_event(outfit, event)
+			if mirrored then
 				func(outfit, event, ...)
 			end
+			mod._note_warlock_weapon_pose_event(unit, event, mirrored)
 		else
 			mod._warlock_outfits[unit] = nil
 		end
@@ -794,6 +796,7 @@ end
 local function finish_warlock_animation_update(world, dt, ...)
 	mod:pcall(queue_warlock_death_drivers_for_world, world)
 	mod:pcall(mod._queue_warlock_hose, world, dt)
+	mod:pcall(mod._queue_warlock_weapon_pose_probe, world, dt)
 	return ...
 end
 
@@ -822,6 +825,7 @@ end
 mod._prepare_warlock_death = function(owner_unit, source)
 	mod._stop_warlock_locomotion_animation(owner_unit)
 	mod._stop_warlock_hose(owner_unit, "death_" .. tostring(source))
+	mod._stop_warlock_weapon_pose_probe(owner_unit)
 	-- Cosmetic emitter ownership ends before the outfit enters its corpse handoff.
 	mod._stop_warlock_backpack_smoke(owner_unit, "death_" .. tostring(source))
 	-- Stop while the visible outfit and its backpack source are still alive. Later death
@@ -1132,6 +1136,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				mod._start_warlock_backpack_sound(unit, outfit_unit)
 				mod._start_warlock_backpack_smoke(unit, outfit_unit)
 				mod._start_warlock_hose(unit, outfit_unit, self)
+				mod:pcall(mod._start_warlock_weapon_pose_probe, unit, outfit_unit, self)
 			end
 		end
 	end
@@ -1168,6 +1173,7 @@ end)
 mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
 	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_destroy")
+	mod._stop_warlock_weapon_pose_probe(self.unit)
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_destroy")
 	return func(self, ...)
 end)
@@ -1175,6 +1181,7 @@ end)
 mod:hook(AIInventoryExtension, "freeze", function(func, self, ...)
 	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_freeze")
+	mod._stop_warlock_weapon_pose_probe(self.unit)
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_freeze")
 	return func(self, ...)
 end)
@@ -1190,12 +1197,14 @@ mod:hook(AIInventoryExtension, "drop_single_item", function(func, self, index, r
 	if dropped == nil and extension and not extension.dropped and item and item.drop_reasons and item.drop_reasons[reason]
 		and template ~= "ai_helmet_unit" and template ~= "ai_outfit_unit" and template ~= "ai_skin_unit" then
 		mod._stop_warlock_hose_item(self.unit, item_unit, "inventory_drop")
+		mod._stop_warlock_weapon_pose_probe_item(self.unit, item_unit)
 	end
 	return func(self, index, reason, ...)
 end)
 
 mod:hook(AIInventoryExtension, "disable_inventory_item", function(func, self, item, item_unit, ...)
 	mod._stop_warlock_hose_item(self.unit, item_unit, "inventory_disable_item")
+	mod._stop_warlock_weapon_pose_probe_item(self.unit, item_unit)
 	return func(self, item, item_unit, ...)
 end)
 
@@ -1204,6 +1213,7 @@ end)
 mod:hook(Application, "release_world", function(func, world, ...)
 	mod._release_warlock_locomotion_world(world)
 	mod._release_warlock_hose(world)
+	mod._release_warlock_weapon_pose_probe_world(world)
 	mod._release_warlock_smoke_world(world)
 	local function finish_release(...)
 		mod._finish_release_warlock_hose(world)

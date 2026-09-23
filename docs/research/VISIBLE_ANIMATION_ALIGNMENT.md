@@ -67,9 +67,15 @@ breakpoint: at most 10 mm for ordinary/death clips and 20 mm for stagger clips.
 The first fresh results range up to 7.15 mm and 19.05 mm respectively; they are
 not a claim of 1 mm fidelity everywhere. The old endpoint-only output fails by
 82.6 mm idle, 192.5 mm run and 218.4 mm shoot-start. The fixture regression
-continues to reject that motion loss. Host/client grip still needs observation.
+continues to reject that motion loss. Crunch's later written report confirms
+the grip still diverges in game; [issue #28](https://github.com/Ensrick/doomrocket-private/issues/28)
+tracks the engineering fix.
 
 The launcher keeps its accepted native attachment/drop path. The visible body
 keeps its own animation controller and existing death handoff. Source and
 compiled checks can establish reference data and safe ownership; full two-hand
-contact through movement, firing and reload still requires host/client testing.
+contact through movement, firing and reload has not been achieved. The current
+launcher follows hidden-carrier attachment nodes while the visible hands follow
+a separate outfit animation. The cause of their animated relative motion needs
+same-frame diagnosis before changing either transform. A static weapon rotation
+is not established as the fix. No scheduled multiplayer test is required.

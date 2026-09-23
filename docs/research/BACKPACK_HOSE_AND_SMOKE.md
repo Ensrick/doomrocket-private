@@ -3,10 +3,11 @@
 Initial research/implementation snapshot: **2026-09-10**. Development only.
 Status follow-up: **2026-09-12**.
 
-**Current candidate:** v0.1.67-dev includes the separate semi-rigid hose
-controller and the measured chimney-smoke runtime. The missing #14 action
-lookup has been corrected in source. Publication verification and in-game
-host/client acceptance remain outstanding; the public alpha is unchanged.
+**Historical candidate:** v0.1.67-dev introduced the separate semi-rigid hose
+controller and measured chimney-smoke runtime. The #14 action lookup was fixed
+and later accepted. The published v0.1.77-dev hose is visibly working; its
+resting shape is being tuned under #3. Smoke remains open under #4. The public
+alpha is unchanged.
 See [the hose implementation](HOSE_RIG_AND_PHYSICS.md) and
 [September 12 checklist](../testing/2026-09-12_TEST_CANDIDATE.md).
 The no-go findings and publication hold below are the **historical initial
@@ -270,6 +271,7 @@ every peer; do not assume a source version is already available on Steam.
 | Resource lifetime | Native Warpfire enemies still work; repeated spawn/death and map cycles show no unbounded package/emitter accumulation |
 | Existing regressions | Retain #7/#8 explosion/removal checks and combat/ragdoll tests; smoke success cannot close those issues |
 
-Capture host/client logs plus a short visible clip of the chimney. Keep #4
-open until these observations are supplied. Keep #3 open independently;
+This September 12 test matrix is historical. For current #4 acceptance, a solo
+written observation and matching log are enough; no clip or second player is
+requested. Keep #4 open until the chimney placement is reported. Keep #3 open independently;
 a passed smoke test does not accept the hose physics.

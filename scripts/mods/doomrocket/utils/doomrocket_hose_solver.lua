@@ -55,7 +55,7 @@ function Solver.new(length, segments, damping, gravity)
         rx={},ry={},rz={}, lambdas={}, nx={},ny={},nz={},
         diagonal={}, upper={}, rhs={}, delta_lambda={},
         shape_x={},shape_y={},shape_z={}, shape_previous_x={},shape_previous_y={},shape_previous_z={},
-        shape_stiffness=100, shape_acceleration_limit=40, shape_points={},shape_count=0}, Solver)
+        shape_stiffness=200, shape_acceleration_limit=40, shape_points={},shape_count=0}, Solver)
     -- All persistent numeric storage is allocated once, never per frame/substep.
     for i=1,self.n do
         self.x[i],self.y[i],self.z[i]=0,0,0
@@ -77,7 +77,7 @@ end
 -- Distributed rest-shape springs add semi-rigidity without changing segment
 -- lengths or connecting the character/weapon physics actors. Targets are supplied
 -- in world metres by the measured authored-curve adapter, once per animation pass.
--- Stiffness 100 means acceleration 100 * displacement (s^-2), clamped to
+-- Stiffness 200 means acceleration 200 * displacement (s^-2), clamped to
 -- 40 m/s^2. Damping is exponential velocity decay in s^-1; the game controller
 -- supplies 5, while the standalone solver retains its legacy default of 1.5.
 function Solver:set_shape_point(i,x,y,z)

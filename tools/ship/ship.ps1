@@ -117,7 +117,7 @@ try {
         }
     } finally { $zip.Dispose(); $zipStream.Dispose() }
     $notes = Join-Path $artifactDir 'release-notes.md'
-    [IO.File]::WriteAllText($notes, "Warprocket Bombardier TEST $tag. Built from $sourceCommit through the standalone adaptation of the Tweaker ship transaction. Native material splice, package checks and hosted QA passed. Includes semi-rigid hose, chimney smoke, relocation action registration and minimum aiming time. In-game acceptance remains pending. Workshop item: $($profile.Id). Publication only; no game installation or local deployment is claimed.`n")
+    [IO.File]::WriteAllText($notes, "Warprocket Bombardier TEST $tag. Built from $sourceCommit through the standalone adaptation of the Tweaker ship transaction. Native material splice, package checks and hosted QA passed. Strengthens the visible hose's resting curve while retaining its physics, and adds bounded hand/launcher pose diagnostics for the still-open grip issue. The new hose shape needs an in-game visual verdict; the weapon grip is not claimed fixed. Workshop item: $($profile.Id). Publication only; no game installation or local deployment is claimed.`n")
     $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
