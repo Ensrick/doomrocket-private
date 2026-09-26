@@ -8,7 +8,7 @@ Before reporting:
 1. Use the verified local deploy, or refresh the Workshop subscription; restart Vermintide 2.
 2. Launch the Modded Realm with
    [Vermintide Mod Framework](https://steamcommunity.com/sharedfiles/filedetails/?id=1369573612)
-   enabled above Warprocket Bombardier.
+   enabled above Warlock Engineer TEST.
 3. Enable TEST item `3794172730` only; disable public item `3771657344`.
 4. Confirm the exact `[doomrocket:LOAD]` banner in the reproducing log.
 5. If you were playing with others, identify your network role and confirm

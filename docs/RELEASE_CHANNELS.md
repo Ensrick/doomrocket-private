@@ -1,17 +1,23 @@
 # Release channels
 
-Warprocket Bombardier uses two public channels with separate worktrees,
+Warlock Engineer uses two public channels with separate worktrees,
 repositories, Workshop items, thumbnails, and release guards.
 
 | Channel | Local worktree | GitHub / branch | Steam Workshop | Required title |
 | --- | --- | --- | --- | --- |
-| Public alpha | `C:\Users\danjo\source\repos\doomrocket-public` | `Ensrick/doomrocket-public` / `main` | `3771657344` | `Warprocket Bombardier v<version>-alpha` |
-| Development TEST | `C:\Users\danjo\source\repos\doomrocket` | `Ensrick/doomrocket-private` / `private-copy` | `3794172730` | `Warprocket Bombardier TEST v<version>-dev` |
+| Public alpha | `C:\Users\danjo\source\repos\doomrocket-public` | `Ensrick/doomrocket-public` / `main` | `3771657344` | `Warlock Engineer v<version>-alpha` |
+| Development TEST | `C:\Users\danjo\source\repos\doomrocket` | `Ensrick/doomrocket-private` / `private-copy` | `3794172730` | `Warlock Engineer TEST v<version>-dev` |
 
 The TEST item must remain public, start its description with a prominent
 instability warning, and use `item_preview_test.png`. Both packages retain the
 same internal mod identity, so never enable them together; every lobby member
 must use the same channel and exact version.
+
+`Warlock Engineer` is the Workshop mod name. `Warprocket Bombardier` remains
+the enemy name, and `doomrocket` remains the internal mod identity. The TEST
+title keeps its visible `TEST` marker and version suffix. Renaming the base
+Workshop name is a normal reviewed release, not Tweaker's narrow title-version
+synchronization exception for an unchanged base name.
 
 ## Build, deploy and upload method
 
@@ -39,7 +45,8 @@ Keep the source method's distinctions between tracked and receipt authority,
 local/remote deployment and publication-only mode. Keep one private launcher
 configuration bound to the invoking source tree and one approved launcher for
 the transaction. Never hand-copy files into a real Workshop content directory.
-Preserve the selected channel's existing item ID, title, thumbnail and visibility.
+Preserve the selected channel's existing item ID, required title shape,
+thumbnail and visibility.
 
 For Warlock's assets, clean compilation must still be followed by the verified
 native-material splice and `tools/Test-WarlockPipeline.ps1` before recording the

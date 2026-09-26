@@ -123,7 +123,7 @@ def main() -> int:
         print(f"[repository-check] FAIL - {exc}")
         return 1
 
-    if title != "Warprocket Bombardier TEST v" + version:
+    if title != "Warlock Engineer TEST v" + version:
         failures.append("Workshop title and Lua MOD_VERSION are out of sync")
     if workshop_id != "3794172730":
         failures.append("development channel must target Workshop item 3794172730")

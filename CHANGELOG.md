@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.1.78-dev - firmer hose rest shape and launcher-pose diagnosis
+## v0.1.79-dev - Warlock Engineer Workshop title and TEST candidate
+
+- Names the Workshop mod **Warlock Engineer**. The development listing remains
+  visibly marked TEST and keeps the version suffix; the enemy remains the
+  Warprocket Bombardier and the internal `doomrocket` identity is unchanged.
+- Supersedes the unpublished v0.1.78-dev candidate without changing its hose
+  physics or launcher-pose diagnostics.
 
 - Crunch confirms the v0.1.77-dev hose is visible and has physics, but says it
   hangs too loosely at rest. Doubles only its authored-curve restoring spring
