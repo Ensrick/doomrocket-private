@@ -1,13 +1,13 @@
 # Project status
 
-Updated 2026-09-23. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
+Updated 2026-09-26 UTC. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
 is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Development TEST v0.1.77-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-09-23 03:46 UTC (96,322,558 bytes; content handle 746099109113510749). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.77-dev) |
-| Next TEST work | Firmer hose rest shape for [#3](https://github.com/Ensrick/doomrocket-private/issues/3) is an **unpublished candidate**. The hand/weapon sway mismatch in [#28](https://github.com/Ensrick/doomrocket-private/issues/28) still needs engineering diagnosis and a new published build. |
+| Published experimental build | [Warlock Engineer TEST v0.1.79-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-09-26 00:54 UTC (96,331,463 bytes; content handle 4757547290731295256). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.79-dev) |
+| Next TEST work | The firmer hose rest shape in [#3](https://github.com/Ensrick/doomrocket-private/issues/3) is **ready for a solo visual verdict**. Hand/weapon sway [#28](https://github.com/Ensrick/doomrocket-private/issues/28), near-range ground shots [#6](https://github.com/Ensrick/doomrocket-private/issues/6), sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5), crystal flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15), and portrait frame [#30](https://github.com/Ensrick/doomrocket-private/issues/30) need engineering. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
@@ -16,19 +16,18 @@ is the live work queue; this page is a short re-entry map.
 
 Crunch confirms that the **v0.1.77-dev hose is visible and has physics**. The
 matching host log shows eight clean hose lifecycles and 11,562 sustained pose
-writes. He reports that the hose should hold its authored curve more firmly at
-rest. The solver-tuning candidate keeps the physics but is **not on Workshop
-yet**. [#3](https://github.com/Ensrick/doomrocket-private/issues/3) remains
-blocked from further acceptance until a new TEST build is published. Do not
-ask Crunch to repeat the basic visibility test on v0.1.77-dev.
+writes. He asked for a firmer resting curve. The v0.1.79-dev Workshop build
+strengthens the rest-shape spring while retaining the secondary physics.
+[#3](https://github.com/Ensrick/doomrocket-private/issues/3) now asks only for
+the new shape-and-motion visual verdict, not a repeat of basic visibility.
 
 The launcher visibly sways away from the Engineer's hands. This observation is
 accepted in [#28](https://github.com/Ensrick/doomrocket-private/issues/28).
 The launcher follows the hidden native carrier while the hands follow a
 separate visible animation controller. Matched offline clips align closely,
 so runtime phase, blend, or aim differences need same-frame measurement before
-any transform change. No additional playtest of this known failure is needed
-on v0.1.77-dev.
+any transform change. The bounded v0.1.79-dev pose probe is diagnostic only;
+do not treat it as a grip fix or ask for another acceptance test on this build.
 
 Crunch's reports support closure of the career-switch crash
 [#9](https://github.com/Ensrick/doomrocket-private/issues/9), death-voice bug
