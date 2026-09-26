@@ -5,7 +5,7 @@ Build, deployment and upload follow the user's September 13 direction to use
 source documentation and scripts are copied into this repository. Older release
 commands in historical records are not operational instructions.
 
-Thanks for helping develop Warprocket Bombardier. This repository is the public
+Thanks for helping develop Warlock Engineer. This repository is the public
 TEST line; stable-player reports belong in
 [`doomrocket-public`](https://github.com/Ensrick/doomrocket-public/issues/new/choose).
 

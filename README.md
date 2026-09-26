@@ -2,7 +2,7 @@
 
 [![Repository quality](https://github.com/Ensrick/doomrocket-private/actions/workflows/repository-quality.yml/badge.svg)](https://github.com/Ensrick/doomrocket-private/actions/workflows/repository-quality.yml)
 
-Experimental development repository for the Warprocket Bombardier mod for
+Experimental development repository for the Warlock Engineer mod for
 Vermintide 2. This repository is public so testers can inspect changes and
 submit reproducible bug reports, but its Workshop build is not the public
 release line.
@@ -27,7 +27,7 @@ compatibility.
 1. Subscribe to [Vermintide Mod Framework](https://steamcommunity.com/sharedfiles/filedetails/?id=1369573612).
 2. Subscribe to [TEST Workshop item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
 3. In the launcher, enable both and place Vermintide Mod Framework above
-   Warprocket Bombardier.
+   Warlock Engineer TEST.
 4. Disable public-alpha item `3771657344` and launch the **Modded Realm**.
 
 For reports, attach the complete matching console log rather than pasting it

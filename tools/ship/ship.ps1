@@ -117,7 +117,7 @@ try {
         }
     } finally { $zip.Dispose(); $zipStream.Dispose() }
     $notes = Join-Path $artifactDir 'release-notes.md'
-    [IO.File]::WriteAllText($notes, "Warprocket Bombardier TEST $tag. Built from $sourceCommit through the standalone adaptation of the Tweaker ship transaction. Native material splice, package checks and hosted QA passed. Strengthens the visible hose's resting curve while retaining its physics, and adds bounded hand/launcher pose diagnostics for the still-open grip issue. The new hose shape needs an in-game visual verdict; the weapon grip is not claimed fixed. Workshop item: $($profile.Id). Publication only; no game installation or local deployment is claimed.`n")
+    [IO.File]::WriteAllText($notes, "Warlock Engineer TEST $tag. Built from $sourceCommit through the standalone adaptation of the Tweaker ship transaction. Native material splice, package checks and hosted QA passed. Strengthens the visible hose's resting curve while retaining its physics, and adds bounded hand/launcher pose diagnostics for the still-open grip issue. The new hose shape needs an in-game visual verdict; the weapon grip is not claimed fixed. Workshop item: $($profile.Id). Publication only; no game installation or local deployment is claimed.`n")
     $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
@@ -129,7 +129,7 @@ try {
         Assert-Native 'Read existing release tag'
         if ($remoteTag.Trim() -cne $sourceCommit) { throw 'Existing release tag points at another commit; it will not be moved.' }
     } else {
-        & gh release create $tag --repo $profile.Repository --target $sourceCommit --prerelease --draft --title "Warprocket Bombardier TEST $tag" --notes-file $notes
+        & gh release create $tag --repo $profile.Repository --target $sourceCommit --prerelease --draft --title "Warlock Engineer TEST $tag" --notes-file $notes
         Assert-Native 'Create source-bound GitHub prerelease draft'
     }
     & gh release upload $tag $zipPath --repo $profile.Repository --clobber
@@ -158,10 +158,10 @@ try {
     for ($attempt = 0; $attempt -lt 6; $attempt++) {
         $response = Invoke-RestMethod -Method Post -Uri 'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/' -Body @{itemcount='1';'publishedfileids[0]'=$profile.Id}
         $detail = $response.response.publishedfiledetails[0]
-        if ($detail.result -eq 1 -and $detail.title -ceq "Warprocket Bombardier TEST $tag" -and $detail.visibility -eq 0 -and [long]$detail.file_size -eq $total -and ($evidence.Status -ne 'UPLOADED' -or [string]$detail.hcontent_file -ceq [string]$evidence.ManifestId)) { break }
+        if ($detail.result -eq 1 -and $detail.title -ceq "Warlock Engineer TEST $tag" -and $detail.visibility -eq 0 -and [long]$detail.file_size -eq $total -and ($evidence.Status -ne 'UPLOADED' -or [string]$detail.hcontent_file -ceq [string]$evidence.ManifestId)) { break }
         if ($attempt -lt 5) { Start-Sleep -Seconds 5 }
     }
-    if ($detail.result -ne 1 -or $detail.title -cne "Warprocket Bombardier TEST $tag" -or $detail.visibility -ne 0 -or [long]$detail.file_size -ne $total) { throw 'Steam metadata differs from the published TEST artifact.' }
+    if ($detail.result -ne 1 -or $detail.title -cne "Warlock Engineer TEST $tag" -or $detail.visibility -ne 0 -or [long]$detail.file_size -ne $total) { throw 'Steam metadata differs from the published TEST artifact.' }
     if ($evidence.Status -eq 'UPLOADED' -and [string]$detail.hcontent_file -cne [string]$evidence.ManifestId) { throw 'Steam content handle differs from the fresh upload transaction.' }
     $record = [ordered]@{Version=$version;SourceCommit=$sourceCommit;Workshop=$detail;UploadEvidence=$evidence;Deployment='SKIPPED: publication-only, game not installed';VerifiedUtc=[datetime]::UtcNow.ToString('o')}
     [IO.File]::WriteAllText((Join-Path $artifactDir 'verified-publication.json'), ($record | ConvertTo-Json -Depth 20))

@@ -30,7 +30,7 @@ build or publication attempt.
 - Canonical GitHub repository: `Ensrick/doomrocket-private`, remote `private`.
 - Local branch: `private-copy`.
 - Steam Workshop item: `3794172730`.
-- Required title shape: `Warprocket Bombardier TEST v<version>-dev`.
+- Required title shape: `Warlock Engineer TEST v<version>-dev`.
 - Public-alpha worktree: `C:\Users\danjo\source\repos\doomrocket-public`.
 - Public Workshop item: `3771657344`; do not edit or upload it from here.
 

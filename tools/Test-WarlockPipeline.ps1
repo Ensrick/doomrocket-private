@@ -24,7 +24,7 @@ $modSource = Get-Content (Join-Path $repoRoot 'scripts\mods\doomrocket\doomrocke
 $modVersionMatch = [regex]::Match($modSource, '(?m)^local MOD_VERSION = "([0-9]+\.[0-9]+\.[0-9]+-dev)"$')
 Assert-True $modVersionMatch.Success 'development source must declare a -dev MOD_VERSION'
 if ($modVersionMatch.Success) {
-    $expectedTitle = "Warprocket Bombardier TEST v$($modVersionMatch.Groups[1].Value)"
+    $expectedTitle = "Warlock Engineer TEST v$($modVersionMatch.Groups[1].Value)"
     Assert-True ($itemConfig -match ('(?m)^title\s*=\s*"' + [regex]::Escape($expectedTitle) + '";\s*$')) `
         "development title must be exactly $expectedTitle"
 }

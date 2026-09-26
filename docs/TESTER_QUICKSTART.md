@@ -10,11 +10,11 @@ See [current status](../PROJECT_STATUS.md) and the latest issue instructions.
 Use this short path for an issue labeled `ready-for-testing`:
 
 ```text
-WARPROCKET BOMBARDIER TEST — SOLO QUICKSTART
+WARLOCK ENGINEER TEST — SOLO QUICKSTART
 
 Setup
 [ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
-[ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warprocket Bombardier.
+[ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
 [ ] Enable the TEST item only; disable public item 3771657344.
 [ ] Confirm [doomrocket:LOAD] v0.1.77-dev in your new console log.
 [ ] If the version differs, stop and report the mismatch.
