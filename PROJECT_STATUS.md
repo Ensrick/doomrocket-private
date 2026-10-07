@@ -6,13 +6,19 @@ is the live work queue; this page is a short re-entry map.
 | Question | Current answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Warlock Engineer TEST v0.1.80-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-07 08:55 UTC (96,330,878 bytes; content handle 8648839786855997990). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.80-dev) |
-| Next TEST work | The Dutch Spice Into the Nest arena fix in [#35](https://github.com/Ensrick/doomrocket-private/issues/35) is **ready for a solo check**. The balance plan [#33](https://github.com/Ensrick/doomrocket-private/issues/33) is in progress. The firmer hose rest shape in [#3](https://github.com/Ensrick/doomrocket-private/issues/3) is **ready for a solo visual verdict**. Hand/weapon sway [#28](https://github.com/Ensrick/doomrocket-private/issues/28), near-range ground shots [#6](https://github.com/Ensrick/doomrocket-private/issues/6), sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5), crystal flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15), and portrait frame [#30](https://github.com/Ensrick/doomrocket-private/issues/30) need engineering. |
+| Published experimental build | [Warlock Engineer TEST v0.1.81-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-07 18:08 UTC (96,330,230 bytes; content handle 8373700339329978262). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.81-dev) |
+| Next TEST work | The Dutch Spice Into the Nest arena fix in [#35](https://github.com/Ensrick/doomrocket-private/issues/35) is **ready for a solo check**. The balance pass for [#33](https://github.com/Ensrick/doomrocket-private/issues/33) and the 2 s aim floor for [#16](https://github.com/Ensrick/doomrocket-private/issues/16) are **ready for a solo check**. The firmer hose rest shape in [#3](https://github.com/Ensrick/doomrocket-private/issues/3) is **ready for a solo visual verdict**. Hand/weapon sway [#28](https://github.com/Ensrick/doomrocket-private/issues/28), near-range ground shots [#6](https://github.com/Ensrick/doomrocket-private/issues/6), sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5), and crystal flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15) need engineering; the portrait frame [#30](https://github.com/Ensrick/doomrocket-private/issues/30) is in the next candidate. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current evidence and work
+
+v0.1.81-dev applies the #33 balance plan: rocket damage to other enemies x0.6,
+a 2 s aim floor, Ratling Gunner health and armor, a distance-scaled push instead
+of the camera-grabbing catapult, and detonation on contact. The Workshop page
+lists health and rocket damage per difficulty, computed by executing vanilla's
+damage chain.
 
 v0.1.80-dev stops the mod from re-running vanilla breed and pickup settings at
 load. That re-run had put back vanilla functions that Dutch Spice hooks, so its

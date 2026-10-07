@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.81-dev"
+local MOD_VERSION = "0.1.82-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -61,6 +61,7 @@ mod:dofile("scripts/mods/doomrocket/rpc")
 
 --adds doomrocket killfeed icon
 UISettings.breed_textures['skaven_doomrocket'] = 'unit_frame_portrait_enemy_doomrocket'
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_portrait_frame")
 
 -- #33: knock players back without taking their camera. Vanilla catapulting forces
 -- the victim's camera to face the throw and hides their weapons until they land.
