@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Execute #16's pre-fire alignment floor and callback/interruption ordering.
+"""Execute #16/#33's pre-fire alignment floor and callback/interruption ordering.
 
 Production launch/reload code and breed tuning run in Lua 5.1. Angular error
 and native animation callbacks are prescribed engine inputs. These tests prove
@@ -49,86 +49,97 @@ def timing_runtime():
     return lua
 
 
-class DoomrocketAimTimingTests(unittest.TestCase):
-    def test_production_minimum_is_one_second(self):
-        self.assertEqual(timing_runtime().eval("launch_action.minimum_aim_time"), 1.0)
+def production_minimum():
+    return timing_runtime().eval("launch_action.minimum_aim_time")
 
-    def test_firing_animation_waits_one_second_even_when_already_aligned(self):
+
+class DoomrocketAimTimingTests(unittest.TestCase):
+    """Times are offsets from the production floor, so a retune keeps the proof."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.minimum = production_minimum()
+
+    def run_lua(self, script):
         lua = timing_runtime()
-        lua.execute("""
+        lua.globals().MIN = self.minimum
+        lua.execute(script)
+        return lua
+
+    def test_production_minimum_is_two_seconds(self):
+        # #33 doubled the #16 one-second floor.
+        self.assertEqual(self.minimum, 2.0)
+
+    def test_firing_animation_waits_the_minimum_even_when_already_aligned(self):
+        self.run_lua("""
             begin_aim(10)
             tick_aim(10)
-            tick_aim(10.999)
+            tick_aim(10 + MIN - 0.001)
             local data = blackboard.attack_pattern_data
             assert(data.state == 'align' and not data.is_shooting)
             assert(count_event('animations', 'attack_shoot_start') == 0)
-            tick_aim(11)
+            tick_aim(10 + MIN)
             assert(data.state == 'ready')
             assert(count_event('animations', 'attack_shoot_start') == 1)
             assert(events.spawns == 0 and blackboard.reloaded_rocket)
         """)
 
     def test_native_fire_callback_releases_normally_without_extra_post_cue_hold(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             begin_aim(0)
-            tick_aim(1)
-            callback_at(1.25)
+            tick_aim(MIN)
+            callback_at(MIN + 0.25)
             assert(blackboard.attack_pattern_data.state == 'shoot')
-            assert(blackboard.attack_pattern_data.shoot_start == 1.25)
+            assert(blackboard.attack_pattern_data.shoot_start == MIN + 0.25)
         """)
 
     def test_reload_time_does_not_count_toward_aim_minimum(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             blackboard.reloaded_rocket = false
             enter_reload(0)
             assert(blackboard.attack_pattern_data.wind_up_time == 4)
             assert(run_reload(4.1, 4.1, true) == 'done')
             reload:leave(unit, blackboard, 4.1, 'done')
             launch:enter(unit, blackboard, 4.1)
-            tick_aim(5.09)
+            tick_aim(4.1 + MIN - 0.01)
             assert(blackboard.attack_pattern_data.state == 'align')
-            tick_aim(5.101)
+            tick_aim(4.1 + MIN + 0.001)
             assert(blackboard.attack_pattern_data.state == 'ready')
             assert(count_event('rpcs', 'rpc_reload_rocket') == 1)
         """)
 
     def test_large_turn_still_has_to_finish_after_minimum(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             begin_aim(0)
             prescribed_angle = math.pi / 2
-            tick_aim(2)
+            tick_aim(MIN + 1)
             assert(blackboard.attack_pattern_data.state == 'align')
             assert(count_event('animations', 'attack_shoot_start') == 0)
             prescribed_angle = 0
-            tick_aim(2.1)
+            tick_aim(MIN + 1.1)
             assert(blackboard.attack_pattern_data.state == 'ready')
         """)
 
     def test_missing_callback_never_fires_from_timer_alone(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             begin_aim(0)
-            tick_aim(1)
+            tick_aim(MIN)
             tick_aim(20)
             assert(blackboard.attack_pattern_data.state == 'ready')
             assert(not blackboard.attack_pattern_data.is_shooting and events.spawns == 0)
         """)
 
     def test_callback_from_alignment_is_discarded_before_new_firing_event(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             begin_aim(0)
             callback_at(0.5)
             assert(blackboard.attack_pattern_data.state == 'align')
-            tick_aim(1)
-            tick_aim(1.1)
+            tick_aim(MIN)
+            tick_aim(MIN + 0.1)
             assert(blackboard.attack_pattern_data.state == 'ready')
             assert(not blackboard.anim_cb_attack_shoot_random_shot)
-            callback_at(1.25)
-            assert(blackboard.attack_pattern_data.shoot_start == 1.25)
+            callback_at(MIN + 0.25)
+            assert(blackboard.attack_pattern_data.shoot_start == MIN + 0.25)
         """)
 
     def test_alignment_floor_is_frame_rate_independent(self):
@@ -136,15 +147,14 @@ class DoomrocketAimTimingTests(unittest.TestCase):
             with self.subTest(fps=fps):
                 lua = timing_runtime()
                 lua.execute("begin_aim(0)")
-                for frame in range(fps):
+                for frame in range(round(fps * self.minimum)):
                     lua.globals().tick_aim(frame / fps)
                     self.assertEqual(lua.eval("blackboard.attack_pattern_data.state"), "align")
-                lua.globals().tick_aim(1.0)
+                lua.globals().tick_aim(self.minimum)
                 self.assertEqual(lua.eval("blackboard.attack_pattern_data.state"), "ready")
 
     def test_target_switch_restarts_the_full_window_and_clears_old_callback(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             begin_aim(0)
             launch._update_target = function() return true end
             callback_at(0.75)
@@ -152,16 +162,15 @@ class DoomrocketAimTimingTests(unittest.TestCase):
             assert(data.state == 'align' and data.align_start == 0.75)
             assert(not blackboard.anim_cb_attack_shoot_random_shot)
             launch._update_target = function() return false end
-            tick_aim(1.74)
+            tick_aim(0.75 + MIN - 0.01)
             assert(data.state == 'align')
-            tick_aim(1.75)
+            tick_aim(0.75 + MIN)
             assert(data.state == 'ready')
             assert(not data.is_shooting)
         """)
 
     def test_close_target_cannot_reach_fire_cue_at_deadline(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             begin_aim(0)
             become_close()
             assert(tick_aim(1) == 'done')
@@ -173,8 +182,7 @@ class DoomrocketAimTimingTests(unittest.TestCase):
         """)
 
     def test_deleted_target_cannot_reach_fire_cue_at_deadline(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             begin_aim(0)
             target.alive = false
             assert(tick_aim(1) == 'done')
@@ -184,8 +192,7 @@ class DoomrocketAimTimingTests(unittest.TestCase):
         """)
 
     def test_shove_interrupt_preserves_round_but_restarts_aim_minimum(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             begin_aim(0)
             tick_aim(0.5)
             launch:leave(unit, blackboard, 0.75, 'aborted')
@@ -193,16 +200,15 @@ class DoomrocketAimTimingTests(unittest.TestCase):
             finish_shove(0.75)
             assert(blackboard.reloaded_rocket and weapon.rocket_visible)
             begin_aim(2)
-            tick_aim(2.9)
+            tick_aim(2 + MIN - 0.1)
             assert(blackboard.attack_pattern_data.state == 'align')
-            tick_aim(3)
+            tick_aim(2 + MIN)
             assert(blackboard.attack_pattern_data.state == 'ready')
             assert(count_event('rpcs', 'rpc_reload_rocket') == 0)
         """)
 
     def test_zero_minimum_preserves_original_angular_transition(self):
-        lua = timing_runtime()
-        lua.execute("""
+        self.run_lua("""
             launch_action.minimum_aim_time = 0
             begin_aim(0)
             tick_aim(0)

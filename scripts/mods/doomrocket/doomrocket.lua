@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.80-dev"
+local MOD_VERSION = "0.1.81-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -62,6 +62,45 @@ mod:dofile("scripts/mods/doomrocket/rpc")
 --adds doomrocket killfeed icon
 UISettings.breed_textures['skaven_doomrocket'] = 'unit_frame_portrait_enemy_doomrocket'
 
+-- #33: knock players back without taking their camera. Vanilla catapulting forces
+-- the victim's camera to face the throw and hides their weapons until they land.
+-- Vanilla's explosion push cannot replace it as configured: its falloff,
+-- math.auto_lerp(max_damage_radius, radius, push, 1, d), clamps to [push, 1],
+-- an empty range for any push above 1, so inside the blast it returns 1 m/s.
+-- Push through the same external-velocity path (it RPCs remote players), scaled
+-- linearly from the old catapult speed at the blast centre to a nudge at its edge.
+local KNOCKBACK_NEAR_SPEED = 10 -- m/s at max_damage_radius or closer
+local KNOCKBACK_FAR_SPEED = 2 -- m/s at the blast edge
+local KNOCKBACK_LIFT = 0.4 -- upward speed per unit of horizontal speed
+
+mod._doomrocket_knockback_player = function (hit_unit, damage_source, attacker_unit, impact_position, explosion_data)
+	if not DamageUtils.is_player_unit(hit_unit) then
+		return
+	end
+
+	local status_extension = ScriptUnit.has_extension(hit_unit, "status_system")
+	local locomotion_extension = ScriptUnit.has_extension(hit_unit, "locomotion_system")
+	local hit_position = POSITION_LOOKUP[hit_unit]
+
+	if not status_extension or status_extension:is_disabled() or not locomotion_extension or not hit_position then
+		return
+	end
+
+	local direction, distance = Vector3.direction_length(Vector3.flat(hit_position - impact_position))
+
+	if distance < 0.01 then
+		local attacker_position = POSITION_LOOKUP[attacker_unit]
+
+		direction = attacker_position and Vector3.normalize(Vector3.flat(hit_position - attacker_position)) or Vector3.zero()
+	end
+
+	local inner_radius = explosion_data.max_damage_radius
+	local falloff = math.clamp((distance - inner_radius) / (explosion_data.radius - inner_radius), 0, 1)
+	local speed = KNOCKBACK_NEAR_SPEED + (KNOCKBACK_FAR_SPEED - KNOCKBACK_NEAR_SPEED) * falloff
+
+	locomotion_extension:add_external_velocity(direction * speed + Vector3(0, 0, speed * KNOCKBACK_LIFT))
+end
+
 --setup rocket explosion template
 ExplosionTemplates["doomrocket_explosion"] = {
 	explosion = {
@@ -78,11 +117,11 @@ ExplosionTemplates["doomrocket_explosion"] = {
 		damage_profile = "warpfire_thrower_explosion",
 		effect_name = "fx/chr_warp_fire_explosion_01",
 		damage_type = "grenade",
-		catapult_force = 10,
-		catapult_players = true,
+		-- #33: no catapult and no native push; knockback comes from server_hit_func
+		-- (the old catapult threw at 10 m/s anywhere in the radius).
+		server_hit_func = mod._doomrocket_knockback_player,
 		dont_rotate_fx = true,
 		allow_friendly_fire_override = true,
-		player_push_speed = 15,
 		ai_friendly_fire = true,
 		difficulty_power_level = {
 			easy = {
@@ -123,6 +162,30 @@ ExplosionTemplates["doomrocket_explosion"] = {
 
 -- ExplosionTemplates["doomrocket_explosion"].explosion["damage_type"] = "kinetic"
 ExplosionTemplates["doomrocket_explosion"].name = "doomrocket_explosion"
+
+-- #33: the rocket deals 40% less damage to other enemies, so more of them survive
+-- the blast for players to kill (temporary health). Vanilla only scales friendly
+-- fire for player attackers, so scale this explosion's final damage against AI.
+local DOOMROCKET_DAMAGE_SOURCE = "skaven_doomrocket"
+local DOOMROCKET_AI_DAMAGE_MULTIPLIER = 0.6
+
+local function scale_doomrocket_ai_damage(damage, ...)
+	return damage * DOOMROCKET_AI_DAMAGE_MULTIPLIER, ...
+end
+
+mod:hook(DamageUtils, "calculate_damage", function (func, damage_output, target_unit, attacker_unit, hit_zone_name, original_power_level, boost_curve, boost_damage_multiplier, is_critical_strike, damage_profile, target_index, backstab_multiplier, damage_source, ...)
+	if damage_source ~= DOOMROCKET_DAMAGE_SOURCE or not target_unit then
+		return func(damage_output, target_unit, attacker_unit, hit_zone_name, original_power_level, boost_curve, boost_damage_multiplier, is_critical_strike, damage_profile, target_index, backstab_multiplier, damage_source, ...)
+	end
+
+	local target_breed = Unit.alive(target_unit) and Unit.get_data(target_unit, "breed")
+
+	if not target_breed or target_breed.is_player then
+		return func(damage_output, target_unit, attacker_unit, hit_zone_name, original_power_level, boost_curve, boost_damage_multiplier, is_critical_strike, damage_profile, target_index, backstab_multiplier, damage_source, ...)
+	end
+
+	return scale_doomrocket_ai_damage(func(damage_output, target_unit, attacker_unit, hit_zone_name, original_power_level, boost_curve, boost_damage_multiplier, is_critical_strike, damage_profile, target_index, backstab_multiplier, damage_source, ...))
+end)
 
 local num_explosions = #NetworkLookup.explosion_templates
 NetworkLookup.explosion_templates[num_explosions + 1] = "doomrocket_explosion"

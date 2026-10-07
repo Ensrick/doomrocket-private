@@ -34,11 +34,10 @@ end
 
 
 Breeds.skaven_doomrocket = table.clone(Breeds.skaven_ratling_gunner)
--- Keep the proven Ratling carrier/rig, but use Stormvermin durability.  Clone
--- max_health because difficulty/mutator code may modify breed health tables in
--- place; sharing the donor table would let either breed contaminate the other.
-Breeds.skaven_doomrocket.max_health = table.clone(Breeds.skaven_storm_vermin.max_health)
-Breeds.skaven_doomrocket.armor_category = Breeds.skaven_storm_vermin.armor_category
+-- #33: Ratling Gunner health and armor, so the Engineer has the Ratling's
+-- breakpoints (a glass cannon) instead of the earlier Stormvermin health.
+-- table.clone deep-copies max_health, so mutators that edit breed health
+-- tables in place cannot leak between the two breeds.
 Breeds.skaven_doomrocket.aim_template = "doomrocket"
 Breeds.skaven_doomrocket.behavior = "skaven_doomrocket"
 Breeds.skaven_doomrocket.threat_value = 7
@@ -93,10 +92,10 @@ BreedActions.skaven_doomrocket.fire_rocket = table.clone(BreedActions.skaven_doo
 BreedActions.skaven_doomrocket.fire_rocket.name = "fire_rocket"
 BreedActions.skaven_doomrocket.shoot_ratling_gun = nil
 BreedActions.skaven_doomrocket.fire_rocket.light_weight_projectile_template_name = "doomrocket"
--- #16: the old angular-only alignment could finish in one tick, so there is
--- no fixed duration to double. Give the TEST aim/telegraph a one-second floor
--- before its native firing animation starts; keep reload and shot cues intact.
-BreedActions.skaven_doomrocket.fire_rocket.minimum_aim_time = 1.0
+-- #16/#33: hold the visible aim for at least two seconds before the native
+-- firing animation starts (was one second), so players have time to hear
+-- the cue and react. Reload and shot cues are unchanged.
+BreedActions.skaven_doomrocket.fire_rocket.minimum_aim_time = 2.0
 
 -- Reuse the Stormvermin's zero-damage shove and push force, but
 -- not its animation callback node.  The living Doomrocket uses the Ratling
