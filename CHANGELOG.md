@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.1.83-dev - crystal flame candidate (#15)
+
+- Adds a persistent warpfire flame to the crystal under the launcher barrel:
+  the Warpfire Thrower's nozzle flame (`fx/wpnfx_warp_fire_nozzle`, already
+  resident for the rocket exhaust), linked at the measured crystal tip and
+  pointing along the crystal from its mount to its tip.
+- One flame per carried launcher on each peer. It starts with the inventory,
+  stops at death, drop, item disable, inventory teardown and mod reset, and is
+  forgotten before world release, the same lifecycle as the accepted backpack
+  smoke.
+- The pose is generated from the measured crystal fixture and the compiled
+  launcher node (`tools/build_crystal_anchor.py --check`). The effect choice is
+  a candidate: its look, size and direction need Crunch's in-game verdict.
+
 ## v0.1.82-dev - kill-feed portrait frame (#30)
 
 - Adds the vanilla enemy kill-feed frame to the Engineer portrait. Vanilla

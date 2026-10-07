@@ -828,6 +828,7 @@ mod._prepare_warlock_death = function(owner_unit, source)
 	mod._stop_warlock_weapon_pose_probe(owner_unit)
 	-- Cosmetic emitter ownership ends before the outfit enters its corpse handoff.
 	mod._stop_warlock_backpack_smoke(owner_unit, "death_" .. tostring(source))
+	mod._stop_warlock_crystal_flame(owner_unit, "death_" .. tostring(source))
 	-- Stop while the visible outfit and its backpack source are still alive. Later death
 	-- callbacks hand animation ownership to the corpse and may delete either unit.
 	mod._stop_warlock_backpack_sound(owner_unit, "death_" .. tostring(source))
@@ -1135,6 +1136,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				-- each peer owns exactly one spatial loop on the visible backpack outfit.
 				mod._start_warlock_backpack_sound(unit, outfit_unit)
 				mod._start_warlock_backpack_smoke(unit, outfit_unit)
+				mod._start_warlock_crystal_flame(unit, self)
 				mod._start_warlock_hose(unit, outfit_unit, self)
 				mod:pcall(mod._start_warlock_weapon_pose_probe, unit, outfit_unit, self)
 			end
@@ -1175,6 +1177,7 @@ mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
 	mod._stop_warlock_hose(self.unit, "inventory_destroy")
 	mod._stop_warlock_weapon_pose_probe(self.unit)
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_destroy")
+	mod._stop_warlock_crystal_flame(self.unit, "inventory_destroy")
 	return func(self, ...)
 end)
 
@@ -1183,6 +1186,7 @@ mod:hook(AIInventoryExtension, "freeze", function(func, self, ...)
 	mod._stop_warlock_hose(self.unit, "inventory_freeze")
 	mod._stop_warlock_weapon_pose_probe(self.unit)
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_freeze")
+	mod._stop_warlock_crystal_flame(self.unit, "inventory_freeze")
 	return func(self, ...)
 end)
 
@@ -1198,6 +1202,7 @@ mod:hook(AIInventoryExtension, "drop_single_item", function(func, self, index, r
 		and template ~= "ai_helmet_unit" and template ~= "ai_outfit_unit" and template ~= "ai_skin_unit" then
 		mod._stop_warlock_hose_item(self.unit, item_unit, "inventory_drop")
 		mod._stop_warlock_weapon_pose_probe_item(self.unit, item_unit)
+		mod._stop_warlock_crystal_flame_item(self.unit, item_unit, "inventory_drop")
 	end
 	return func(self, index, reason, ...)
 end)
@@ -1205,6 +1210,7 @@ end)
 mod:hook(AIInventoryExtension, "disable_inventory_item", function(func, self, item, item_unit, ...)
 	mod._stop_warlock_hose_item(self.unit, item_unit, "inventory_disable_item")
 	mod._stop_warlock_weapon_pose_probe_item(self.unit, item_unit)
+	mod._stop_warlock_crystal_flame_item(self.unit, item_unit, "inventory_disable_item")
 	return func(self, item, item_unit, ...)
 end)
 
@@ -1215,6 +1221,7 @@ mod:hook(Application, "release_world", function(func, world, ...)
 	mod._release_warlock_hose(world)
 	mod._release_warlock_weapon_pose_probe_world(world)
 	mod._release_warlock_smoke_world(world)
+	mod._release_warlock_crystal_flame_world(world)
 	local function finish_release(...)
 		mod._finish_release_warlock_hose(world)
 		return ...

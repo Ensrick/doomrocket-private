@@ -114,6 +114,9 @@ jobs:
       - name: Run measured weapon crystal anchor contracts
         run: python tools/tests/test_doomrocket_crystal_anchor.py
 
+      - name: Run crystal flame lifecycle tests
+        run: python tools/tests/test_doomrocket_crystal_flame.py
+
       - name: Run chimney anchor source and compiled contracts
         run: python tools/tests/test_doomrocket_chimney_anchor.py
 

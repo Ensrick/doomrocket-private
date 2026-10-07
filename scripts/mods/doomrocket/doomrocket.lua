@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.82-dev"
+local MOD_VERSION = "0.1.83-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -23,6 +23,8 @@ mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_pickup")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_audio")
 mod._doomrocket_chimney_anchor = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_chimney_anchor")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_backpack_smoke")
+mod._doomrocket_crystal_anchor = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_crystal_anchor")
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_crystal_flame")
 mod._doomrocket_hose_profile = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_profile")
 mod._doomrocket_hose_solver = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_solver")
 mod._doomrocket_hose_frames = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_frames")
@@ -273,6 +275,7 @@ function mod.update(dt)
 
 	mod._update_warlock_backpack_sounds()
 	mod._update_warlock_backpack_smoke()
+	mod._update_warlock_crystal_flame()
 end
 
 local function reset_warlock_runtime_state(reason, unload_bank)
@@ -280,6 +283,7 @@ local function reset_warlock_runtime_state(reason, unload_bank)
 	mod._reset_warlock_hose(reason or "runtime_reset")
 	mod._reset_warlock_weapon_pose_probe()
 	mod._reset_warlock_backpack_smoke(reason or "runtime_reset")
+	mod._reset_warlock_crystal_flame(reason or "runtime_reset")
 	mod._shutdown_doomrocket_audio(reason or "runtime_reset", unload_bank == true)
 
 	if mod._reset_warlock_death_drivers then
