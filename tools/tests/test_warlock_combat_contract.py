@@ -183,67 +183,45 @@ def compiled_resource_payloads(resource_type: str, resource_name: str) -> list[b
     return payloads
 
 
-class StormverminSurvivabilityContractTests(unittest.TestCase):
+class RatlingBreakpointContractTests(unittest.TestCase):
+    """#33: the Engineer keeps every Ratling Gunner breakpoint (glass cannon)."""
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.source = read_lua(BREED_PATH)
         cls.doomrocket_aliases = aliases_for(cls.source, "Breeds.skaven_doomrocket")
-        cls.stormvermin_aliases = aliases_for(cls.source, "Breeds.skaven_storm_vermin")
 
-    def test_ratling_carrier_is_retained_but_stats_are_overridden_after_clone(self) -> None:
+    def test_breed_is_a_deep_clone_of_the_ratling_gunner(self) -> None:
         clone = re.search(
             r"Breeds\.skaven_doomrocket\s*=\s*table\.clone\(Breeds\.skaven_ratling_gunner\)",
             self.source,
         )
-        self.assertIsNotNone(clone, "native Ratling physics carrier must remain")
+        self.assertIsNotNone(clone, "native Ratling carrier and stats must remain")
 
-        health = field_assignments(
-            self.source, self.doomrocket_aliases, "max_health"
-        )
-        armor = field_assignments(
-            self.source, self.doomrocket_aliases, "armor_category"
-        )
-        self.assertEqual(len(health), 1, "expected one explicit max_health override")
-        self.assertEqual(len(armor), 1, "expected one explicit armor_category override")
-        self.assertGreater(health[0][1].start(), clone.end())
-        self.assertGreater(armor[0][1].start(), clone.end())
+    def test_no_durability_field_overrides_the_ratling(self) -> None:
+        for field in (
+            "max_health",
+            "armor_category",
+            "primary_armor_category",
+            "hitzone_armor_categories",
+            "hitzone_primary_armor_categories",
+            "hitzone_multiplier_types",
+            "hit_zones",
+            "diff_stagger_resist",
+            "stagger_resistance",
+        ):
+            with self.subTest(field=field):
+                self.assertEqual(
+                    field_assignments(self.source, self.doomrocket_aliases, field),
+                    [],
+                    f"{field} would move the Engineer off Ratling Gunner breakpoints",
+                )
 
-    def test_health_is_a_defensive_clone_of_the_live_stormvermin_table(self) -> None:
-        assignments = field_assignments(
-            self.source, self.doomrocket_aliases, "max_health"
+        self.assertNotRegex(
+            self.source,
+            r"Breeds\.skaven_storm_vermin\.(?:max_health|armor_category)",
+            "Stormvermin durability must not be copied onto the Engineer",
         )
-        self.assertEqual(len(assignments), 1)
-        rhs = re.sub(r"\s+", "", assignments[0][0])
-        allowed = {
-            f"table.clone({owner}.max_health)"
-            for owner in self.stormvermin_aliases
-        }
-        self.assertIn(
-            rhs,
-            allowed,
-            "health must clone the current Stormvermin breed table, not duplicate literals",
-        )
-
-    def test_armor_category_tracks_stormvermin_without_zone_overrides(self) -> None:
-        assignments = field_assignments(
-            self.source, self.doomrocket_aliases, "armor_category"
-        )
-        self.assertEqual(len(assignments), 1)
-        rhs = re.sub(r"\s+", "", assignments[0][0])
-        self.assertIn(
-            rhs,
-            {f"{owner}.armor_category" for owner in self.stormvermin_aliases},
-        )
-
-        for forbidden in ("primary_armor_category", "hitzone_armor_categories"):
-            assignments = field_assignments(
-                self.source, self.doomrocket_aliases, forbidden
-            )
-            self.assertEqual(
-                assignments,
-                [],
-                f"{forbidden} would diverge from the Stormvermin all-zone armor contract",
-            )
 
 
 class DoomrocketShoveWiringTests(unittest.TestCase):
@@ -363,11 +341,22 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
                 self.mod_version.encode(),
                 b"bt_doomrocket_shove_action",
                 b"bt_doomrocket_reposition_action",
+                # #33 knockback and 0.6x rocket damage against AI.
+                b"_doomrocket_knockback_player",
+                b"server_hit_func",
+                b"calculate_damage",
+            ),
+            "scripts/mods/doomrocket/extensions/projectile_rocket": (
+                # #33 contact detonation.
+                b"_find_impact",
+                b"filter_enemy_ray_projectile",
             ),
             "scripts/mods/doomrocket/breeds/skaven_doomrocket": (
+                # #33: Ratling health/armor come from the clone; only the
+                # Stormvermin shove is still borrowed.
                 b"skaven_storm_vermin",
-                b"max_health",
-                b"armor_category",
+                b"minimum_aim_time",
+                b"finish_breed_registration",
                 b"push_attack",
                 b"attack_shoot_align",
                 b"reposition",

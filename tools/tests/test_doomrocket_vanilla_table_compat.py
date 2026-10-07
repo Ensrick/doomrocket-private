@@ -82,14 +82,15 @@ HARNESS = """
     Breeds = {
         skaven_ratling_gunner = {
             name = 'skaven_ratling_gunner', is_ai = true, race = 'skaven',
-            special = true, armor_category = 1, run_speed = 4,
+            special = true, armor_category = 2, run_speed = 4,
             aoe_height = 1.5, smart_object_template = 'fallback',
-            hit_zones_lookup = { head = { prio = 1 } },
-            allowed_layers = { planks = 1.5 }, max_health = { 12, 12 },
+            hit_zones_lookup = { head = { prio = 1 } }, allowed_layers = { planks = 1.5 },
+            max_health = { 12, 12, 18, 26.5, 39.5, 54, 72, 90, 12 },
         },
         skaven_storm_vermin = {
             name = 'skaven_storm_vermin', is_ai = true, race = 'skaven',
-            elite = true, armor_category = 2, max_health = { 20, 30 },
+            elite = true, armor_category = 2,
+            max_health = { 16, 16, 24, 35.25, 52.75, 86.5, 102.5, 118.5, 24 },
         },
     }
     Breeds.skaven_storm_vermin_warlord = table.clone(warlord_definition)
@@ -201,8 +202,15 @@ class VanillaTableCompatTests(unittest.TestCase):
             assert(SKAVEN.skaven_doomrocket and not ELITES.skaven_doomrocket)
             assert(not CHAOS.skaven_doomrocket and not BEASTMEN.skaven_doomrocket)
             assert(#category_calls == 1 and category_calls[1].breed == breed)
-            assert(category_calls[1].armor == Breeds.skaven_storm_vermin.armor_category)
-            assert(breed.max_health ~= Breeds.skaven_storm_vermin.max_health)
+            -- #33: Ratling Gunner breakpoints, in a table of its own.
+            local ratling = Breeds.skaven_ratling_gunner
+            assert(category_calls[1].armor == ratling.armor_category)
+            assert(breed.armor_category == ratling.armor_category)
+            assert(breed.max_health ~= ratling.max_health)
+            for rank, health in ipairs(ratling.max_health) do
+                assert(breed.max_health[rank] == health, rank)
+            end
+            assert(breed.max_health[5] ~= Breeds.skaven_storm_vermin.max_health[5])
             for action_name, action in pairs(BreedActions.skaven_doomrocket) do
                 assert(action.name == action_name, action_name)
             end

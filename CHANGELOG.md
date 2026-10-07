@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.1.81-dev - competitive balance pass (#33)
+
+Crunch and dalo_kraff's five-point plan after Juliank2g's playtest:
+
+- **Friendly fire -40%.** The rocket's area damage against other enemies is
+  multiplied by 0.6, so more of them survive the blast for players to kill for
+  temporary health. Vanilla only scales friendly fire for player attackers, so
+  the mod scales this explosion's final damage against AI targets only. Damage
+  to players is unchanged.
+- **Longer aim.** The Engineer holds his visible aim for at least 2 seconds
+  (was 1) before the firing animation starts (#16). Target switches still
+  restart the full window; reload and shot cues are unchanged.
+- **Ratling Gunner breakpoints.** Health and armor are the Ratling Gunner's
+  again (the earlier Stormvermin health override is removed): a glass cannon.
+- **No camera-grabbing knockback.** The blast no longer catapults players.
+  Vanilla catapulting forces the camera to face the throw and hides weapons
+  until landing. Players are now pushed through the same external-velocity
+  path vanilla uses, 10 m/s within 1.5 m of the impact falling linearly to
+  2 m/s at the 6 m edge, with a small upward lift. Camera and weapons stay
+  under the player's control. (The template's old `player_push_speed` never
+  applied: vanilla's falloff clamps any push above 1 to 1 m/s.)
+- **Explodes on impact.** The rocket now casts ahead along its velocity each
+  server frame, plus re-casts the path of the step that just elapsed, and
+  detonates at the first contact with world geometry or a player (the
+  Globadier globe's collision filter). Previously it only detonated after the
+  physics body slid or rolled below 1.5 m/s; that stop check remains as a
+  backstop.
+- Workshop description lists health, armor and rocket damage per difficulty.
+
+In-game acceptance of the feel (aim length, knockback strength, impact
+behavior) remains open in #33. Public alpha is unchanged.
+
 ## v0.1.80-dev - stop resetting other mods' enemy and pickup changes
 
 - Fixes the missing Dutch Spice Stormvermin waves in the Into the Nest boss

@@ -75,6 +75,12 @@ jobs:
       - name: Run projectile lifecycle contracts
         run: python tools/tests/test_doomrocket_projectile_lifecycle.py
 
+      - name: Run rocket contact detonation tests
+        run: python tools/tests/test_doomrocket_rocket_impact.py
+
+      - name: Run balance contracts (knockback, AI damage)
+        run: python tools/tests/test_doomrocket_balance_contract.py
+
       - name: Run sound contracts
         run: python tools/tests/test_doomrocket_sound_contract.py
 

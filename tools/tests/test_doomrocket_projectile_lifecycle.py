@@ -77,7 +77,7 @@ class DoomrocketProjectileLifecycleTests(unittest.TestCase):
     def test_explosion_entry_is_an_early_idempotency_guard(self) -> None:
         self.assertRegex(
             self.explode,
-            r"ProjectileRocket\.rocket_explode\s*=\s*function\(self\)\s*"
+            r"ProjectileRocket\.rocket_explode\s*=\s*function\(self,\s*impact_position\)\s*"
             r"if\s+self\.exploded\s+or\s+not\s+Managers\.player\.is_server\s+then\s*"
             r"return\s+false\s*end",
             "an already-claimed explosion or a non-authoritative peer must return before side effects",
