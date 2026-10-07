@@ -26,6 +26,20 @@ entry. Its widget in `positive_reinforcement_ui_definitions.lua` does not draw
 a separate enemy portrait frame. It mirrors the second portrait in the normal
 kill-feed layout; the input must not compensate for that native mirroring.
 
+## Kill-feed frame (#30)
+
+Vanilla enemy portraits carry their frame inside each 60x70 atlas image: a
+6 px bronze border, measured as the pixels that agree across eight vanilla
+enemy portraits (rows and columns 0-5 from every edge). The Engineer's art is
+full-bleed, so `extensions/doomrocket_portrait_frame.lua` draws that border at
+runtime from the edges of `unit_frame_portrait_enemy_ratling_gunner`: four
+`texture_uv` strips per kill-feed portrait slot, added to the shared widget
+definitions before each HUD builds them and placed by a hook on
+`_assign_portrait_texture`. The strips show only while a slot holds the
+Engineer portrait, mirror with the victim slot, and fade with the widget. No
+game pixels are copied into the mod. The frame covers the outer 6 px of the
+supplied art, the same area vanilla frames occupy.
+
 ## Rebuild and verify
 
 ```powershell

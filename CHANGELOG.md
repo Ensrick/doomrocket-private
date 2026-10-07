@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.1.82-dev - kill-feed portrait frame (#30)
+
+- Adds the vanilla enemy kill-feed frame to the Engineer portrait. Vanilla
+  portraits carry their frame inside each 60x70 atlas image (a 6 px bronze
+  border, identical across the enemy set); the kill-feed widget draws no
+  separate frame, so the full-bleed Engineer art had none.
+- The frame is drawn at runtime from the edges of the vanilla Ratling Gunner
+  portrait: four strips per portrait slot added to the shared kill-feed widget
+  definitions and placed when the slot is assigned. They appear only for the
+  Engineer portrait, mirror with the victim slot and fade with the entry. No
+  game pixels are copied into the mod; the supplied art is unchanged and the
+  frame covers its outer 6 px, the area vanilla frames occupy.
+- Executable tests drive vanilla's own widget builder and portrait assignment
+  when the local game source is present. The look still needs an in-game check.
+
 ## v0.1.81-dev - competitive balance pass (#33)
 
 Crunch and dalo_kraff's five-point plan after Juliank2g's playtest:
