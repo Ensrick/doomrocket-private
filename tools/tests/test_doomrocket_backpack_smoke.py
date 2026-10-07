@@ -146,6 +146,13 @@ mod._queue_warlock_weapon_pose_probe=function() end
 mod._reset_warlock_weapon_pose_probe=function() end
 mod._release_warlock_weapon_pose_probe_world=function() end
 mod._note_warlock_weapon_pose_event=function() end
+-- The crystal flame has its own executable lifecycle suite.
+mod._start_warlock_crystal_flame=function() end
+mod._stop_warlock_crystal_flame=function() end
+mod._stop_warlock_crystal_flame_item=function() end
+mod._update_warlock_crystal_flame=function() end
+mod._reset_warlock_crystal_flame=function() end
+mod._release_warlock_crystal_flame_world=function() end
 function start(o,u) return mod._start_warlock_backpack_smoke(o or owner,u or outfit) end
 function stop(reason) return mod._stop_warlock_backpack_smoke(owner,reason) end
 function reset(reason) mod._reset_warlock_backpack_smoke(reason) end
