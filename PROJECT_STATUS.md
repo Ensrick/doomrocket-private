@@ -1,18 +1,24 @@
 # Project status
 
-Updated 2026-09-26 UTC. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
+Updated 2026-10-07 UTC. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
 is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
 | --- | --- |
-| Stable player build | [Public alpha v0.1.56-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Warlock Engineer TEST v0.1.79-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-09-26 00:54 UTC (96,331,463 bytes; content handle 4757547290731295256). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.79-dev) |
-| Next TEST work | The firmer hose rest shape in [#3](https://github.com/Ensrick/doomrocket-private/issues/3) is **ready for a solo visual verdict**. Hand/weapon sway [#28](https://github.com/Ensrick/doomrocket-private/issues/28), near-range ground shots [#6](https://github.com/Ensrick/doomrocket-private/issues/6), sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5), crystal flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15), and portrait frame [#30](https://github.com/Ensrick/doomrocket-private/issues/30) need engineering. |
+| Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
+| Published experimental build | [Warlock Engineer TEST v0.1.80-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-07 08:55 UTC (96,330,878 bytes; content handle 8648839786855997990). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.80-dev) |
+| Next TEST work | The Dutch Spice Into the Nest arena fix in [#35](https://github.com/Ensrick/doomrocket-private/issues/35) is **ready for a solo check**. The balance plan [#33](https://github.com/Ensrick/doomrocket-private/issues/33) is in progress. The firmer hose rest shape in [#3](https://github.com/Ensrick/doomrocket-private/issues/3) is **ready for a solo visual verdict**. Hand/weapon sway [#28](https://github.com/Ensrick/doomrocket-private/issues/28), near-range ground shots [#6](https://github.com/Ensrick/doomrocket-private/issues/6), sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5), crystal flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15), and portrait frame [#30](https://github.com/Ensrick/doomrocket-private/issues/30) need engineering. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current evidence and work
+
+v0.1.80-dev stops the mod from re-running vanilla breed and pickup settings at
+load. That re-run had put back vanilla functions that Dutch Spice hooks, so its
+Into the Nest arena Stormvermin never spawned (#34, #35). The Legend loading
+crash in #35 is a misspelled breed (`skaven_storm_vzermin`) in Dutch Spice's
+own Legend warlord spawn list and needs a Dutch Spice fix.
 
 Crunch confirms that the **v0.1.77-dev hose is visible and has physics**. The
 matching host log shows eight clean hose lifecycles and 11,562 sustained pose
