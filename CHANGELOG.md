@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.1.80-dev - stop resetting other mods' enemy and pickup changes
+
+- Fixes the missing Dutch Spice Stormvermin waves in the Into the Nest boss
+  arena (#34, #35). At load the mod re-ran vanilla `scripts/settings/breeds`
+  and `scripts/settings/equipment/pickups`. Each vanilla breed file writes its
+  definition back into the existing table, so the re-run replaced every
+  function another mod had already hooked on a vanilla breed. Dutch Spice
+  spawns its arena waves from a hook on
+  `Breeds.skaven_storm_vermin_warlord.run_on_update` (and drives its War Camp
+  champion the same way); the re-run put the vanilla functions back. The pickup
+  re-run likewise recreated vanilla pickup tables and loot-rat weights.
+- Registers only this mod's breed, actions, pickup and behavior tree, the way
+  the vanilla files register their own: name, category mask, race and elite
+  sets, action names, and `AllPickups`. Only the Warlock tree is pointed at its
+  precompiled selector; other mods' trees keep their own roots.
+- The Legend loading crash in #35
+  (`enemy_package_loader.lua:752 ... 'breed_data' (a nil value)`) is a typo in
+  Dutch Spice's own Legend warlord spawn list (`skaven_storm_vzermin`). Vanilla
+  indexes every startup breed without a nil check, so it happens with or
+  without this mod; it needs a Dutch Spice fix.
+- Adds executable Lua coverage that other mods' breed hooks, breed tables and
+  pickups survive registration and that no mod script re-runs a vanilla
+  settings file. In-game confirmation with Dutch Spice remains open. Public
+  alpha is unchanged.
+
 ## v0.1.79-dev - Warlock Engineer Workshop title and TEST candidate
 
 - Names the Workshop mod **Warlock Engineer**. The development listing remains

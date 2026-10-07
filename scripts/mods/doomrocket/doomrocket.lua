@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.79-dev"
+local MOD_VERSION = "0.1.80-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -177,10 +177,12 @@ if spawn_mod then
 	end
 end
 
-for bt_name, bt_node in pairs(BreedBehaviors) do
-    bt_node[1] = "BTSelector_" .. bt_name
-    bt_node.name = bt_name .. "_GENERATED"
-end
+-- Vanilla bt_minion.lua already pointed its own trees at their precompiled
+-- selectors at boot. Only this mod's tree needs it; renaming every tree would
+-- also point other mods' plain-BTSelector trees at selector classes that do not
+-- exist.
+BreedBehaviors.skaven_doomrocket[1] = "BTSelector_skaven_doomrocket"
+BreedBehaviors.skaven_doomrocket.name = "skaven_doomrocket_GENERATED"
 
 local husk_num = #NetworkLookup.husks
 NetworkLookup.husks[husk_num + 1] = "units/rocket/SM_Rocket"
@@ -234,8 +236,6 @@ end
 function mod.on_unload()
 	reset_warlock_runtime_state("mod_unload", true)
 end
-
-mod:dofile("scripts/settings/breeds")
 
 -- utils/action_sweep_rewrite.lua (archived to _archive/) globally replaced
 -- ActionSweep._play_character_impact for every player and every melee weapon, purely to

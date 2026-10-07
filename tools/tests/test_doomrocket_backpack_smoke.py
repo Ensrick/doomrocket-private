@@ -371,7 +371,7 @@ class BackpackSmokeRootIntegrationTests(unittest.TestCase):
 
     def load_runtime_callbacks(self):
         self.lua.execute(self.extract_one(
-            BOOTSTRAP, r'^mod\.anim_emitters = \{\}.*?(?=^mod:dofile\("scripts/settings/breeds"\))'))
+            BOOTSTRAP, r'^mod\.anim_emitters = \{\}.*?(?=^mod\.doom = true)'))
 
     def load_death_preparation(self):
         self.lua.execute("""

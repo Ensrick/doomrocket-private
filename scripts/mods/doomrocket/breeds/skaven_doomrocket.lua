@@ -135,6 +135,52 @@ BreedActions.skaven_doomrocket.switch_weapons = {
     switching_done_time = 0.2
 }
 
+-- Vanilla scripts/settings/breeds.lua finishes every breed after the breed
+-- files run: name, category mask, race/elite sets and action names. Do the same
+-- for this breed only. This mod used to re-run that whole vanilla file, which
+-- re-executed every vanilla breed file and overwrote other mods' load-time
+-- changes to vanilla breeds. Dutch Spice hooks
+-- Breeds.skaven_storm_vermin_warlord.run_on_update to spawn its Into the Nest
+-- arena waves; the re-run put the vanilla function back, so the wave never
+-- came (#34, #35). Everything else is inherited from the finished donor clone.
+local BREED_RACE_SETS = {
+	chaos = CHAOS,
+	skaven = SKAVEN,
+	beastmen = BEASTMEN,
+	undead = UNDEAD,
+	critter = CRITTER,
+}
+
+local function finish_breed_registration(breed_name)
+	local breed = Breeds[breed_name]
+	local hit_zones_lookup = BreedHitZonesLookup[breed_name]
+
+	if hit_zones_lookup then
+		breed.hit_zones_lookup = hit_zones_lookup
+	end
+
+	BreedUtils.inject_breed_category_mask(breed)
+
+	breed.name = breed_name
+	breed.is_ai = true
+
+	local race_set = BREED_RACE_SETS[breed.race]
+
+	if race_set then
+		race_set[breed_name] = true
+	end
+
+	if breed.elite then
+		ELITES[breed_name] = true
+	end
+
+	for action_name, action_data in pairs(BreedActions[breed_name]) do
+		action_data.name = action_name
+	end
+end
+
+finish_breed_registration("skaven_doomrocket")
+
 
 Dismemberments["skaven_doomrocket"] = table.clone(Dismemberments["skaven_ratling_gunner"])
 

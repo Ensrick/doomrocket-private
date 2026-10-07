@@ -1010,7 +1010,7 @@ class HoseHookIntegrationTests(unittest.TestCase):
                     mod._reset_warlock_death_drivers=function() end
                 ''')
                 self.lua.execute(self.extract_one(
-                    BOOTSTRAP, r'^mod\.anim_emitters = \{\}.*?(?=^mod:dofile\("scripts/settings/breeds"\))'))
+                    BOOTSTRAP, r'^mod\.anim_emitters = \{\}.*?(?=^mod\.doom = true)'))
                 self.lua.execute('assert(start());tick();queue();' + callback + '''
                     drain();assert(record_count()==0 and events.destroyed==1)
                 ''')

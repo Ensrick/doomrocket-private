@@ -57,6 +57,9 @@ jobs:
       - name: Run custom action network lookup regressions
         run: python tools/tests/test_doomrocket_action_lookup.py
 
+      - name: Run vanilla table compatibility regressions
+        run: python tools/tests/test_doomrocket_vanilla_table_compat.py
+
       - name: Run minimum aim timing regressions
         run: python tools/tests/test_doomrocket_aim_timing.py
 
