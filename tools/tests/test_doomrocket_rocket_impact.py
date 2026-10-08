@@ -77,8 +77,13 @@ HARNESS = r"""
         add_velocity = function() end,
         unit = function(actor) return actor.unit end,
     }
+    function printf(fmt, ...) impact_logs[#impact_logs + 1] = string.format(fmt, ...) end
+    impact_logs = {}
     Unit = {
-        actor = function() return { unit = rocket_unit } end,
+        actor = function(unit, name)
+            if name == 'c_afro' then return unit.afro end
+            return { unit = rocket_unit }
+        end,
         alive = function(u) return u ~= nil and not u.dead end,
         world = function() return 'world' end,
         local_position = function() return Vector3(0, 0, 0) end,
@@ -87,22 +92,26 @@ HARNESS = r"""
         destroy_actor = function() end,
     }
 
-    -- Planes: { axis = 'x'|'y'|'z', value = n, unit = owner }.
+    -- Planes: { axis = 'x'|'y'|'z', value = n, unit = owner, filter = which filter
+    -- sees it }. Level geometry answers only the static-only filter by default.
+    STATIC = 'filter_player_ray_projectile_static_only'
+    ENEMY = 'filter_enemy_ray_projectile'
     planes = {}
     ray_casts = 0
     PhysicsWorld = {
         prepare_actors_for_raycast = function() end,
         immediate_raycast = function(world, from, direction, distance, mode, filter_key, filter)
             assert(mode == 'all' and filter_key == 'collision_filter')
-            assert(filter == 'filter_enemy_ray_projectile', filter)
+            assert(filter == STATIC or filter == ENEMY, filter)
             ray_casts = ray_casts + 1
             local hits = {}
             for _, plane in ipairs(planes) do
                 local d = direction[plane.axis]
-                if d ~= 0 then
+                if d ~= 0 and (plane.filter or STATIC) == filter then
                     local s = (plane.value - from[plane.axis]) / d
                     if s >= 0 and s <= distance then
-                        hits[#hits + 1] = { from + direction * s, s, Vector3(0, 0, 1), { unit = plane.unit } }
+                        local actor = plane.actor or { unit = plane.unit }
+                        hits[#hits + 1] = { from + direction * s, s, Vector3(0, 0, 1), actor }
                     end
                 end
             end
@@ -194,9 +203,9 @@ class RocketImpactTests(unittest.TestCase):
         lua = runtime()
         lua.execute("""
             planes[1] = { axis = 'x', value = 4.7, unit = rocket_unit }
-            planes[2] = { axis = 'x', value = 4.75, unit = shooter_unit }
+            planes[2] = { axis = 'x', value = 4.75, unit = shooter_unit, filter = ENEMY }
             planes[3] = { axis = 'x', value = 5.0, unit = wall_unit }
-            planes[4] = { axis = 'x', value = 4.9, unit = player_unit }
+            planes[4] = { axis = 'x', value = 4.9, unit = player_unit, filter = ENEMY }
             step(0.2)
             body.position = Vector3(4.6, 0, 1)
             step(0.016)
@@ -236,12 +245,13 @@ class RocketImpactTests(unittest.TestCase):
     def test_slow_settle_keeps_the_stop_fallback_at_the_body(self):
         lua = runtime()
         lua.execute("""
+            body.velocity = Vector3(0.4, 0, 0)   -- below the cast speed floor
             step(0.4)
             body.position = Vector3(2, 0, 0.1)
-            body.velocity = Vector3(0.4, 0, 0)   -- below the cast speed floor
             step(0.016)
             local at = exploded_at()
             assert(at.x == 2 and at.z == 0.1)
+            assert(impact_logs[#impact_logs]:find('reason=stopped', 1, true))
         """)
 
     def test_explosion_without_contact_uses_the_body_position(self):
@@ -253,6 +263,60 @@ class RocketImpactTests(unittest.TestCase):
             assert(at.x == 1 and at.y == 2 and at.z == 3)
             assert(not rocket:rocket_explode(Vector3(0, 0, 0)))
             assert(#rpcs == 1)
+        """)
+
+    def test_near_miss_afro_volume_does_not_detonate(self):
+        lua = runtime()
+        lua.execute("""
+            local afro = { unit = player_unit }
+            player_unit.afro = afro
+            planes[1] = { axis = 'x', value = 4.8, unit = player_unit, filter = ENEMY, actor = afro }
+            step(0.2)
+            body.position = Vector3(4.6, 0, 1)
+            step(0.016)
+            assert(#rpcs == 0)
+        """)
+
+    def test_contact_the_casts_cannot_see_still_detonates_on_the_next_frame(self):
+        lua = runtime()
+        lua.execute("""
+            -- No plane at all: only the velocity can reveal the bounce.
+            body.position = Vector3(0, 0, 1)
+            body.velocity = Vector3(10, 0, -5)
+            step(0.2)
+            body.velocity = Vector3(10, 0, -5 - 9.82 * 0.016)
+            step(0.016)
+            assert(#rpcs == 0, 'gravity alone is ballistic')
+            body.position = Vector3(0.2, 0, 0.1)
+            body.velocity = Vector3(7, 0, 2)
+            step(0.016)
+            local at = exploded_at()
+            assert(at.x == 0.2 and at.z == 0.1)
+            assert(impact_logs[#impact_logs]:find('reason=deviation', 1, true))
+        """)
+
+    def test_long_frames_of_pure_ballistic_flight_never_trigger_the_deviation(self):
+        lua = runtime()
+        lua.execute("""
+            body.velocity = Vector3(12, 0, 8)
+            step(0.2)
+            for i = 1, 20 do
+                local dt = (i % 3 == 0) and 0.1 or 0.016
+                body.velocity = body.velocity + Vector3(0, 0, -9.82 * dt)
+                body.position = body.position + body.velocity * dt
+                step(dt)
+            end
+            assert(#rpcs == 0 and not rocket.exploded)
+        """)
+
+    def test_every_detonation_logs_its_reason(self):
+        lua = runtime()
+        lua.execute("""
+            planes[1] = { axis = 'x', value = 5, unit = wall_unit }
+            step(0.2)
+            body.position = Vector3(4.6, 0, 1)
+            step(0.016)
+            assert(impact_logs[#impact_logs]:find('reason=contact', 1, true))
         """)
 
 

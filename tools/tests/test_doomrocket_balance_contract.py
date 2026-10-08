@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Issue #33 balance contracts, executed from the production bootstrap in Lua 5.1.
 
-Covers the explosion knockback (no catapult, distance-scaled push) and the 0.6x
+Covers the explosion knockback (owner-routed catapult without the forced
+camera turn, distance-scaled) and the 0.6x
 rocket damage against AI. The knockback, explosion and hook blocks are executed
 as written in doomrocket.lua with engine calls stubbed. Not an in-game test.
 """
@@ -24,7 +25,7 @@ def block(pattern):
     return match.group()
 
 
-KNOCKBACK = block(r"^local KNOCKBACK_NEAR_SPEED = .*?^end$")
+KNOCKBACK = block(r"^local KNOCKBACK_NEAR_SPEED = .*?(?=^--setup rocket explosion template)")
 EXPLOSION = block(r'^ExplosionTemplates\["doomrocket_explosion"\] = \{.*?^\}')
 DAMAGE_HOOK = block(r"^local DOOMROCKET_DAMAGE_SOURCE = .*?^end\)")
 
@@ -32,11 +33,18 @@ DAMAGE_HOOK = block(r"^local DOOMROCKET_DAMAGE_SOURCE = .*?^end\)")
 def runtime():
     lua = LuaRuntime(unpack_returned_tuples=True)
     lua.execute("""
-        mod = { hooks = {} }
+        mod = { hooks = {}, rpcs = {}, sent = {} }
         function mod._doomrocket_select_impact_event() return 'impact' end
         function mod:hook(object, method, handler)
             assert(not self.hooks[method], 'duplicate hook ' .. method)
             self.hooks[method] = { object = object, handler = handler }
+        end
+        function mod:network_register(name, handler) self.rpcs[name] = handler end
+        function mod:network_send(name, recipient, ...) self.sent[#self.sent + 1] = { name = name, to = recipient, args = { ... } } end
+        function mod:pcall(fn, ...)
+            local ok, err = pcall(fn, ...)
+            if not ok then self.last_error = err end
+            return ok
         end
         ExplosionTemplates = {}
         DamageUtils = { calculate_damage = function() error('call through the hook') end }
@@ -80,26 +88,48 @@ def runtime():
             if max < value then return max elseif value < min then return min end
             return value
         end
-        pushes = {}
-        local function player(x, y, disabled)
+        catapults = {}
+        forced_looks = 0
+        function original_force_look() forced_looks = forced_looks + 1 end
+        local function force_look(first_person, rot)
+            return mod.hooks.force_look_rotation.handler(original_force_look, first_person, rot)
+        end
+        local function player(x, y, disabled, remote)
             local unit = { player = true }
-            unit.status = { is_disabled = function() return disabled end }
-            unit.locomotion = { add_external_velocity = function(_, velocity, upper)
-                pushes[#pushes + 1] = { unit = unit, velocity = velocity, upper = upper }
-            end }
+            next_go_id = (next_go_id or 40) + 1
+            unit.go_id = next_go_id
+            unit.owner = { remote = remote or false, network_id = function() return 'peer_' .. unit.go_id end }
+            unit.status = {
+                is_husk = false,
+                is_disabled = function() return disabled end,
+                -- Vanilla GenericStatusExtension.set_catapulted: flail state + forced look.
+                set_catapulted = function(self, catapulted, velocity)
+                    if fail_catapult then error('boom') end
+                    catapults[#catapults + 1] = { unit = unit, catapulted = catapulted, velocity = velocity }
+                    force_look({}, 'rot')
+                end,
+            }
             unit.position = vec(x, y, 0)
             return unit
         end
         DamageUtils.is_player_unit = function(unit) return unit.player == true end
         ScriptUnit = { has_extension = function(unit, system)
-            return system == 'status_system' and unit.status or system == 'locomotion_system' and unit.locomotion or nil
+            return system == 'status_system' and unit.status or nil
         end }
         POSITION_LOOKUP = setmetatable({}, { __index = function(_, unit) return unit.position end })
+        storage = {}
+        Managers = {
+            player = { unit_owner = function(_, unit) return unit.owner end },
+            state = {
+                network = { unit_game_object_id = function(_, unit) storage[unit.go_id] = unit; return unit.go_id end },
+                unit_storage = { unit = function(_, id) return storage[id] end },
+            },
+        }
         make_player = player
         function knock(unit, impact, attacker)
             local data = ExplosionTemplates.doomrocket_explosion.explosion
             data.server_hit_func(unit, 'skaven_doomrocket', attacker or { position = vec(-10, 0, 0) }, impact or vec(0, 0, 0), data)
-            return pushes[#pushes]
+            return catapults[#catapults]
         end
         function hooked(target, source)
             return mod.hooks.calculate_damage.handler(native, 'output', target, 'attacker',
@@ -113,48 +143,83 @@ def runtime():
 
 
 class BalanceContractTests(unittest.TestCase):
-    def test_explosion_no_longer_catapults_players(self):
+    def test_template_carries_no_native_catapult_or_push(self):
         explosion = runtime().eval('ExplosionTemplates.doomrocket_explosion.explosion')
         self.assertFalse(explosion["catapult_players"])
         self.assertIsNone(explosion["catapult_force"])
         # Vanilla's push falloff clamps to 1 m/s whenever player_push_speed > 1.
         self.assertIsNone(explosion["player_push_speed"])
+        self.assertIsNotNone(explosion["server_hit_func"])
         self.assertEqual((explosion["max_damage_radius"], explosion["radius"]), (1.5, 6))
 
-    def test_knockback_falls_off_linearly_with_lift(self):
+    def test_catapult_throw_and_lift_fall_off_linearly(self):
         lua = runtime()
-        for distance, speed in ((0.5, 10), (1.5, 10), (3.75, 6), (6, 2), (9, 2)):
+        for distance, speed, lift in ((0.5, 10, 5), (1.5, 10, 5), (3.75, 6.5, 3.75), (6, 3, 2.5), (9, 3, 2.5)):
             with self.subTest(distance=distance):
                 lua.execute(f"""
-                    local push = knock(make_player({distance}, 0, false))
-                    local v = push.velocity
+                    local c = knock(make_player({distance}, 0, false))
+                    assert(c.catapulted == true)
+                    local v = c.velocity
                     assert(math.abs(v.x - {speed}) < 1e-9 and math.abs(v.y) < 1e-9, v.x)
-                    assert(math.abs(v.z - {speed} * 0.4) < 1e-9, v.z)
-                    assert(push.upper == nil)
+                    assert(math.abs(v.z - {lift}) < 1e-9, v.z)
                 """)
 
-    def test_knockback_points_away_from_the_impact_in_the_horizontal_plane(self):
+    def test_the_throw_never_forces_the_camera_but_other_catapults_still_do(self):
         runtime().execute("""
-            local push = knock(make_player(3, 4, false), Vector3(0, 0, 2))
-            local v = push.velocity
-            -- 5 m away: speed 10 - 8 * (3.5 / 4.5); direction (0.6, 0.8).
-            local speed = 10 - 8 * (3.5 / 4.5)
-            assert(math.abs(v.x - 0.6 * speed) < 1e-9 and math.abs(v.y - 0.8 * speed) < 1e-9)
-            assert(math.abs(v.z - 0.4 * speed) < 1e-9)
+            knock(make_player(2, 0, false))
+            assert(#catapults == 1 and forced_looks == 0, 'doomrocket throw kept the camera')
+            -- A vanilla catapult (rat ogre, troll) outside our call is untouched.
+            mod.hooks.force_look_rotation.handler(original_force_look, {}, 'rot')
+            assert(forced_looks == 1)
+            assert(mod.hooks.force_look_rotation.object == 'PlayerUnitFirstPerson')
         """)
 
-    def test_knockback_skips_disabled_players_and_ai(self):
+    def test_remote_players_are_thrown_by_their_own_peer(self):
+        runtime().execute("""
+            local victim = make_player(3, 4, false, true)
+            knock(victim, Vector3(0, 0, 2))
+            assert(#catapults == 0, 'the host never catapults a remote husk')
+            local sent = mod.sent[1]
+            assert(sent.name == 'rpc_doomrocket_catapult' and sent.to == 'peer_' .. victim.go_id)
+            assert(sent.args[1] == victim.go_id)
+            -- 5 m away: speed 10 - 7 * (3.5 / 4.5) along (0.6, 0.8); lift 5 - 2.5 * (3.5 / 4.5).
+            local speed, lift = 10 - 7 * (3.5 / 4.5), 5 - 2.5 * (3.5 / 4.5)
+            assert(math.abs(sent.args[2] - 0.6 * speed) < 1e-9 and math.abs(sent.args[3] - 0.8 * speed) < 1e-9)
+            assert(math.abs(sent.args[4] - lift) < 1e-9)
+            -- The owning peer applies it with the same camera guard.
+            mod.rpcs.rpc_doomrocket_catapult('host', unpack(sent.args))
+            assert(#catapults == 1 and catapults[1].unit == victim and forced_looks == 0)
+        """)
+
+    def test_disabled_husk_ai_and_ownerless_units_are_not_thrown(self):
         runtime().execute("""
             knock(make_player(1, 0, true))
             local data = ExplosionTemplates.doomrocket_explosion.explosion
             data.server_hit_func({ position = Vector3(1, 0, 0) }, 'skaven_doomrocket', {}, Vector3(0, 0, 0), data)
-            assert(#pushes == 0)
+            local orphan = make_player(1, 0, false); orphan.owner = nil
+            knock(orphan)
+            local husk = make_player(1, 0, false); husk.status.is_husk = true
+            assert(mod._doomrocket_catapult_local(husk, Vector3(1, 0, 0)) == false)
+            mod.rpcs.rpc_doomrocket_catapult('host', 999, 1, 2, 3)
+            storage[husk.go_id] = make_player(1, 0, false)
+            mod.rpcs.rpc_doomrocket_catapult('host', husk.go_id, 'x', 2, 3)
+            assert(#catapults == 0 and #mod.sent == 0)
         """)
 
-    def test_direct_hit_pushes_away_from_the_shooter(self):
+    def test_direct_hit_throws_away_from_the_shooter(self):
         runtime().execute("""
-            local push = knock(make_player(2, 0, false), Vector3(2, 0, 0), { position = Vector3(-8, 0, 0) })
-            assert(math.abs(push.velocity.x - 10) < 1e-9 and push.velocity.y == 0)
+            local c = knock(make_player(2, 0, false), Vector3(2, 0, 0), { position = Vector3(-8, 0, 0) })
+            assert(math.abs(c.velocity.x - 10) < 1e-9 and c.velocity.y == 0)
+        """)
+
+    def test_a_failing_catapult_releases_the_camera_guard(self):
+        runtime().execute("""
+            fail_catapult = true
+            assert(mod._doomrocket_catapult_local(make_player(1, 0, false), Vector3(1, 0, 0)) == false)
+            assert(mod.last_error)
+            fail_catapult = false
+            mod.hooks.force_look_rotation.handler(original_force_look, {}, 'rot')
+            assert(forced_looks == 1, 'guard must not stay set after an error')
         """)
 
     def test_rocket_damage_to_ai_is_sixty_percent(self):
