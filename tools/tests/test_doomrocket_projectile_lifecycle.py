@@ -220,6 +220,7 @@ class DoomrocketProjectileLifecycleTests(unittest.TestCase):
         self.assertRegex(
             self.update,
             r"if\s+self\.time_pass\s*>\s*0\.35\s+and\s+speed\s*<\s*1\.5\s+then\s*"
+            r"(?:self:_log_impact\(\"stopped\",\s*speed\)\s*)?"
             r"self:rocket_explode\(\)\s*return\s*end",
             "an impact transition must not mutate projectile state afterward",
         )

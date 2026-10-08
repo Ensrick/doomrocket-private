@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.1.84-dev - tester follow-ups for #33 and #15
+
+Crunch's v0.1.81-v0.1.83 test: aim time, breakpoints, friendly fire and the
+portrait frame worked; the knockback lost its flailing throw, rockets still
+slid before exploding, and the crystal flame never showed.
+
+- **Knockback (#33):** players are thrown with the vanilla catapult again (the
+  flailing airborne state), 10 m/s out and 5 m/s up within 1.5 m of the impact
+  falling linearly to 3 and 2.5 m/s at the 6 m edge, without the camera grab.
+  Vanilla routes a catapult to the victim's own peer, whose `set_catapulted`
+  also force-turns the camera along the throw for 0.3 s (`force_look_rotation`);
+  the catapulted state itself keeps look input. The host now sends the throw to
+  the owning peer through a mod RPC, which applies it with only that forced
+  turn skipped. Other catapults (Rat Ogre, Troll) are untouched.
+- **Impacts (#33):** a velocity-deviation detector detonates the rocket on the
+  first frame after any physical contact: its velocity leaving last frame's
+  velocity plus gravity by more than 1.5 m/s (plus 5 m/s per second of frame
+  time) means the physics step resolved a hit, whatever the collision filters
+  see. Casts now also use vanilla's static-geometry projectile filter and skip
+  near-miss `c_afro` volumes. In the v0.1.83 log most rockets detonated 0.25 to
+  0.54 s after their predicted arrival, through the slide-to-stop fallback.
+  Every detonation now logs `[doomrocket:IMPACT] reason=contact|deviation|stopped`.
+- **Crystal flame (#15):** the Warpfire nozzle effect was created on every
+  Engineer but never visible. The crystal now carries the Warpfire Thrower's
+  persistent green ground fire (`fx/chr_warp_fire_flamethrower_remains_01`),
+  sized through its vanilla size variable to 0.06 m radius, 0.2 m height, with
+  its rising axis along the crystal. TEST chat command
+  `/warlock_crystal_flame <radius> <height>` resizes it live on that peer.
+
 ## v0.1.83-dev - crystal flame candidate (#15)
 
 - Adds a persistent warpfire flame to the crystal under the launcher barrel:

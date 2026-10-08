@@ -345,11 +345,16 @@ class DoomrocketShoveWiringTests(unittest.TestCase):
                 b"_doomrocket_knockback_player",
                 b"server_hit_func",
                 b"calculate_damage",
+                # v0.1.84: owner-routed catapult without the forced camera turn.
+                b"rpc_doomrocket_catapult",
+                b"force_look_rotation",
             ),
             "scripts/mods/doomrocket/extensions/projectile_rocket": (
-                # #33 contact detonation.
+                # #33 contact detonation; v0.1.84 velocity-deviation detector.
                 b"_find_impact",
                 b"filter_enemy_ray_projectile",
+                b"filter_player_ray_projectile_static_only",
+                b"_left_ballistic_path",
             ),
             "scripts/mods/doomrocket/breeds/skaven_doomrocket": (
                 # #33: Ratling health/armor come from the clone; only the

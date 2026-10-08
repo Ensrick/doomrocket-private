@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Issue #15: one persistent warpfire flame linked to the launcher crystal.
 
+v0.1.84: the Warpfire ground fire, sized through its vanilla size variable,
+with its rising +Z laid along the crystal; plus a TEST resize command.
+
 Executes the production controller in Lua 5.1 against strict engine lifetime
 doubles (the backpack smoke suite's boundary): handle and package ownership,
 start/stop/drop/death/world-release ordering. A deleted launcher recycles its
@@ -63,7 +66,7 @@ function wm:has_world(name) return self._worlds[name] ~= nil end
 function wm:world(name) assert(self._worlds[name]); return self._worlds[name] end
 package_name='resource_packages/breeds/skaven_warpfire_thrower'
 package_reference='doomrocket_crystal_flame'
-effect_name='fx/wpnfx_warp_fire_nozzle'
+effect_name='fx/chr_warp_fire_flamethrower_remains_01'
 package_available=true; particles_available=true; loaded=true
 refs={global=3}
 pm={}
@@ -115,13 +118,23 @@ World={
   assert(not effects[id].foreign,'recycled foreign particle destroyed')
   effects[id]=nil; events.destroyed=events.destroyed+1
  end,
+ find_particles_variable=function(w,name,variable)
+  check_world(w); assert(name==effect_name and variable=='warp_fire_flamethrower_remains_size')
+  return 3
+ end,
+ set_particles_variable=function(w,id,variable,value)
+  check_world(w); assert(effects[id] and not effects[id].foreign and variable==3)
+  effects[id].size=value; events.sized=(events.sized or 0)+1
+ end,
 }
 ScriptWorld={create_particles_linked=function(w,name,u,node,policy,pose)
  local id=World.create_particles(w,name)
  World.link_particles(w,id,u,node,pose or Matrix4x4.identity(),policy)
  return id
 end}
-mod={}
+mod={commands={},echoes={}}
+function mod:command(name,description,fn) self.commands[name]=fn end
+function mod:echo(message,...) self.echoes[#self.echoes+1]=string.format(message,...) end
 function get_mod(name) assert(name=='doomrocket'); return mod end
 function delete_weapon(w)
  w=w or weapon
@@ -152,8 +165,12 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             assert(start()); assert(start())
             assert(events.created==1 and events.linked==1 and events.loads==1)
             local a, p = mod._doomrocket_crystal_anchor, events.last_pose
-            assert(p.x.x==a.x_axis[1] and p.y.y==a.y_axis[2] and p.z.z==a.z_axis[3])
+            -- Effect +Z rises along the crystal's mount-to-tip axis (anchor +X).
+            assert(p.z.x==a.x_axis[1] and p.z.y==a.x_axis[2] and p.z.z==a.x_axis[3])
+            assert(p.x.x==a.y_axis[1] and p.y.x==a.z_axis[1])
             assert(p.p.x==a.position[1] and p.p.y==a.position[2] and p.p.z==a.position[3])
+            local size = effects[1].size
+            assert(events.sized==1 and size.x==0.06 and size.y==0.2 and size.z==0)
         """)
 
     def test_stop_destroys_its_own_flame_and_releases_the_package_on_reset(self):
@@ -226,6 +243,44 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             local replacement=new_weapon()
             assert(start(owner,new_inventory(owner,replacement)))
             assert(events.created==2 and events.destroyed==1 and count()==1)
+        """)
+
+
+class CrystalFlameTuningTests(unittest.TestCase):
+    def test_resize_command_updates_live_flames_and_later_ones(self):
+        lua = runtime()
+        lua.execute("""
+            assert(start())
+            mod.commands.warlock_crystal_flame('0.1', '0.35')
+            assert(effects[1].size.x==0.1 and effects[1].size.y==0.35)
+            assert(mod.echoes[#mod.echoes]:find('radius 0.100', 1, true))
+            mod._stop_warlock_crystal_flame(owner,'test')
+            owner=new_owner(); weapon=new_weapon(); inventory=new_inventory(owner,weapon)
+            assert(start())
+            local latest
+            for _, e in pairs(effects) do latest = e end
+            assert(latest.size.x==0.1 and latest.size.y==0.35)
+        """)
+
+    def test_bad_or_extreme_sizes_are_rejected_or_clamped(self):
+        lua = runtime()
+        lua.execute("""
+            assert(start())
+            mod.commands.warlock_crystal_flame('big')
+            assert(effects[1].size.x==0.06, 'non-numbers leave the size alone')
+            assert(mod.echoes[#mod.echoes]:find('Usage', 1, true))
+            mod.commands.warlock_crystal_flame('-1', '50')
+            assert(effects[1].size.x==0.01 and effects[1].size.y==2)
+        """)
+
+    def test_resize_skips_flames_in_a_releasing_world(self):
+        lua = runtime()
+        lua.execute("""
+            assert(start())
+            mod._release_warlock_crystal_flame_world(world)
+            local before = events.sized
+            assert(mod._set_warlock_crystal_flame_size(0.2, 0.2))
+            assert(events.sized==before)
         """)
 
 

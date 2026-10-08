@@ -69,3 +69,20 @@ current clean build and the fixture's reviewed unit hash.
 Effect choice is still a candidate: the nozzle emitter's look, size and
 direction on the crystal need an in-game verdict, and a different effect or a
 rotated frame may be needed.
+
+## v0.1.84 effect change (2026-10-07)
+
+Crunch's v0.1.83 report: no flame visible. The log shows the nozzle effect was
+created on every Engineer (`[doomrocket:CRYSTAL] phase=start`) and stopped at
+death, and the chimney smoke, which uses the same 0.01-scale link convention on
+a scale-100 node, is accepted in game, so the effect itself is the suspect: the
+nozzle emitter has no Lua-side controls in vanilla and is driven by the Warpfire
+gun's unit flow.
+
+v0.1.84 uses `fx/chr_warp_fire_flamethrower_remains_01`, the Warpfire
+Thrower's persistent ground fire, which vanilla sizes through the
+`warp_fire_flamethrower_remains_size` particle variable (radius, height; the
+damage blob starts at 0.6, 1.2). The pose permutes the anchor to (y, z, x) so
+the effect's rising +Z runs along the crystal. Default size 0.06 x 0.2 m; the
+TEST command `/warlock_crystal_flame <radius> <height>` resizes live flames for
+tuning.

@@ -4,9 +4,15 @@ local mod = get_mod("doomrocket")
 -- Lifecycle follows the accepted backpack smoke: one linked effect per live
 -- carried launcher on each peer, never re-created per frame, stopped before
 -- death, drop or inventory teardown, and forgotten before world release.
--- The Warpfire Thrower nozzle flame emits along its local +X; the anchor's +X
--- runs from the crystal's mounting cap to its tip.
-local EFFECT = "fx/wpnfx_warp_fire_nozzle"
+-- v0.1.83 linked the Warpfire nozzle effect; it was created on every Engineer
+-- but Crunch saw no flame. This uses the Warpfire Thrower's persistent green
+-- ground fire instead, sized through its own vanilla size variable
+-- (DamageBlobExtension starts it at radius 0.6, height 1.2 and grows it). Its
+-- flames rise along local +Z, so +Z is laid along the crystal, mount to tip.
+local EFFECT = "fx/chr_warp_fire_flamethrower_remains_01"
+local SIZE_VARIABLE = "warp_fire_flamethrower_remains_size"
+local DEFAULT_SIZE = { 0.06, 0.2 }
+local MIN_SIZE, MAX_SIZE = 0.01, 2
 local PACKAGE = "resource_packages/breeds/skaven_warpfire_thrower"
 local PACKAGE_REFERENCE = "doomrocket_crystal_flame"
 local WEAPON = "units/rocket/pRocketLauncher"
@@ -21,6 +27,7 @@ local state = mod._doomrocket_crystal_flame_state or {
 	weapons = {},
 	releasing_worlds = {},
 	unknown_worlds = {},
+	size = { DEFAULT_SIZE[1], DEFAULT_SIZE[2] },
 }
 mod._doomrocket_crystal_flame_state = state
 
@@ -125,10 +132,12 @@ local function anchor_pose(anchor)
 		return nil
 	end
 
+	-- Cyclic (y, z, x) keeps the frame right-handed and puts the crystal's
+	-- mount-to-tip axis on the effect's rising +Z.
 	local pose = Matrix4x4.identity()
-	Matrix4x4.set_x(pose, Vector3(unpack(anchor.x_axis)))
-	Matrix4x4.set_y(pose, Vector3(unpack(anchor.y_axis)))
-	Matrix4x4.set_z(pose, Vector3(unpack(anchor.z_axis)))
+	Matrix4x4.set_x(pose, Vector3(unpack(anchor.y_axis)))
+	Matrix4x4.set_y(pose, Vector3(unpack(anchor.z_axis)))
+	Matrix4x4.set_z(pose, Vector3(unpack(anchor.x_axis)))
 	Matrix4x4.set_translation(pose, Vector3(unpack(anchor.position)))
 	return pose
 end
@@ -149,6 +158,12 @@ local function ensure_resource()
 	state.owns_package = true
 	return manager:has_loaded(PACKAGE, PACKAGE_REFERENCE)
 		and Application.can_get("particles", EFFECT)
+end
+
+local function apply_size(entry)
+	local variable = World.find_particles_variable(entry.world, EFFECT, SIZE_VARIABLE)
+
+	World.set_particles_variable(entry.world, entry.id, variable, Vector3(state.size[1], state.size[2], 0))
 end
 
 local function carried_launcher(owner, inventory, world)
@@ -206,9 +221,13 @@ mod._start_warlock_crystal_flame = function (owner, inventory)
 		return false
 	end
 
-	state.entries[owner] = { weapon = weapon, world = world, id = id }
+	local entry = { weapon = weapon, world = world, id = id }
+
+	state.entries[owner] = entry
 	state.weapons[weapon] = owner
-	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s", EFFECT, anchor.node)
+	apply_size(entry)
+	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s radius=%.3f height=%.3f",
+		EFFECT, anchor.node, state.size[1], state.size[2])
 	return true
 end
 
@@ -253,6 +272,35 @@ mod._reset_warlock_crystal_flame = function (reason)
 
 	release_package_if_safe()
 end
+
+-- TEST tuning: resize every live flame on this peer and all later ones.
+mod._set_warlock_crystal_flame_size = function (radius, height)
+	radius, height = tonumber(radius), tonumber(height)
+
+	if not radius or not height or radius ~= radius or height ~= height then
+		return false
+	end
+
+	state.size[1] = math.min(math.max(radius, MIN_SIZE), MAX_SIZE)
+	state.size[2] = math.min(math.max(height, MIN_SIZE), MAX_SIZE)
+
+	for _, entry in pairs(state.entries) do
+		if not state.releasing_worlds[entry.world] and known_world(entry.world) and Unit.alive(entry.weapon) then
+			apply_size(entry)
+		end
+	end
+
+	printf("[doomrocket:CRYSTAL] phase=resize radius=%.3f height=%.3f", state.size[1], state.size[2])
+	return true
+end
+
+mod:command("warlock_crystal_flame", "TEST: crystal flame size in metres: /warlock_crystal_flame <radius> <height>", function (radius, height)
+	if mod._set_warlock_crystal_flame_size(radius, height) then
+		mod:echo(string.format("Crystal flame size: radius %.3f m, height %.3f m", state.size[1], state.size[2]))
+	else
+		mod:echo("Usage: /warlock_crystal_flame <radius> <height>   (current: %.3f %.3f)", state.size[1], state.size[2])
+	end
+end)
 
 mod._release_warlock_crystal_flame_world = function (world)
 	-- Called BEFORE Application.release_world: the engine frees every particle,

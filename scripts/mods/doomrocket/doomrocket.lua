@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.83-dev"
+local MOD_VERSION = "0.1.84-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -65,27 +65,68 @@ mod:dofile("scripts/mods/doomrocket/rpc")
 UISettings.breed_textures['skaven_doomrocket'] = 'unit_frame_portrait_enemy_doomrocket'
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_portrait_frame")
 
--- #33: knock players back without taking their camera. Vanilla catapulting forces
--- the victim's camera to face the throw and hides their weapons until they land.
--- Vanilla's explosion push cannot replace it as configured: its falloff,
--- math.auto_lerp(max_damage_radius, radius, push, 1, d), clamps to [push, 1],
--- an empty range for any push above 1, so inside the blast it returns 1 m/s.
--- Push through the same external-velocity path (it RPCs remote players), scaled
--- linearly from the old catapult speed at the blast centre to a nudge at its edge.
-local KNOCKBACK_NEAR_SPEED = 10 -- m/s at max_damage_radius or closer
-local KNOCKBACK_FAR_SPEED = 2 -- m/s at the blast edge
-local KNOCKBACK_LIFT = 0.4 -- upward speed per unit of horizontal speed
+-- #33: throw players into the air with the native flail, without the camera grab.
+-- Vanilla StatusUtils.set_catapulted_network routes a catapult to the victim's own
+-- peer, whose GenericStatusExtension.set_catapulted enters the flailing catapulted
+-- state and also force-turns the camera along the throw (force_look_rotation, a
+-- 0.3 s lerp that ignores look input). The catapulted state itself keeps look
+-- input. Route the same call through a mod RPC so the owning peer skips only that
+-- forced turn. Vanilla's own explosion push cannot carry the knockback either:
+-- math.auto_lerp(max_damage_radius, radius, push, 1, d) clamps to [push, 1], an
+-- empty range for any push above 1, so inside the blast it returns 1 m/s.
+local KNOCKBACK_NEAR_SPEED = 10 -- m/s horizontal within max_damage_radius
+local KNOCKBACK_FAR_SPEED = 3 -- m/s horizontal at the blast edge
+local KNOCKBACK_NEAR_LIFT = 5 -- m/s upward within max_damage_radius
+local KNOCKBACK_FAR_LIFT = 2.5 -- m/s upward at the blast edge
+
+local suppress_catapult_look = false
+
+mod:hook("PlayerUnitFirstPerson", "force_look_rotation", function (func, self, ...)
+	if suppress_catapult_look then
+		return
+	end
+
+	return func(self, ...)
+end)
+
+-- Runs on the peer that owns the player unit (or the host for its own player/bots).
+mod._doomrocket_catapult_local = function (unit, velocity)
+	local status_extension = unit and Unit.alive(unit) and ScriptUnit.has_extension(unit, "status_system")
+
+	if not status_extension or status_extension.is_husk or status_extension:is_disabled() then
+		return false
+	end
+
+	suppress_catapult_look = true
+
+	local ok = mod:pcall(status_extension.set_catapulted, status_extension, true, velocity)
+
+	suppress_catapult_look = false
+
+	return ok
+end
+
+mod:network_register("rpc_doomrocket_catapult", function (sender, go_id, x, y, z)
+	local unit_storage = Managers.state.unit_storage
+	local unit = unit_storage and type(go_id) == "number" and unit_storage:unit(go_id)
+
+	if not unit or type(x) ~= "number" or type(y) ~= "number" or type(z) ~= "number" then
+		return
+	end
+
+	mod._doomrocket_catapult_local(unit, Vector3(x, y, z))
+end)
 
 mod._doomrocket_knockback_player = function (hit_unit, damage_source, attacker_unit, impact_position, explosion_data)
 	if not DamageUtils.is_player_unit(hit_unit) then
 		return
 	end
 
+	local owner = Managers.player:unit_owner(hit_unit)
 	local status_extension = ScriptUnit.has_extension(hit_unit, "status_system")
-	local locomotion_extension = ScriptUnit.has_extension(hit_unit, "locomotion_system")
 	local hit_position = POSITION_LOOKUP[hit_unit]
 
-	if not status_extension or status_extension:is_disabled() or not locomotion_extension or not hit_position then
+	if not owner or not status_extension or status_extension:is_disabled() or not hit_position then
 		return
 	end
 
@@ -100,8 +141,20 @@ mod._doomrocket_knockback_player = function (hit_unit, damage_source, attacker_u
 	local inner_radius = explosion_data.max_damage_radius
 	local falloff = math.clamp((distance - inner_radius) / (explosion_data.radius - inner_radius), 0, 1)
 	local speed = KNOCKBACK_NEAR_SPEED + (KNOCKBACK_FAR_SPEED - KNOCKBACK_NEAR_SPEED) * falloff
+	local lift = KNOCKBACK_NEAR_LIFT + (KNOCKBACK_FAR_LIFT - KNOCKBACK_NEAR_LIFT) * falloff
+	local velocity = direction * speed + Vector3(0, 0, lift)
 
-	locomotion_extension:add_external_velocity(direction * speed + Vector3(0, 0, speed * KNOCKBACK_LIFT))
+	if not owner.remote then
+		mod._doomrocket_catapult_local(hit_unit, velocity)
+
+		return
+	end
+
+	local go_id = Managers.state.network:unit_game_object_id(hit_unit)
+
+	if go_id then
+		mod:network_send("rpc_doomrocket_catapult", owner:network_id(), go_id, velocity.x, velocity.y, velocity.z)
+	end
 end
 
 --setup rocket explosion template
@@ -120,8 +173,8 @@ ExplosionTemplates["doomrocket_explosion"] = {
 		damage_profile = "warpfire_thrower_explosion",
 		effect_name = "fx/chr_warp_fire_explosion_01",
 		damage_type = "grenade",
-		-- #33: no catapult and no native push; knockback comes from server_hit_func
-		-- (the old catapult threw at 10 m/s anywhere in the radius).
+		-- #33: no template catapult or native push; server_hit_func throws each player
+		-- with a distance-scaled catapult that leaves their camera alone.
 		server_hit_func = mod._doomrocket_knockback_player,
 		dont_rotate_fx = true,
 		allow_friendly_fire_override = true,
