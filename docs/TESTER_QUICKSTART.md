@@ -1,16 +1,13 @@
 # Development TEST quickstart
 
-[v0.1.83-dev is published](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
-It adds a candidate crystal flame, ready for a visual verdict under
-[#15](https://github.com/Ensrick/doomrocket-private/issues/15). v0.1.82-dev added the kill-feed
-portrait frame, ready for a visual check under
-[#30](https://github.com/Ensrick/doomrocket-private/issues/30). v0.1.81-dev applied the #33 balance plan, so [#33](https://github.com/Ensrick/doomrocket-private/issues/33)
-and the longer aim in [#16](https://github.com/Ensrick/doomrocket-private/issues/16) are ready for
-a solo check: report how the 2 s aim, the knockback and contact detonation feel.
-The Dutch Spice arena fix [#35](https://github.com/Ensrick/doomrocket-private/issues/35)
-(v0.1.80-dev) and the hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3)
-also await written verdicts. Hand/weapon sway remains open under
-[#28](https://github.com/Ensrick/doomrocket-private/issues/28).
+[v0.1.84-dev is published](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
+It restores the flailing knockback throw without the camera grab and detonates
+rockets on any contact ([#33](https://github.com/Ensrick/doomrocket-private/issues/33)),
+and replaces the crystal flame ([#15](https://github.com/Ensrick/doomrocket-private/issues/15));
+type `/warlock_crystal_flame <radius> <height>` in chat to resize it. The Dutch
+Spice arena fix [#35](https://github.com/Ensrick/doomrocket-private/issues/35) and the hose rest
+shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3) also await written verdicts.
+Hand/weapon sway remains open under [#28](https://github.com/Ensrick/doomrocket-private/issues/28).
 See [current status](../PROJECT_STATUS.md) and the latest issue instructions.
 
 Use this short path for an issue labeled `ready-for-testing`:
@@ -22,7 +19,7 @@ Setup
 [ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
 [ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
 [ ] Enable the TEST item only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.83-dev in your new console log.
+[ ] Confirm [doomrocket:LOAD] v0.1.84-dev in your new console log.
 [ ] If the version differs, stop and report the mismatch.
 
 Test and report
@@ -42,13 +39,13 @@ session in advance.
 Do not retest blocked [sound pass #5](https://github.com/Ensrick/doomrocket-private/issues/5),
 [near-range ground shots #6](https://github.com/Ensrick/doomrocket-private/issues/6),
 or [hand/weapon sway #28](https://github.com/Ensrick/doomrocket-private/issues/28)
-on v0.1.83-dev. Their issue records name the engineering needed to unblock them.
+on v0.1.84-dev. Their issue records name the engineering needed to unblock them.
 
 Known hose limits: at most eight nearby hoses within 40 m are simulated, and
 there is no body, wall, or self-collision. A clean log does not override a
 tester's visual report. Issue attachments and logs are public; review them
 before uploading.
 
-Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.83-dev`.
+Maintainer readback: `py -3 tools/analyze_hose_log.py <log> --expected-version 0.1.84-dev`.
 The analyzer reports controller activity, not visible pixels; retain the log
 and written observation together.

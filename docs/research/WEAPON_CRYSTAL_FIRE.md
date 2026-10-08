@@ -75,9 +75,9 @@ rotated frame may be needed.
 Crunch's v0.1.83 report: no flame visible. The log shows the nozzle effect was
 created on every Engineer (`[doomrocket:CRYSTAL] phase=start`) and stopped at
 death, and the chimney smoke, which uses the same 0.01-scale link convention on
-a scale-100 node, is accepted in game, so the effect itself is the suspect: the
-nozzle emitter has no Lua-side controls in vanilla and is driven by the Warpfire
-gun's unit flow.
+a scale-100 node, is accepted in game, so the effect itself is the suspect: vanilla
+never creates the nozzle emitter from Lua (presumably the Warpfire gun's unit
+flow drives it, unverified), so it may need inputs the mod cannot supply.
 
 v0.1.84 uses `fx/chr_warp_fire_flamethrower_remains_01`, the Warpfire
 Thrower's persistent ground fire, which vanilla sizes through the
