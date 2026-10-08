@@ -6,13 +6,20 @@ is the live work queue; this page is a short re-entry map.
 | Question | Current answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Warlock Engineer TEST v0.1.83-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-07 18:46 UTC (96,333,317 bytes; content handle 8357702363523623694). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.83-dev) |
-| Next TEST work | The Dutch Spice Into the Nest arena fix in [#35](https://github.com/Ensrick/doomrocket-private/issues/35) is **ready for a solo check**. The balance pass for [#33](https://github.com/Ensrick/doomrocket-private/issues/33) and the 2 s aim floor for [#16](https://github.com/Ensrick/doomrocket-private/issues/16) are **ready for a solo check**. The firmer hose rest shape in [#3](https://github.com/Ensrick/doomrocket-private/issues/3) is **ready for a solo visual verdict**. Hand/weapon sway [#28](https://github.com/Ensrick/doomrocket-private/issues/28), near-range ground shots [#6](https://github.com/Ensrick/doomrocket-private/issues/6), sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5), need engineering. The portrait frame [#30](https://github.com/Ensrick/doomrocket-private/issues/30) is **ready for a solo visual check**; the crystal flame candidate [#15](https://github.com/Ensrick/doomrocket-private/issues/15) is **ready for a solo visual verdict**. |
+| Published experimental build | [Warlock Engineer TEST v0.1.84-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-08 01:01 UTC (96,336,145 bytes; content handle 5132898840869887453). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.84-dev) |
+| Next TEST work | Knockback and impact follow-ups for [#33](https://github.com/Ensrick/doomrocket-private/issues/33) and the replacement crystal flame for [#15](https://github.com/Ensrick/doomrocket-private/issues/15) are **ready for a solo check**; the Dutch Spice arena fix [#35](https://github.com/Ensrick/doomrocket-private/issues/35) and hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3) await verdicts. Hand/weapon sway [#28](https://github.com/Ensrick/doomrocket-private/issues/28), near-range ground shots [#6](https://github.com/Ensrick/doomrocket-private/issues/6) and sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5) need engineering. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current evidence and work
+
+Crunch tested v0.1.81-v0.1.83: friendly fire, the 2 s aim (#16, closed),
+Ratling breakpoints and the portrait frame (#30, closed) work. v0.1.84-dev
+answers the rest: the flailing catapult throw is back without the forced camera
+turn, rockets detonate on any contact (a velocity-deviation check; 13 of 21
+v0.1.83 rockets had slid 0.25-0.54 s first), and the crystal uses the Warpfire
+ground fire with a `/warlock_crystal_flame` size command for tuning.
 
 v0.1.83-dev links a candidate warpfire flame (the Warpfire Thrower nozzle
 effect) to the measured crystal tip under the barrel (#15); its look needs
