@@ -6,9 +6,9 @@ is the live work queue; this page is a short re-entry map.
 | Question | Current answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Warlock Engineer TEST v0.1.86-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-11 05:38 UTC (96,247,057 bytes; content handle `5089446611079694980`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.86-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d8bee540f134e7468d23b3582dd1d148cb88a356). |
-| Candidate under review | v0.1.87-dev preserves the original transition durations while composing smooth authored/legacy transitions. Executable Lua, numerical blend, final SDK/package, and legacy compiled-lane checks pass. The independent final acceptance gate binds their source/receipt identities before the canonical build. No v0.1.87-dev publication or native playback acceptance is claimed. |
-| Next TEST work | Six issues remain ready for solo checks; v0.1.86-dev retains the playable assets from verified v0.1.85-dev: hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range rocket clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), crystal flame resizing [#15](https://github.com/Ensrick/doomrocket-private/issues/15), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44). Full sound cues [#5](https://github.com/Ensrick/doomrocket-private/issues/5) remain blocked on Arnaud's new masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) remains blocked with `needs-info` on crash evidence. |
+| Published experimental build | [Warlock Engineer TEST v0.1.87-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-11 09:10:38 UTC (96,255,002 bytes; content handle `7979842450070969807`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.87-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/080278425ea2a90da17ae9febcb37039c884326a). |
+| Animator handoff | [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11_START_HERE.md), [complete ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip), and [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip.verify.json). Anonymous complete downloads verified 2026-10-11 09:15 UTC. |
+| Next TEST work | Six issues remain ready for solo checks; v0.1.87-dev retains the playable assets from verified v0.1.85-dev: hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range rocket clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), crystal flame resizing [#15](https://github.com/Ensrick/doomrocket-private/issues/15), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44). Full sound cues [#5](https://github.com/Ensrick/doomrocket-private/issues/5) remain blocked on Arnaud's new masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) remains blocked with `needs-info` on crash evidence. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
@@ -17,8 +17,8 @@ is the live work queue; this page is a short re-entry map.
 
 The separate [Blender animation authoring guide](docs/ANIMATION_AUTHORING.md)
 covers Arnaud's local control rig, portable exporter, and isolated integration
-staging. TEST v0.1.86-dev ships the runtime/tooling reviewed in
-[PR #47](https://github.com/Ensrick/doomrocket-private/pull/47). The default playable
+staging. Verified TEST v0.1.87-dev publishes the integration runtime and tooling
+reviewed in [PR #49](https://github.com/Ensrick/doomrocket-private/pull/49). The default playable
 package retains the shipping body, all thirteen original compiled animations,
 and all 138 tracks; no authored or localized profile is active. The localized
 coat/belt body, diagnostic clips, and generated artist handoff remain external
@@ -28,7 +28,7 @@ attachment frames. Authored/legacy boundaries use immediate transitions;
 blends within either owner remain intact. Death retains its original clip and
 physics handoff; authored death replacement is rejected.
 
-The v0.1.87-dev candidate replaces those mixed cuts with `snapshot-blend-v1`.
+The v0.1.87-dev staged workflow replaces those mixed cuts with `snapshot-blend-v1`.
 All 154 visible transition durations remain exact. A hidden clone of the existing
 outfit evaluates the incoming state on its own skeleton; the bridge blends the
 last corrected displayed pose toward that moving target over the original
@@ -58,6 +58,9 @@ ordered bones.
 All thirteen original compiled clips retain all 138 tracks exactly; all 154
 visible transition durations remain exact and all 154 sampler edges are zero.
 The [authoring guide](docs/ANIMATION_AUTHORING.md) records the receipt hashes.
+The corrected final `snapshot_blend_acceptance_v87_final.json` joins and rechecks
+the complete SDK, package, numerical, and source identities; its SHA-256 is
+`11eb2be169774513db107407ef92df9f1ee901f6fa9640bc7eecca11048cb9e5`.
 
 Blender, independent FBX import, and SDK checks passed for the v0.1.86-dev
 handoff. Its complete legacy outfit audit executed actual Lua against float32
@@ -81,17 +84,27 @@ decoded SDK Hermite target poses. Death/stagger clips are numerical specimens,
 not authored state registrations; this is not a native playback result.
 Neither evidence set captures native `Unit` poses. The hidden helper's animation
 event clock reset, evaluation while invisible, mixed transitions, and
-outfit/launcher appearance still require an in-game written verdict; the game
-is not installed here.
+outfit/launcher appearance still require an in-game written verdict. Publication
+skipped local game deployment because the game is not installed here.
 
 The updated external handoff is
 `D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Blends_2026-10-11`.
-The previous v0.1.86-dev integration folder and archive remain frozen. The new
-complete ZIP, `START_HERE.md`, and verification receipt are intended for the
-canonical v0.1.87-dev GitHub release after verified publication and download
-verification; no hosted delivery is claimed yet. The Workshop default still
-uses the shipping body and an empty profile manifest, with all thirteen original
-clips and 138 tracks retained. No new art or diagnostic animation is published.
+The previous authoring and v0.1.86-dev integration archives remain byte-exact.
+All three hosted assets linked above were downloaded anonymously in full and
+matched these identities; the ZIP also passed a complete 239-entry readback.
+
+| Delivered asset | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Complete ZIP | 296,863,810 | `74f40b2033ddfd0ea345aa835bf5b465b42464e0f5bcfa373a214841d7baaf23` |
+| START_HERE.md | 5,714 | `70a9dcb831ba98f3d6ed9901c10523ce6ba5a731a63a892c46a3fc3cd5418c44` |
+| Verification receipt | 138,288 | `14a9996bf305617d29ead94340b35ce1fc80d12e8a3fcd092d0b380d84ad3517` |
+
+Crunch (`crunch612`) was sent both download/instruction links and the handoff
+instructions by Discord DM on 2026-10-11 at 04:16 America/Chicago. The outgoing
+message was confirmed in the conversation; recipient reading or acceptance is
+not established. The Workshop default still uses the shipping body and an empty
+profile manifest, with all thirteen original clips and 138 tracks retained.
+The Workshop package does not activate the localized body or diagnostic clips.
 
 Crunch's October 8-10 replies accept the v0.1.84 balance plan, including the
 flailing throw with movable camera and prompt rocket impacts. [#33](https://github.com/Ensrick/doomrocket-private/issues/33)
@@ -149,8 +162,10 @@ written observations and the matching console log establish what happened.
 No video, second player, or extra player coordination is required. See the
 [TEST quickstart](docs/TESTER_QUICKSTART.md).
 
-The verified `v0.1.86-dev` release tag remains bound to reviewed source commit
-`d8bee540f134e7468d23b3582dd1d148cb88a356`; later publication-record documentation must not move it.
+The verified `v0.1.87-dev` release tag remains bound to reviewed source commit
+`080278425ea2a90da17ae9febcb37039c884326a`; this later publication journal does not
+move it. The historical `v0.1.86-dev` tag remains at
+`d8bee540f134e7468d23b3582dd1d148cb88a356`.
 Workshop verification confirms delivery, not an in-game pass.
 
 The TEST and public channels remain separate. Use the established
