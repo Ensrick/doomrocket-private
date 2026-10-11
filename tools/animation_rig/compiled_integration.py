@@ -88,7 +88,31 @@ def state_bindings(payload):
     return controller,states
 
 
-def verify(unit_payload,controller_payload,manifest,profile_id,baseline_controller=None):
+def verify_sampler_states(visible,sampler):
+    """The hidden sampler changes only transition duration, never pose ownership."""
+    require(set(visible)==set(sampler),'Sampler state inventory differs from visible controller')
+    ordered=list(visible);helper_ordered=list(sampler);checked=0
+    for ident,state in visible.items():
+        helper=sampler[ident]
+        require(helper['animations']==state['animations'] and helper['constraints']==state['constraints'],
+                'Sampler clip or constraint differs from visible controller')
+        edges={e['event']:e for e in state['transitions']}
+        require(len(edges)==len(state['transitions']) and
+                {e['event'] for e in helper['transitions']}==set(edges),
+                'Sampler transition event inventory differs')
+        for edge in helper['transitions']:
+            target=edge['target_index'];old=edges[edge['event']]
+            require(target<len(helper_ordered) and old['target_index']<len(ordered),
+                    'Sampler transition target out of bounds')
+            require(helper_ordered[target]==ordered[old['target_index']] and
+                    edge['mode']==old['mode'] and edge['on_beat']==old['on_beat'],
+                    'Sampler changed transition semantics')
+            require(edge['blend_time']==0,'Sampler failed zero-duration endpoint evaluation')
+            checked+=1
+    return checked
+
+
+def verify(unit_payload,controller_payload,manifest,profile_id,baseline_controller=None,sampler_controller=None):
     profile=manifest['profiles'][profile_id];metadata=unit_metadata(unit_payload)
     expected={pipeline.idstring32('warlock_rig_profile'):profile_id,
               pipeline.idstring32('warlock_animation_manifest_id'):profile['manifest_id']}
@@ -102,6 +126,15 @@ def verify(unit_payload,controller_payload,manifest,profile_id,baseline_controll
     checked={};edge_count=cross_count=same_count=0
     ordered=list(states)
     reference=state_bindings(baseline_controller)[1] if baseline_controller is not None else None
+    smooth=profile.get('cross_owner_transition_policy')=='snapshot-blend-v1'
+    if smooth:
+        require(reference is not None and sampler_controller is not None,
+                'Smooth presentation requires original and sampler compiled controllers')
+        require(profile.get('sampler_state_machine')==profile['unit']+'/presentation_sampler',
+                'Unexpected sampler controller resource')
+        require(profile.get('bone_names')==list(__import__('re').findall(r'"([^"\n]+)"',
+                    (ROOT/(profile['unit']+'.bones')).read_text())),
+                'Sampler full-bone inventory differs from shipping')
     for ident,name in expected_states.items():
         expected_state=profile['states'][name];actual=states[ident]
         require(actual['animations']==(pipeline.murmur64a(expected_state['clip'].encode()),),
@@ -126,13 +159,26 @@ def verify(unit_payload,controller_payload,manifest,profile_id,baseline_controll
                     require(edge['target_index']==old['target_index'] and edge['mode']==old['mode']
                             and edge['on_beat']==old['on_beat'],'Compiled cut altered original transition semantics')
                     require(cross or edge['blend_time']==old['blend_time'],'Compiled cut altered same-owner transition blend')
+            elif smooth:
+                old=ref_edges[edge['event']]
+                require(edge==old,'Smooth visible controller altered original transition semantics or duration')
             edges.append({'event':event,'to':target,'blend_time':edge['blend_time'],'cross_owner':cross})
             edge_count+=1;cross_count+=cross;same_count+=not cross
         checked[name]={'clip':expected_state['clip'],'constraints':list(actual['constraints']),
                        'owner':expected_state['owner'],'transitions':edges}
-    return {'status':'compiled-unit-markers-and-asm-bindings-passed',
+    result={'status':'compiled-unit-markers-and-asm-bindings-passed',
             'profile_id':profile_id,'manifest_id':profile['manifest_id'],'unit_markers':{
                 'warlock_rig_profile':profile_id,'warlock_animation_manifest_id':profile['manifest_id']},
             'own_asm':metadata['asm'],'states':checked,'compiled_transition_edges':edge_count,
             'cross_owner_edges':cross_count,'same_owner_edges':same_count,
             'same_owner_blends_compared_to_shipping':reference is not None,'native_Unit_pose_samples':0}
+    if smooth:
+        sampler,helper_states=state_bindings(sampler_controller)
+        aim.verify_aim(sampler,tuple(profile['bone_names']))
+        result['presentation_sampler']={'resource':profile['sampler_state_machine'],
+            'status':'compiled-full-skeleton-zero-edge-sampler-passed',
+            'compiled_transition_edges':verify_sampler_states(states,helper_states),
+            'deform_bones':len(profile['bone_names']),
+            'visible_transition_durations_preserved':True,
+            'hidden_runtime_evaluation':'not captured; requires in-game evaluation'}
+    return result

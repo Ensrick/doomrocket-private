@@ -17,6 +17,11 @@ local CHANNELS = {
 	{ "j_loot_sack_component4", "j_loot_sack" },
 	{ "j_loot_sack_component5", "j_loot_sack" },
 }
+local GRIP_CHANNELS = {
+	"j_spine", "j_spine1", "j_leftshoulder", "j_rightshoulder",
+	"j_leftarm", "j_rightarm", "j_leftforearm", "j_rightforearm",
+	"j_lefthand", "j_righthand", "j_leftforearmroll", "j_rightforearmroll",
+}
 
 if mod._reset_warlock_outfit_correction then mod._reset_warlock_outfit_correction() end
 local entries = {}
@@ -92,6 +97,32 @@ local function valid(owner, outfit, entry, corpse, handoff)
 		and (handoff == true or HEALTH_ALIVE and HEALTH_ALIVE[owner] == true)
 end
 
+local function target_entry(outfit, world, profile)
+	if not Unit.has_node(outfit, "j_hips") then return end
+	local node_pairs, parents, owned = {}, {}, {}
+	for index = 1, #CHANNELS do
+		local expected, channel = CHANNELS[index], profile.channels[index]
+		if type(channel) ~= "table" or channel.bone ~= expected[1] or channel.parent ~= expected[2]
+			or not Unit.has_node(outfit, channel.bone) or not Unit.has_node(outfit, channel.parent) then return end
+		local offset = native_offset(channel.bind_offset)
+		local node, parent = Unit.node(outfit, channel.bone), Unit.node(outfit, channel.parent)
+		if not offset or node == 0 or owned[node] or Unit.scene_graph_parent(outfit, node) ~= parent then return end
+		owned[node] = true
+		node_pairs[index] = { node = node, parent = parent, bind_offset = Matrix4x4Box(offset) }
+		local current, visited, count = node, {}, 0
+		while current ~= 0 do
+			if visited[current] or count >= 256 then return end
+			visited[current], count = true, count + 1
+			local ancestor = Unit.scene_graph_parent(outfit, current)
+			if not finite(ancestor) or ancestor ~= math.floor(ancestor) or ancestor < 0 or ancestor == current then return end
+			parents[current] = ancestor
+			current = ancestor
+		end
+	end
+	return { outfit = outfit, world = world, profile = profile, manifest_id = profile.manifest_id,
+		pairs = node_pairs, parents = parents, owned = owned, hips = Unit.node(outfit, "j_hips"), status = "armed" }
+end
+
 function mod._start_warlock_outfit_correction(owner, outfit)
 	if not owner then return false end
 	entries[owner] = nil
@@ -99,30 +130,108 @@ function mod._start_warlock_outfit_correction(owner, outfit)
 		or not mod._warlock_outfits or mod._warlock_outfits[owner] ~= outfit then return false end
 	local profile = profile_for(outfit)
 	local world = Unit.world(owner)
-	if not profile or not world or Unit.world(outfit) ~= world or not Unit.has_node(outfit, "j_hips") then return false end
-	local node_pairs, parents, owned = {}, {}, {}
-	for index = 1, #CHANNELS do
-		local expected, channel = CHANNELS[index], profile.channels[index]
-		if type(channel) ~= "table" or channel.bone ~= expected[1] or channel.parent ~= expected[2]
-			or not Unit.has_node(outfit, channel.bone) or not Unit.has_node(outfit, channel.parent) then return false end
-		local offset = native_offset(channel.bind_offset)
-		local node, parent = Unit.node(outfit, channel.bone), Unit.node(outfit, channel.parent)
-		if not offset or node == 0 or owned[node] or Unit.scene_graph_parent(outfit, node) ~= parent then return false end
-		owned[node] = true
-		node_pairs[index] = { node = node, parent = parent, bind_offset = Matrix4x4Box(offset) }
-		local current, visited, count = node, {}, 0
-		while current ~= 0 do
-			if visited[current] or count >= 256 then return false end
-			visited[current], count = true, count + 1
-			local ancestor = Unit.scene_graph_parent(outfit, current)
-			if not ancestor or ancestor == current then return false end
-			parents[current] = ancestor
-			current = ancestor
-		end
-	end
-	entries[owner] = { outfit = outfit, world = world, profile = profile, manifest_id = profile.manifest_id,
-		pairs = node_pairs, parents = parents, owned = owned, hips = Unit.node(outfit, "j_hips"), status = "armed" }
+	if not profile or not world or Unit.world(outfit) ~= world then return false end
+	entries[owner] = target_entry(outfit, world, profile)
+	if not entries[owner] then return false end
 	return true
+end
+
+local function prepare_pose(entry, overrides)
+	local outfit = entry.outfit
+	-- Caller runs after its grip/death update. Flush here too so standalone calls
+	-- cannot consume a previous scene-cache frame after changing an ancestor.
+	World.update_unit(entry.world, outfit)
+	local hip = Unit.world_pose(outfit, entry.hips)
+	local ok, a, b, c = orthogonal(hip)
+	if not ok or math.abs(a - b) > a * 0.0001 or math.abs(a - c) > a * 0.0001 then
+		return nil, "unsupported_hips_scale"
+	end
+	local unit_scale = a / entry.profile.native_bind_scale
+	local rigid_hip = Matrix4x4.copy(hip)
+	Matrix4x4.set_x(rigid_hip, times(Matrix4x4.x(hip), 1 / a))
+	Matrix4x4.set_y(rigid_hip, times(Matrix4x4.y(hip), 1 / b))
+	Matrix4x4.set_z(rigid_hip, times(Matrix4x4.z(hip), 1 / c))
+	local desired, graph, writes = {}, {}, {}
+	for index = 1, #entry.pairs do
+		local pair = entry.pairs[index]
+		local target = Unit.world_pose(outfit, pair.node)
+		local target_ok, x, y, z = orthogonal(target)
+		if not target_ok then return nil, "invalid_target_scale" end
+		local offset = pair.bind_offset:unbox()
+		Matrix4x4.set_translation(offset, times(Matrix4x4.translation(offset), unit_scale))
+		local pose = Matrix4x4.multiply(offset, rigid_hip)
+		Matrix4x4.set_x(pose, times(Matrix4x4.x(pose), x))
+		Matrix4x4.set_y(pose, times(Matrix4x4.y(pose), y))
+		Matrix4x4.set_z(pose, times(Matrix4x4.z(pose), z))
+		desired[pair.node] = pose
+	end
+	local function parent_world(node)
+		if desired[node] then return desired[node] end
+		if graph[node] then return graph[node] end
+		if node == 0 then return Unit.world_pose(outfit, 0) end
+		local pose = Matrix4x4.multiply(overrides and overrides[node] or Unit.local_pose(outfit, node),
+			parent_world(entry.parents[node]))
+		graph[node] = pose
+		return pose
+	end
+	for index = 1, #entry.pairs do
+		local pair = entry.pairs[index]
+		local parent = parent_world(pair.parent)
+		if not orthogonal(parent) then return nil, "invalid_parent" end
+		local local_pose = Matrix4x4.multiply(desired[pair.node], Matrix4x4.inverse(parent))
+		local local_ok, x, y, z = orthogonal(local_pose)
+		local scale = Unit.local_scale(outfit, pair.node)
+		if not local_ok or not Vector3.is_valid(scale) or scale.x <= 0 or scale.y <= 0 or scale.z <= 0
+			or math.abs(x - scale.x) > math.max(0.00001, scale.x * 0.0001)
+			or math.abs(y - scale.y) > math.max(0.00001, scale.y * 0.0001)
+			or math.abs(z - scale.z) > math.max(0.00001, scale.z * 0.0001) then
+			return nil, "unsupported_local_scale"
+		end
+		-- Quaternion extraction receives a rigid frame. Preserve the positive
+		-- local scale through the setters rather than asking it to decompose scale.
+		local rotation_pose = Matrix4x4.copy(local_pose)
+		Matrix4x4.set_x(rotation_pose, times(Matrix4x4.x(local_pose), 1 / x))
+		Matrix4x4.set_y(rotation_pose, times(Matrix4x4.y(local_pose), 1 / y))
+		Matrix4x4.set_z(rotation_pose, times(Matrix4x4.z(local_pose), 1 / z))
+		writes[index] = { node = pair.node, pose = local_pose, rotation = Matrix4x4.rotation(rotation_pose),
+			position = Matrix4x4.translation(local_pose) }
+	end
+	return writes
+end
+
+-- Resolve accessory parents using the uncommitted grip candidates. Both
+-- builders are read-only, so a bad final accessory cannot leave twelve helper
+-- joints corrected while the other seven still contain the raw legacy pose.
+function mod._prepare_warlock_legacy_outfit_pose(owner, helper, profile, grip_writes)
+	local entry = entries[owner]
+	local authorize = mod._warlock_transition_helper_valid
+	if not entry or not valid(owner, entry.outfit, entry, false) or entry.profile ~= profile
+		or not authorize or not authorize(owner, helper, profile) or not live(helper, entry.world)
+		or helper == owner or helper == entry.outfit then return nil, "inactive_helper" end
+	local target = target_entry(helper, entry.world, profile)
+	if not target or type(grip_writes) ~= "table" or #grip_writes ~= #GRIP_CHANNELS then
+		return nil, "invalid_helper_candidate"
+	end
+	local overrides, expected = {}, {}
+	for i = 1, #GRIP_CHANNELS do
+		if not Unit.has_node(helper, GRIP_CHANNELS[i]) then return nil, "missing_helper_node" end
+		expected[Unit.node(helper, GRIP_CHANNELS[i])] = true
+	end
+	for i = 1, #grip_writes do
+		local write = grip_writes[i]
+		if type(write) ~= "table" or not expected[write.node] or overrides[write.node]
+			or not write.pose then return nil, "invalid_helper_candidate" end
+		local ok, x, y, z = orthogonal(write.pose)
+		local scale = Unit.local_scale(helper, write.node)
+		if not ok or not Vector3.is_valid(scale) or scale.x <= 0 or scale.y <= 0 or scale.z <= 0
+			or math.abs(x - scale.x) > math.max(0.00001, scale.x * 0.0001)
+			or math.abs(y - scale.y) > math.max(0.00001, scale.y * 0.0001)
+			or math.abs(z - scale.z) > math.max(0.00001, scale.z * 0.0001) then
+			return nil, "invalid_helper_candidate"
+		end
+		overrides[write.node] = write.pose
+	end
+	return prepare_pose(target, overrides)
 end
 
 function mod._apply_warlock_outfit_correction(owner, outfit, allow_corpse)
@@ -141,63 +250,8 @@ function mod._apply_warlock_outfit_correction(owner, outfit, allow_corpse)
 			return false
 		end
 	end
-	-- Caller runs after its grip/death update. Flush here too so standalone calls
-	-- cannot consume a previous scene-cache frame after changing an ancestor.
-	World.update_unit(entry.world, outfit)
-	local hip = Unit.world_pose(outfit, entry.hips)
-	local ok, a, b, c = orthogonal(hip)
-	if not ok or math.abs(a - b) > a * 0.0001 or math.abs(a - c) > a * 0.0001 then
-		entry.status = "unsupported_hips_scale"; return false
-	end
-	local unit_scale = a / entry.profile.native_bind_scale
-	local rigid_hip = Matrix4x4.copy(hip)
-	Matrix4x4.set_x(rigid_hip, times(Matrix4x4.x(hip), 1 / a))
-	Matrix4x4.set_y(rigid_hip, times(Matrix4x4.y(hip), 1 / b))
-	Matrix4x4.set_z(rigid_hip, times(Matrix4x4.z(hip), 1 / c))
-	local desired, graph, writes = {}, {}, {}
-	for index = 1, #entry.pairs do
-		local pair = entry.pairs[index]
-		local target = Unit.world_pose(outfit, pair.node)
-		local target_ok, x, y, z = orthogonal(target)
-		if not target_ok then entry.status = "invalid_target_scale"; return false end
-		local offset = pair.bind_offset:unbox()
-		Matrix4x4.set_translation(offset, times(Matrix4x4.translation(offset), unit_scale))
-		local pose = Matrix4x4.multiply(offset, rigid_hip)
-		Matrix4x4.set_x(pose, times(Matrix4x4.x(pose), x))
-		Matrix4x4.set_y(pose, times(Matrix4x4.y(pose), y))
-		Matrix4x4.set_z(pose, times(Matrix4x4.z(pose), z))
-		desired[pair.node] = pose
-	end
-	local function parent_world(node)
-		if desired[node] then return desired[node] end
-		if graph[node] then return graph[node] end
-		if node == 0 then return Unit.world_pose(outfit, 0) end
-		local pose = Matrix4x4.multiply(Unit.local_pose(outfit, node), parent_world(entry.parents[node]))
-		graph[node] = pose
-		return pose
-	end
-	for index = 1, #entry.pairs do
-		local pair = entry.pairs[index]
-		local parent = parent_world(pair.parent)
-		if not orthogonal(parent) then entry.status = "invalid_parent"; return false end
-		local local_pose = Matrix4x4.multiply(desired[pair.node], Matrix4x4.inverse(parent))
-		local local_ok, x, y, z = orthogonal(local_pose)
-		local scale = Unit.local_scale(outfit, pair.node)
-		if not local_ok or not Vector3.is_valid(scale) or scale.x <= 0 or scale.y <= 0 or scale.z <= 0
-			or math.abs(x - scale.x) > math.max(0.00001, scale.x * 0.0001)
-			or math.abs(y - scale.y) > math.max(0.00001, scale.y * 0.0001)
-			or math.abs(z - scale.z) > math.max(0.00001, scale.z * 0.0001) then
-			entry.status = "unsupported_local_scale"; return false
-		end
-		-- Quaternion extraction receives a rigid frame. Preserve the positive
-		-- local scale through the setters rather than asking it to decompose scale.
-		local rotation_pose = Matrix4x4.copy(local_pose)
-		Matrix4x4.set_x(rotation_pose, times(Matrix4x4.x(local_pose), 1 / x))
-		Matrix4x4.set_y(rotation_pose, times(Matrix4x4.y(local_pose), 1 / y))
-		Matrix4x4.set_z(rotation_pose, times(Matrix4x4.z(local_pose), 1 / z))
-		writes[index] = { node = pair.node, rotation = Matrix4x4.rotation(rotation_pose),
-			position = Matrix4x4.translation(local_pose) }
-	end
+	local writes, status = prepare_pose(entry)
+	if not writes then entry.status = status; return false end
 	-- Every parent, scale and transform is checked before the first native write.
 	for index = 1, #writes do
 		local write = writes[index]

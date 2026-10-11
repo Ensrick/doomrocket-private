@@ -89,6 +89,30 @@ profile.states['base/custom'].transitions.death.blend_time=0
 profile.states['base/custom_gait'].transitions.idle.blend_time=0
 '''
 
+SNAPSHOT_PROFILE = r'''
+profile.cross_owner_transition_policy='snapshot-blend-v1'
+profile.sampler_state_machine=unit_name..'/presentation_sampler'
+profile.bone_names={}
+for i=1,138 do profile.bone_names[i]='bone_'..i end
+for _,state in pairs(profile.states) do state.loop_animation=true end
+blend={active=false,start=true,ack=true,starts=0,notes=0,stops=0,resets=0,releases=0}
+mod._start_warlock_animation_blend=function(o,u,p)
+ assert(o==owner and u==outfit and p==profile)
+ blend.starts=blend.starts+1;return blend.start
+end
+mod._note_warlock_animation_blend_event=function(o,event,from,to,duration)
+ assert(o==owner and profile.states[from].transitions[event].to==to)
+ assert(profile.states[from].transitions[event].blend_time==duration)
+ -- The helper acknowledges before the owner advances its state.
+ if HEALTH_ALIVE[owner]==true then assert(query().state==from) end
+ blend.notes=blend.notes+1;return blend.ack
+end
+mod._warlock_animation_blend_active=function(o) assert(o==owner);return blend.active end
+mod._stop_warlock_animation_blend=function(o) blend.stops=blend.stops+1;blend.active=false end
+mod._reset_warlock_animation_blend=function() blend.resets=blend.resets+1;blend.active=false end
+mod._release_warlock_animation_blend_world=function(w) assert(w==world);blend.releases=blend.releases+1;blend.active=false end
+'''
+
 
 def runtime():
     lua = LuaRuntime(unpack_returned_tuples=True)
@@ -829,6 +853,88 @@ class AnimationOwnershipCutTests(unittest.TestCase):
           mod._note_warlock_animation_ownership_event(owner,'custom',true)
           tick();assert(not mod.last_error,mod.last_error)
           assert(calls.writes==24 and mod._warlock_grip_alignment_status(owner)=='authored')
+        ''')
+
+
+class SnapshotBlendOwnershipTests(unittest.TestCase):
+    def test_incomplete_or_alias_sampler_metadata_fails_before_native_start(self):
+        invalid = (
+            "profile.sampler_state_machine=nil",
+            "profile.sampler_state_machine='carrier/foreign'",
+            "profile.bone_names[138]=nil",
+            "profile.bone_names[138]=profile.bone_names[1]",
+            "profile.bone_names[138]=''",
+            "profile.states['base/idle'].loop_animation=nil",
+        )
+        for mutation in invalid:
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute(SNAPSHOT_PROFILE + mutation + '''
+                  assert(not start());mode('unsupported');assert(blend.starts==0)
+                ''')
+
+    def test_sampler_start_failure_blocks_legacy_pose_fallback(self):
+        lua = runtime()
+        lua.execute(SNAPSHOT_PROFILE + '''
+          blend.start=false;assert(not start());mode('unsupported')
+          assert(blend.starts==1);note('custom');mode('authored')
+        ''')
+
+    def test_sampler_acknowledges_before_state_advance_and_retains_failed_pose_guard(self):
+        lua = runtime()
+        lua.execute(SNAPSHOT_PROFILE + '''
+          assert(start());note('custom');assert(mode('authored').state=='base/custom')
+          blend.ack=false;note('idle');tick(.25)
+          assert(mode('authored').state=='base/custom' and blend.notes==2)
+        ''')
+
+    def test_bridge_retains_pose_ownership_while_destination_gait_and_aim_continue(self):
+        lua = runtime()
+        lua.execute(SNAPSHOT_PROFILE + '''
+          assert(start());note('custom');note('idle');blend.active=true
+          for i=1,4 do tick(.25) end
+          local o=mode('authored')
+          assert(o.accessories=='authored' and o.transitioning)
+          assert(o.speed=='measured' and o.visible_aim and o.state=='base/idle')
+          blend.active=false;o=mode('legacy')
+          assert(not o.transitioning and o.accessories=='legacy-pelvis')
+        ''')
+
+    def test_authored_destination_disables_gameplay_gait_and_aim_during_bridge(self):
+        lua = runtime()
+        lua.execute(SNAPSHOT_PROFILE + '''
+          assert(start());note('custom');blend.active=true
+          local o=mode('authored');assert(o.speed=='authored' and not o.visible_aim)
+        ''')
+
+    def test_short_bridge_releases_exactly_without_a_second_maximum_duration_timer(self):
+        lua = runtime()
+        lua.execute(SNAPSHOT_PROFILE + '''
+          profile.states['base/custom'].transitions.idle.blend_time=.1
+          assert(start());note('custom');note('idle');blend.active=true
+          tick(.1);mode('authored');blend.active=false
+          local o=mode('legacy');assert(not o.transitioning and o.visible_aim)
+        ''')
+
+    def test_pending_health_allows_sampler_event_registration_without_pose_ownership(self):
+        lua = runtime()
+        lua.execute(SNAPSHOT_PROFILE + '''
+          HEALTH_ALIVE[owner]=nil;assert(start());note('custom')
+          assert(query().upper_body=='unsupported' and blend.notes==1)
+          HEALTH_ALIVE[owner]=true;assert(mode('authored').state=='base/custom')
+        ''')
+
+    def test_registration_restart_and_cleanup_delegate_helper_lifetime(self):
+        lua = runtime()
+        lua.execute(SNAPSHOT_PROFILE + '''
+          assert(start());blend.active=true
+          outfit.data.warlock_rig_profile=nil
+          assert(not mod._start_warlock_animation_ownership(owner,outfit))
+          assert(blend.stops==2 and not blend.active)
+          assert(start());mod._stop_warlock_animation_ownership(owner)
+          assert(blend.stops==4)
+          mod._reset_warlock_animation_ownership();assert(blend.resets==1)
+          mod._release_warlock_animation_ownership_world(world);assert(blend.releases==1)
         ''')
 
 

@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.1.87-dev - smooth authored and legacy animation transitions
+
+- **Mixed transitions:** preserve all 154 original visible transition durations.
+  A hidden clone of the existing outfit samples the incoming state on the same
+  138-bone skeleton. Blend the last corrected displayed pose toward that moving
+  target over the original duration; recapture the displayed pose when a new
+  event interrupts the transition. Ordinary same-owner transitions retain native
+  blending. The outgoing snapshot is frozen, rather than an advancing native
+  outgoing state.
+- **Pose ownership:** apply the existing twelve grip and seven localized outfit
+  corrections only to a legacy target before mixing. Authored targets retain
+  body, hand, accessory, speed, and strict aim ownership. The launcher follows
+  the composed visible outfit and returns to native links after legacy playback
+  resumes.
+- **Integration and handoff:** stage and verify a separate same-skeleton sampler
+  ASM with zero internal transition times, and copy/hash-bind the canonical
+  resource package's explicit state-machine loading rule. Preserve all thirteen
+  original FBXs, thirteen sidecars, and 138 compiled tracks. Prepare the updated
+  external rig handoff without activating a localized or diagnostic profile in
+  the default package. All 74 staging guards pass using actual Windows short-path
+  aliases;
+  three reviewed 43-file overlay routes and nineteen package guards pass.
+  The actual-Lua numerical blend audit passes 3,276 ordinary/interrupted poses
+  and 115,675,560 weighted vertex comparisons with maximum skin error
+  5.448 micrometres, below the fixed 2 mm gate. It uses decoded diagnostic
+  targets and API-double clocks. The fresh isolated SDK proves actual
+  sampler/clip/Lua
+  package membership and the compiled manifest's complete literal meaning.
+  Exact old/current Lua and compiled-lane identity preserve the earlier complete
+  legacy skin result without repeating its weighted evaluations. Invisible
+  helper evaluation and final appearance still require an in-game verdict.
+- **Sampler safeguards:** recover from finite hitches, match the initial visible
+  speed baseline, and preflight finite root/aim data and loaded sampler resources.
+  Hide helper geometry and shadows, contain per-entry Lua errors, and log each
+  stop reason once with both clocks. Require destination clock and clip-length
+  agreement before native playback resumes. Native event clock reset and hidden
+  animation evaluation remain pending game checks.
+
 ## v0.1.86-dev - preserve authored animation and outfit ownership
 
 - **Animation integration:** register reviewed authored states through matching

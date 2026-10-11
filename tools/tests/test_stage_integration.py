@@ -28,6 +28,8 @@ stage = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = stage
 spec.loader.exec_module(stage)
 UNIT = "units/warlock_bombardier/warlock_bombardier_3p"
+SAMPLER = UNIT + "/presentation_sampler"
+RESOURCE_PACKAGE = "resource_packages/doomrocket/doomrocket.package"
 RESOURCE_PREFIX = "units/warlock_bombardier/anims/authored/"
 MANIFEST_PATH = "scripts/mods/doomrocket/utils/doomrocket_animation_manifest.lua"
 CLIPS = ("combat_idle", "combat_reload_loop", "combat_reload_start", "combat_run",
@@ -39,6 +41,7 @@ RESERVED = ("j_whip_parent", "j_whip_dynamic", *(f"j_loot_sack_component{index}"
 BONE_BYTES = (ROOT / (UNIT + ".bones")).read_bytes()
 ASM_BYTES = (ROOT / (UNIT + ".state_machine")).read_bytes()
 UNIT_BYTES = (ROOT / (UNIT + ".unit")).read_bytes()
+PACKAGE_BYTES = (ROOT / RESOURCE_PACKAGE).read_bytes()
 BONES = re.findall(r'"([^"\r\n]+)"', BONE_BYTES.decode("utf-8"))
 
 
@@ -48,6 +51,10 @@ def digest(contents):
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+
+
+def root_sjson(value):
+    return ("\n".join(key + " = " + json.dumps(item) for key, item in value.items()) + "\n").encode("utf-8")
 
 
 def parsed_states(text):
@@ -79,9 +86,6 @@ def expected_staged_asm(plan):
             state["speed"] = "1"
             if aim == "authored" and "warlock_aim" in state.get("constraints", []):
                 state["constraints"] = [value for value in state["constraints"] if value != "warlock_aim"]
-        for transition in state.get("transitions", []):
-            if (name in authored) != (transition["to"] in authored):
-                transition["blend_time"] = 0
     return expected
 
 
@@ -104,6 +108,7 @@ class Fixture:
                         UNIT + ".state_machine": ASM_BYTES}.get(relative, ("shipping " + relative).encode())
             path = self.write(relative, contents)
             self.plan["source_files"][relative] = digest(path.read_bytes())
+        self.write(RESOURCE_PACKAGE, PACKAGE_BYTES)
         self.body_hash = self.plan["source_files"][UNIT + ".fbx"]
         self.bones_hash = self.plan["source_files"][UNIT + ".bones"]
         parents = {name: "root_point" for name in BONES}
@@ -283,11 +288,12 @@ class StageIntegrationTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.fixture = Fixture(Path(self.temp.name))
 
-    def assert_rejected(self, localized=False, output=None, expected=ValueError):
+    def assert_rejected(self, localized=False, output=None, expected=ValueError, expected_message=None):
         fixture = self.fixture
         fixture.save()
         before = fixture.snapshot()
-        with self.assertRaises(expected):
+        rejection = (self.assertRaisesRegex(expected, expected_message) if expected_message else self.assertRaises(expected))
+        with rejection:
             fixture.run(localized, output)
         self.assertEqual(before, fixture.snapshot(), "Rejected staging changed a source input")
         self.assertFalse(fixture.output.exists(), "Rejected staging published an output")
@@ -321,7 +327,7 @@ class StageIntegrationTests(unittest.TestCase):
         self.assertEqual("pending", receipt["native_pose_acceptance"])
         self.assertEqual("pending", receipt["game_runtime_acceptance"])
 
-    def test_selected_state_and_cross_owner_edits_preserve_other_fields(self):
+    def test_selected_state_edits_preserve_other_fields_and_visible_blends(self):
         fixture = self.fixture
         fixture.run()
         patched_text = (fixture.output / (UNIT + ".state_machine")).read_text()
@@ -415,10 +421,10 @@ class StageIntegrationTests(unittest.TestCase):
         self.assertEqual([], receipt["authored_states"])
         self.assertEqual(ASM_BYTES, (fixture.output / (UNIT + ".state_machine")).read_bytes())
         profile = json.loads((fixture.output / "integration_manifest.json").read_text())["profiles"]["localized-v1-runtime"]
-        self.assertEqual("cut", profile["cross_owner_transition_policy"])
+        self.assertEqual("snapshot-blend-v1", profile["cross_owner_transition_policy"])
         self.assertTrue(all(state["owner"] == "legacy" for state in profile["states"].values()))
 
-    def test_localized_cross_owner_cuts_preserve_every_other_asm_field(self):
+    def test_localized_presentation_bridge_preserves_every_visible_transition(self):
         fixture = self.fixture
         fixture.add_localized()
         fixture.run(True)
@@ -429,7 +435,7 @@ class StageIntegrationTests(unittest.TestCase):
                 relative = f"units/warlock_bombardier/anims/{clip}.{extension}"
                 self.assertEqual((fixture.root / relative).read_bytes(), (fixture.output / relative).read_bytes(), relative)
 
-    def test_localized_manifest_matches_all_154_edges_with_42_cuts(self):
+    def test_localized_manifest_matches_all_154_unchanged_visible_edges(self):
         fixture = self.fixture
         fixture.add_localized()
         fixture.run(True)
@@ -445,23 +451,23 @@ class StageIntegrationTests(unittest.TestCase):
         self.assertEqual(154, len(original))
         self.assertEqual(set(original), set(actual))
         self.assertEqual(set(original), set(manifest_edges))
-        cuts, retained = 0, 0
+        cross_edges, same_edges = 0, 0
         authored = set(fixture.plan["states"])
         for key, before in original.items():
             after, manifest_edge = actual[key], manifest_edges[key]
             cross_owner = (key[0] in authored) != (before["to"] in authored)
-            expected_blend = 0 if cross_owner else before["blend_time"]
+            expected_blend = before["blend_time"]
             self.assertEqual(expected_blend, after["blend_time"], key)
             self.assertEqual({**before, "blend_time": expected_blend}, after, key)
             self.assertEqual({"to": before["to"], "blend_time": expected_blend}, manifest_edge, key)
             if cross_owner:
-                cuts += 1
+                cross_edges += 1
             else:
-                retained += 1
+                same_edges += 1
                 self.assertGreater(after["blend_time"], 0, key)
-        self.assertEqual((42, 112), (cuts, retained))
+        self.assertEqual((42, 112), (cross_edges, same_edges))
 
-    def test_localized_gameplay_aim_retains_constraint_and_cuts_cross_owner_edges(self):
+    def test_localized_gameplay_aim_retains_constraint_and_original_blends(self):
         fixture = self.fixture
         fixture.add_localized()
         fixture.plan["states"]["base/shoot_start"] = {"clip": "shoot", "aim_policy": "gameplay"}
@@ -469,32 +475,32 @@ class StageIntegrationTests(unittest.TestCase):
         actual = stage.Sjson((fixture.output / (UNIT + ".state_machine")).read_text()).parse().value
         self.assertEqual(expected_staged_asm(fixture.plan), actual)
         profile = json.loads((fixture.output / "integration_manifest.json").read_text())["profiles"]["localized-v1-runtime"]
-        self.assertEqual("cut", profile["cross_owner_transition_policy"])
+        self.assertEqual("snapshot-blend-v1", profile["cross_owner_transition_policy"])
         self.assertEqual("gameplay", profile["states"]["base/shoot_start"]["aim_policy"])
         self.assertTrue(profile["states"]["base/shoot_start"]["visible_aim"])
         states = {state["name"]: state for state in actual["layers"][0]["states"]}
         self.assertIn("warlock_aim", states["base/shoot_start"]["constraints"])
-        self.assertEqual(0, edge_inventory(actual)[("base/idle", "attack_shoot_align")]["blend_time"])
+        self.assertEqual(.25, edge_inventory(actual)[("base/idle", "attack_shoot_align")]["blend_time"])
 
-    def test_stock_profile_cuts_cross_owner_edges_and_retains_same_owner_blends(self):
+    def test_stock_profile_preserves_all_visible_blends(self):
         fixture = self.fixture
         fixture.run()
         profile = json.loads((fixture.output / "integration_manifest.json").read_text())["profiles"]["authored-v1-runtime"]
-        self.assertEqual("cut", profile["cross_owner_transition_policy"])
+        self.assertEqual("snapshot-blend-v1", profile["cross_owner_transition_policy"])
         original = edge_inventory(stage.Sjson(ASM_BYTES.decode()).parse().value)
         actual = edge_inventory(stage.Sjson((fixture.output / (UNIT + ".state_machine")).read_text()).parse().value)
         self.assertEqual(set(original), set(actual))
         self.assertEqual(154, len(actual))
-        cuts, retained = 0, 0
+        cross_edges, same_edges = 0, 0
         for (name, event), edge in original.items():
             cross_owner = (name in fixture.plan["states"]) != (edge["to"] in fixture.plan["states"])
-            expected_blend = 0 if cross_owner else edge["blend_time"]
+            expected_blend = edge["blend_time"]
             self.assertEqual({**edge, "blend_time": expected_blend}, actual[(name, event)])
             self.assertEqual({"to": edge["to"], "blend_time": expected_blend},
                              profile["states"][name]["transitions"][event])
-            cuts += cross_owner
-            retained += not cross_owner
-        self.assertEqual((42, 112), (cuts, retained))
+            cross_edges += cross_owner
+            same_edges += not cross_owner
+        self.assertEqual((42, 112), (cross_edges, same_edges))
 
     def test_source_transition_blends_above_one_second_are_rejected(self):
         fixture = self.fixture
@@ -518,34 +524,299 @@ class StageIntegrationTests(unittest.TestCase):
                     fixture.plan["cross_owner_transition_policy"] = policy
                     self.assert_rejected(localized)
 
-    def test_localized_canonical_manifest_hash_binds_cut_policy(self):
+    def test_localized_canonical_manifest_hash_binds_presentation_policy(self):
         fixture = self.fixture
         fixture.add_localized()
         receipt = fixture.run(True)
         manifest = json.loads((fixture.output / "integration_manifest.json").read_text())
         profile = manifest["profiles"]["localized-v1-runtime"]
-        self.assertEqual("cut", profile["cross_owner_transition_policy"])
+        self.assertEqual("snapshot-blend-v1", profile["cross_owner_transition_policy"])
         self.assertEqual(receipt["manifest_id"], profile.pop("manifest_id"))
         self.assertEqual(receipt["manifest_id"], digest(canonical(manifest)))
         profile["cross_owner_transition_policy"] = "blend"
         self.assertNotEqual(receipt["manifest_id"], digest(canonical(manifest)))
         lua = (fixture.output / MANIFEST_PATH).read_text()
-        self.assertIn('["cross_owner_transition_policy"] = "cut"', lua)
+        self.assertIn('["cross_owner_transition_policy"] = "snapshot-blend-v1"', lua)
 
-    def test_localized_event_aliases_use_target_state_owner_for_cuts(self):
+    def test_localized_event_aliases_preserve_original_target_and_blend(self):
         fixture = self.fixture
         fixture.add_localized()
         fixture.run(True)
         actual = edge_inventory(stage.Sjson((fixture.output / (UNIT + ".state_machine")).read_text()).parse().value)
         expected = edge_inventory(stage.Sjson(ASM_BYTES.decode()).parse().value)
         self.assertEqual("base/shoot_start", actual[("base/idle", "attack_shoot_align")]["to"])
-        self.assertEqual(0, actual[("base/idle", "attack_shoot_align")]["blend_time"])
+        self.assertEqual(expected[("base/idle", "attack_shoot_align")]["blend_time"],
+                         actual[("base/idle", "attack_shoot_align")]["blend_time"])
         for event in ("attack_shoot_start", "attack_shoot_loop"):
             self.assertEqual("base/shoot_loop", actual[("base/idle", event)]["to"])
             self.assertEqual(expected[("base/idle", event)]["blend_time"], actual[("base/idle", event)]["blend_time"])
         for event in ("ragdoll", "death"):
             self.assertEqual("base/death", actual[("base/walk", event)]["to"])
-            self.assertEqual(0, actual[("base/walk", event)]["blend_time"])
+            self.assertEqual(expected[("base/walk", event)]["blend_time"],
+                             actual[("base/walk", event)]["blend_time"])
+
+    def test_sampler_only_zeros_internal_edges_and_keeps_destination_semantics(self):
+        for localized in (False, True):
+            with self.subTest(localized=localized):
+                fixture = Fixture(Path(self.temp.name) / ("sampler-" + str(localized)))
+                if localized:
+                    fixture.add_localized()
+                fixture.plan["states"]["base/shoot_start"] = {"clip": "shoot", "aim_policy": "gameplay"}
+                fixture.save()
+                before = fixture.snapshot()
+                receipt = fixture.run(localized)
+                self.assertEqual(before, fixture.snapshot())
+                visible = stage.Sjson((fixture.output / (UNIT + ".state_machine")).read_text()).parse().value
+                sampler = stage.Sjson((fixture.output / (SAMPLER + ".state_machine")).read_text()).parse().value
+                expected_sampler = copy.deepcopy(visible)
+                for state in expected_sampler["layers"][0]["states"]:
+                    for transition in state.get("transitions", []):
+                        transition["blend_time"] = 0
+                self.assertEqual(expected_staged_asm(fixture.plan), visible)
+                self.assertEqual(expected_sampler, sampler)
+                self.assertEqual(UNIT, sampler["bones"])
+                self.assertEqual(154, len(edge_inventory(sampler)))
+                self.assertTrue(all(edge["blend_time"] == 0 for edge in edge_inventory(sampler).values()))
+                self.assertTrue(receipt["all_visible_transition_blends_preserved"])
+                self.assertTrue(receipt["sampler_transition_blends_zero"])
+                self.assertEqual(SAMPLER, receipt["sampler_state_machine"])
+                self.assertEqual([UNIT + ".unit"], sorted(path.relative_to(fixture.output).as_posix()
+                                                       for path in fixture.output.rglob("*.unit")))
+                self.assertFalse((fixture.output / (SAMPLER + ".fbx")).exists())
+                self.assertFalse((fixture.output / (SAMPLER + ".bones")).exists())
+
+    def test_manifest_binds_sampler_bone_inventory_and_exact_loop_speed_metadata(self):
+        fixture = self.fixture
+        receipt = fixture.run()
+        manifest = json.loads((fixture.output / "integration_manifest.json").read_text())
+        profile = manifest["profiles"]["authored-v1-runtime"]
+        self.assertEqual(SAMPLER, profile["sampler_state_machine"])
+        self.assertEqual(BONES, profile["bone_names"])
+        self.assertEqual(138, len(profile["bone_names"]))
+        self.assertEqual(fixture.bones_hash, profile["validation"]["shipping_bones_sha256"])
+        self.assertEqual(digest((fixture.output / (SAMPLER + ".state_machine")).read_bytes()),
+                         profile["validation"]["sampler_state_machine_sha256"])
+        self.assertEqual(digest((fixture.output / (UNIT + ".state_machine")).read_bytes()),
+                         profile["validation"]["staged_state_machine_sha256"])
+        original = stage.Sjson(ASM_BYTES.decode()).parse().value
+        for state in original["layers"][0]["states"]:
+            record = profile["states"][state["name"]]
+            self.assertIs(type(record["loop_animation"]), bool)
+            self.assertEqual(state["loop_animation"], record["loop_animation"])
+            self.assertEqual("1" if state["name"] in fixture.plan["states"] else state["speed"],
+                             record["speed_expression"])
+        self.assertEqual(receipt["manifest_id"], profile.pop("manifest_id"))
+        self.assertEqual(receipt["manifest_id"], digest(canonical(manifest)))
+        for mutate in (lambda value: value["bone_names"].reverse(),
+                       lambda value: value.update(sampler_state_machine=UNIT),
+                       lambda value: value["states"]["base/walk"].update(loop_animation=False),
+                       lambda value: value["states"]["base/run"].update(speed_expression="1")):
+            changed = copy.deepcopy(manifest)
+            mutate(changed["profiles"]["authored-v1-runtime"])
+            self.assertNotEqual(receipt["manifest_id"], digest(canonical(changed)))
+
+    def test_visible_nonuniform_durations_are_preserved_while_sampler_zeros_them(self):
+        fixture = self.fixture
+        relative = UNIT + ".state_machine"
+        text, count = re.subn(r"\bblend_time\s*=\s*[0-9.]+", "blend_time = 0.137", ASM_BYTES.decode(), count=1)
+        self.assertEqual(1, count)
+        path = fixture.write(relative, text.encode())
+        fixture.plan["source_files"][relative] = digest(path.read_bytes())
+        fixture.run()
+        original = edge_inventory(stage.Sjson(text).parse().value)
+        visible = edge_inventory(stage.Sjson((fixture.output / relative).read_text()).parse().value)
+        sampler = edge_inventory(stage.Sjson((fixture.output / (SAMPLER + ".state_machine")).read_text()).parse().value)
+        self.assertEqual(original, visible)
+        self.assertEqual(set(original), set(sampler))
+        self.assertTrue(all(edge["blend_time"] == 0 for edge in sampler.values()))
+
+    def test_invalid_loop_or_speed_metadata_is_rejected_before_staging(self):
+        fixture = self.fixture
+        relative = UNIT + ".state_machine"
+        for field, pattern, values in (
+            ("loop_animation", r"\bloop_animation\s*=\s*(?:true|false)", ('"true"', "1", "null")),
+            ("speed", r'\bspeed\s*=\s*"[^"\r\n]*"', ('""', "1", "false", '"\\n"')),
+        ):
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    text, count = re.subn(pattern, lambda match: field + " = " + value, ASM_BYTES.decode(), count=1)
+                    self.assertEqual(1, count)
+                    path = fixture.write(relative, text.encode())
+                    fixture.plan["source_files"][relative] = digest(path.read_bytes())
+                    self.assert_rejected()
+
+    def test_sampler_resource_alias_and_plan_overrides_are_rejected(self):
+        fixture = self.fixture
+        for key, value in (("sampler_state_machine", UNIT), ("bone_names", BONES),
+                           ("validation", {"sampler_state_machine_sha256": "a" * 64}),
+                           ("resource_package", "other.package")):
+            with self.subTest(field=key):
+                fixture.plan[key] = value
+                self.assert_rejected()
+                fixture.plan.pop(key)
+        fixture.write(SAMPLER + ".state_machine", b"unreviewed existing helper")
+        self.assert_rejected()
+
+    def test_sampler_write_failure_rolls_back_without_publishing_or_mutating_sources(self):
+        fixture = self.fixture
+        write = Path.write_bytes
+
+        def failed_write(path, data):
+            if path.name == "presentation_sampler.state_machine":
+                raise OSError("injected helper write failure")
+            return write(path, data)
+
+        with patch.object(Path, "write_bytes", failed_write):
+            self.assert_rejected(expected=OSError)
+
+    def test_silent_visible_or_sampler_asm_mutation_is_rejected_before_publication(self):
+        write = Path.write_bytes
+        for filename in ("warlock_bombardier_3p.state_machine", "presentation_sampler.state_machine"):
+            with self.subTest(filename=filename):
+                def changed_write(path, data):
+                    if path.name == filename:
+                        data, count = re.subn(rb"\bblend_time\s*=\s*[0-9.]+", b"blend_time = 0.137", data, count=1)
+                        self.assertEqual(1, count)
+                    return write(path, data)
+
+                with patch.object(Path, "write_bytes", changed_write):
+                    self.assert_rejected()
+
+    def test_silent_generated_unit_or_manifest_mutation_is_rejected_before_publication(self):
+        write = Path.write_bytes
+        for filename in ("warlock_bombardier_3p.unit", "doomrocket_animation_manifest.lua", "integration_manifest.json"):
+            with self.subTest(filename=filename):
+                def changed_write(path, data):
+                    if path.name == filename:
+                        data += b"\n"
+                    return write(path, data)
+
+                with patch.object(Path, "write_bytes", changed_write):
+                    self.assert_rejected()
+
+    def test_reviewed_resource_package_is_copied_and_hash_bound_without_changing_plan_pins(self):
+        fixture = self.fixture
+        before = fixture.snapshot()
+        receipt = fixture.run()
+        self.assertEqual(before, fixture.snapshot())
+        self.assertEqual(set(SOURCE_FILES), set(fixture.plan["source_files"]))
+        self.assertEqual(31, len(fixture.plan["source_files"]))
+        self.assertEqual(PACKAGE_BYTES, (fixture.output / RESOURCE_PACKAGE).read_bytes())
+        package_hash = digest(PACKAGE_BYTES)
+        self.assertEqual(RESOURCE_PACKAGE, receipt["resource_package"])
+        self.assertEqual(package_hash, receipt["resource_package_sha256"])
+        self.assertTrue(receipt["sampler_resource_in_mod_package"])
+        self.assertEqual(package_hash, receipt["source_inputs_sha256"][str(fixture.root / RESOURCE_PACKAGE)])
+        self.assertEqual(package_hash, receipt["payload_files"][RESOURCE_PACKAGE]["sha256"])
+        profile = json.loads((fixture.output / "integration_manifest.json").read_text())["profiles"][receipt["profile_id"]]
+        self.assertEqual(RESOURCE_PACKAGE, profile["validation"]["resource_package"])
+        self.assertEqual(package_hash, profile["validation"]["resource_package_sha256"])
+        profile["validation"]["resource_package_sha256"] = "f" * 64
+        profile.pop("manifest_id")
+        altered = {"schema": 1, "profiles": {receipt["profile_id"]: profile}}
+        self.assertNotEqual(receipt["manifest_id"], digest(canonical(altered)))
+
+    def test_localized_legacy_only_profile_also_closes_sampler_package_loading(self):
+        fixture = self.fixture
+        fixture.add_localized()
+        fixture.plan["authored_clips"], fixture.plan["states"] = {}, {}
+        fixture.save()
+        before = fixture.snapshot()
+        receipt = fixture.run(True)
+        self.assertEqual(before, fixture.snapshot())
+        self.assertEqual([], receipt["authored_states"])
+        self.assertTrue(receipt["sampler_resource_in_mod_package"])
+        self.assertEqual(PACKAGE_BYTES, (fixture.output / RESOURCE_PACKAGE).read_bytes())
+
+    def test_missing_resource_package_is_rejected(self):
+        fixture = self.fixture
+        package = fixture.root / RESOURCE_PACKAGE
+        package.unlink()
+        fixture.tracked.remove(package)
+        self.assert_rejected()
+
+    def test_unsupported_resource_package_or_missing_load_globs_are_rejected(self):
+        fixture = self.fixture
+        reviewed = stage.Sjson(PACKAGE_BYTES.decode()).parse().value
+        mutations = (
+            lambda value: value.pop("state_machine"),
+            lambda value: value.update(state_machine=[UNIT]),
+            lambda value: value.update(state_machine=["other_units/*"]),
+            lambda value: value.update(unit=[]),
+            lambda value: value.update(lua=["scripts/mods/other/*"]),
+            lambda value: value.update(mod=["other"]),
+            lambda value: value.update(package=["resource_packages/other/other"]),
+            lambda value: value.update(unknown_resource=["units/*"]),
+            lambda value: value.update(state_machine=["units/*", "units/*"]),
+            lambda value: value.update(state_machine=["units/*", "../other/*"]),
+        )
+        for index, mutation in enumerate(mutations):
+            with self.subTest(mutation=index):
+                value = copy.deepcopy(reviewed)
+                mutation(value)
+                encoded = root_sjson(value)
+                self.assertEqual(value, stage.Sjson(encoded.decode()).parse().value)
+                fixture.write(RESOURCE_PACKAGE, encoded)
+                self.assert_rejected(expected_message="Unsupported mod resource package")
+
+    def test_resource_package_source_mutation_during_copy_is_rejected(self):
+        fixture = self.fixture
+        package = fixture.root / RESOURCE_PACKAGE
+        original = stage.shutil.copy2
+        changed = False
+
+        def changed_copy(source, target, *args, **kwargs):
+            nonlocal changed
+            result = original(source, target, *args, **kwargs)
+            if Path(source).resolve() == package:
+                package.write_bytes(PACKAGE_BYTES + b"\n// external package mutation\n")
+                changed = True
+            return result
+
+        with patch.object(stage.shutil, "copy2", changed_copy):
+            with self.assertRaises(ValueError):
+                fixture.run()
+        self.assertTrue(changed)
+        self.assertFalse(fixture.output.exists())
+        self.assertEqual([], list((fixture.root / ".build").glob(".stage-animation-integration-*")))
+
+    def test_resource_package_semantics_use_the_same_bytes_as_its_hash(self):
+        fixture = self.fixture
+        package = fixture.root / RESOURCE_PACKAGE
+        unsupported = stage.Sjson(PACKAGE_BYTES.decode()).parse().value
+        unsupported.pop("state_machine")
+        encoded = root_sjson(unsupported)
+        self.assertEqual(unsupported, stage.Sjson(encoded.decode()).parse().value)
+        fixture.write(RESOURCE_PACKAGE, encoded)
+        original = Path.read_text
+
+        def transient_approved_text(path, *args, **kwargs):
+            if path.resolve() == package:
+                return PACKAGE_BYTES.decode()
+            return original(path, *args, **kwargs)
+
+        # Hashing unreviewed A but parsing transient reviewed B must never
+        # approve and publish A. The validator hashes and parses one buffer.
+        with patch.object(Path, "read_text", transient_approved_text):
+            self.assert_rejected(expected_message="Unsupported mod resource package")
+
+    def test_silent_late_resource_package_payload_mutation_rolls_back(self):
+        fixture = self.fixture
+        original = Path.write_bytes
+        changed = False
+
+        def changed_write(path, data):
+            nonlocal changed
+            if path.name == "presentation_sampler.state_machine":
+                package = path.parents[3] / RESOURCE_PACKAGE
+                self.assertTrue(package.is_file())
+                original(package, PACKAGE_BYTES + b"\n")
+                changed = True
+            return original(path, data)
+
+        with patch.object(Path, "write_bytes", changed_write):
+            self.assert_rejected()
+        self.assertTrue(changed)
 
     def test_localized_declaration_requires_explicit_flag(self):
         self.fixture.add_localized()

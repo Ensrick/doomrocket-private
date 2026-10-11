@@ -129,6 +129,7 @@ mod._stop_warlock_animation_ownership=function() end
 mod._reset_warlock_animation_ownership=function() end
 mod._release_warlock_animation_ownership_world=function() end
 mod._update_warlock_animation_ownership=function() end
+mod._update_warlock_animation_blend=function() end
 mod._note_warlock_animation_ownership_event=function() end
 mod._start_warlock_outfit_correction=function() end
 mod._stop_warlock_outfit_correction=function() end

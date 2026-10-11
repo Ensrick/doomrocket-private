@@ -135,6 +135,85 @@ def runtime():
 
 
 class GripAlignmentTests(unittest.TestCase):
+    def test_compositor_runs_after_flush_and_before_grip_ownership_decision(self):
+        lua = runtime()
+        lua.execute("""
+          local flushed=calls.flushes
+          composed_first=false
+          function mod._apply_warlock_animation_blend(carrier,target)
+           assert(carrier==owner and target==outfit)
+           assert(calls.flushes>=flushed+3,'presentation consumed stale native poses')
+           composed_first=true
+          end
+          function mod._warlock_animation_ownership(carrier,target)
+           assert(composed_first,'grip chose ownership before presentation composition')
+           return {upper_body='authored',weapon='authored'}
+          end
+          move_source('j_lefthand',.4,.2,.9,.6)
+          tick();assert(not mod.last_error,mod.last_error)
+          assert(calls.writes==0,'legacy grip overwrote compositor-owned pose')
+          assert(mod._warlock_grip_alignment_status(owner)=='authored_no_wielded_weapon')
+        """)
+
+    def test_read_only_helper_candidates_match_existing_legacy_result(self):
+        lua = runtime()
+        lua.execute("""
+          helper=make_unit('pose-only-helper')
+          for name,node in pairs(outfit.nodes) do helper.nodes[name]=node end
+          for node,parent in pairs(outfit.parents) do helper.parents[node]=parent end
+          for node,p in pairs(outfit.locals) do helper.locals[node]=keep(p) end
+          function mod._warlock_transition_helper_valid(carrier,target)
+           return carrier==owner and target==helper
+          end
+          move_source('j_lefthand',.4,.2,.9,.6)
+          move_source('j_righthand',-.4,.2,.9,-.3)
+          local originals={};for node,p in pairs(helper.locals) do originals[node]=keep(p) end
+          local writes=assert(mod._prepare_warlock_legacy_grip_pose(owner,helper))
+          assert(#writes==12 and calls.writes==0)
+          assert(mod._warlock_grip_alignment_status(owner)=='armed')
+          for node,p in pairs(originals) do
+           for r=1,4 do for c=1,4 do assert(p[r][c]==helper.locals[node][r][c]) end end
+          end
+          tick();assert(calls.writes==24 and max_gap()<1e-8)
+          for _,write in ipairs(writes) do
+           for r=1,4 do for c=1,4 do
+            assert(math.abs(write.pose[r][c]-outfit.locals[write.node][r][c])<1e-8)
+           end end
+          end
+        """)
+
+    def test_helper_candidates_require_authorized_living_pair_and_valid_graph(self):
+        for mutation in (
+            "mod._warlock_transition_helper_valid=nil",
+            "mod._warlock_transition_helper_valid=function() return false end",
+            "helper=outfit",
+            "helper=owner",
+            "helper.alive=false",
+            "helper.world=other_world",
+            "HEALTH_ALIVE[owner]=nil",
+            "mod._warlock_outfits[owner]=nil",
+            "helper.nodes.j_righthand=nil",
+            "helper.parents[3]=4;helper.parents[4]=3",
+            "helper.locals[1][1][2]=50",
+            "helper.locals[helper.nodes.j_righthand][1][4]=0/0",
+            "mod._note_warlock_grip_alignment_event(owner,'jump',false)",
+        ):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute("""
+                  helper=make_unit('pose-only-helper')
+                  for name,node in pairs(outfit.nodes) do helper.nodes[name]=node end
+                  for node,parent in pairs(outfit.parents) do helper.parents[node]=parent end
+                  for node,p in pairs(outfit.locals) do helper.locals[node]=keep(p) end
+                  function mod._warlock_transition_helper_valid(carrier,target)
+                   return carrier==owner and target==helper
+                  end
+                """)
+                lua.execute(mutation + """
+                  local writes,status=mod._prepare_warlock_legacy_grip_pose(owner,helper)
+                  assert(writes==nil and type(status)=='string' and calls.writes==0)
+                """)
+
     def test_phase_and_aim_deltas_use_composed_current_frame_pose(self):
         lua = runtime()
         lua.execute("""

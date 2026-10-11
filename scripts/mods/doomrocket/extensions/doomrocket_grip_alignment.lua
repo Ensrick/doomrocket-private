@@ -261,30 +261,7 @@ local function restore_native_weapon(owner, entry)
 	return true
 end
 
-local function apply(owner, entry)
-	-- Both units need their freshly evaluated local bones composed before reading
-	-- world poses. pre_scene_update alone does not establish this cache boundary.
-	World.update_unit(entry.world, owner)
-	World.update_unit(entry.world, entry.outfit)
-	if live(entry.weapon, entry.world) then
-		World.update_unit(entry.world, entry.weapon)
-	end
-	local channels = ownership(owner, entry)
-	if channels.upper_body == "authored" then
-		follow_authored_weapon(owner, entry, channels)
-		return
-	elseif channels.upper_body ~= "legacy" then
-		entry.status = "unsupported_ownership"
-		return
-	end
-	if not restore_native_weapon(owner, entry) then entry.status = "invalid_weapon_graph"; return end
-	if not entry.mirrored then
-		-- There are no authored jump clips on the custom rig. Pulling only the
-		-- upper torso onto a jumping native pelvis would stretch the body.
-		entry.status = "unsupported_event"
-		return
-	end
-
+local function prepare_legacy(owner, entry)
 	local root = Unit.world_position(owner, 0)
 	local desired, locals, graph = {}, {}, {}
 	for i = 1, #entry.pairs do
@@ -292,24 +269,21 @@ local function apply(owner, entry)
 		local target_world = Unit.world_pose(entry.outfit, pair.target)
 		local ok, a, b, c = orthogonal(target_world)
 		if not ok or math.abs(a - b) > a * 0.0001 or math.abs(a - c) > a * 0.0001 then
-			entry.status = "unsupported_scale"
-			return
+			return nil, "unsupported_scale"
 		end
 		local source_position = Unit.world_position(owner, pair.source)
 		if not Vector3.is_valid(source_position) or Vector3.distance(source_position, root) > 4 then
-			entry.status = "invalid_source"
-			return
+			return nil, "invalid_source"
 		end
 		-- Reject spawn transients or an unsupported torso displacement. No offset
 		-- calibration may be captured from an unevaluated initial animation pose.
 		if pair.name == "j_spine" and Vector3.distance(source_position,
 			Unit.world_position(entry.outfit, pair.target)) > 0.5 then
-			entry.status = "unsettled_torso"
-			return
+			return nil, "unsettled_torso"
 		end
 		local pose = Matrix4x4.from_quaternion_position(
 			Unit.world_rotation(owner, pair.source), source_position)
-		if not orthogonal(pose) then entry.status = "invalid_source"; return end
+		if not orthogonal(pose) then return nil, "invalid_source" end
 		-- Preserve the custom uniform world scale, not the native animated scale.
 		Matrix4x4.set_x(pose, times(Matrix4x4.x(pose), a))
 		Matrix4x4.set_y(pose, times(Matrix4x4.y(pose), a))
@@ -331,21 +305,89 @@ local function apply(owner, entry)
 	for i = 1, #entry.pairs do
 		local pair = entry.pairs[i]
 		local parent = parent_world(pair.parent)
-		if not orthogonal(parent) then entry.status = "invalid_parent"; return end
+		if not orthogonal(parent) then return nil, "invalid_parent" end
 		local pose = Matrix4x4.multiply(desired[pair.target], Matrix4x4.inverse(parent))
 		local ok, a, b, c = orthogonal(pose)
 		local scale = Unit.local_scale(entry.outfit, pair.target)
 		if not ok or not Vector3.is_valid(scale)
 			or math.abs(a - scale.x) > 0.001 or math.abs(b - scale.y) > 0.001
 			or math.abs(c - scale.z) > 0.001 then
-			entry.status = "unsupported_local_scale"
-			return
+			return nil, "unsupported_local_scale"
 		end
-		locals[i] = pose
+		locals[i] = { node = pair.target, pose = pose, rotation = Matrix4x4.rotation(pose),
+			position = Matrix4x4.translation(pose) }
 	end
-	for i = 1, #entry.pairs do
-		Unit.set_local_rotation(entry.outfit, entry.pairs[i].target, Matrix4x4.rotation(locals[i]))
-		Unit.set_local_position(entry.outfit, entry.pairs[i].target, Matrix4x4.translation(locals[i]))
+	return locals
+end
+
+local function target_pairs(owner, outfit)
+	local node_pairs, parents = {}, {}
+	for i = 1, #NAMES do
+		local name = NAMES[i]
+		if not Unit.has_node(owner, name) or not Unit.has_node(outfit, name) then return end
+		local target = Unit.node(outfit, name)
+		local parent = Unit.scene_graph_parent(outfit, target)
+		node_pairs[i] = { name = name, target = target, source = Unit.node(owner, name), parent = parent }
+		local node, visited, guard = target, {}, 0
+		while node ~= 0 do
+			if visited[node] or guard >= 256 then return end
+			local ancestor = Unit.scene_graph_parent(outfit, node)
+			if not finite(ancestor) or ancestor ~= math.floor(ancestor) or ancestor < 0 or ancestor == node then return end
+			visited[node], parents[node] = true, ancestor
+			node, guard = ancestor, guard + 1
+		end
+	end
+	return node_pairs, parents
+end
+
+-- The presentation compositor is the sole authority for this hidden target.
+-- Return current-frame native temporaries; preflight every candidate without
+-- changing either the displayed outfit or the helper's authored clip data.
+function mod._prepare_warlock_legacy_grip_pose(owner, helper)
+	local entry = entries[owner]
+	local authorize = mod._warlock_transition_helper_valid
+	if not entry or not valid(owner, entry) or not entry.mirrored or not authorize
+		or not authorize(owner, helper) or not live(helper, entry.world)
+		or helper == owner or helper == entry.outfit then return nil, "inactive_helper" end
+	local pairs, parents = target_pairs(owner, helper)
+	if not pairs then return nil, "missing_helper_node" end
+	World.update_unit(entry.world, owner)
+	World.update_unit(entry.world, helper)
+	return prepare_legacy(owner, { outfit = helper, pairs = pairs, parents = parents })
+end
+
+local function apply(owner, entry)
+	-- Both units need their freshly evaluated local bones composed before reading
+	-- world poses. pre_scene_update alone does not establish this cache boundary.
+	World.update_unit(entry.world, owner)
+	World.update_unit(entry.world, entry.outfit)
+	if live(entry.weapon, entry.world) then
+		World.update_unit(entry.world, entry.weapon)
+	end
+	if mod._apply_warlock_animation_blend then
+		mod._apply_warlock_animation_blend(owner, entry.outfit)
+	end
+	local channels = ownership(owner, entry)
+	if channels.upper_body == "authored" then
+		follow_authored_weapon(owner, entry, channels)
+		return
+	elseif channels.upper_body ~= "legacy" then
+		entry.status = "unsupported_ownership"
+		return
+	end
+	if not restore_native_weapon(owner, entry) then entry.status = "invalid_weapon_graph"; return end
+	if not entry.mirrored then
+		-- There are no authored jump clips on the custom rig. Pulling only the
+		-- upper torso onto a jumping native pelvis would stretch the body.
+		entry.status = "unsupported_event"
+		return
+	end
+	local writes, status = prepare_legacy(owner, entry)
+	if not writes then entry.status = status; return end
+	for i = 1, #writes do
+		local write = writes[i]
+		Unit.set_local_rotation(entry.outfit, write.node, write.rotation)
+		Unit.set_local_position(entry.outfit, write.node, write.position)
 	end
 	World.update_unit(entry.world, entry.outfit)
 	entry.status = "active"
@@ -358,21 +400,8 @@ function mod._start_warlock_grip_alignment(owner, outfit, inventory)
 		or Unit.get_data(outfit, "unit_name") ~= OUTFIT then return false end
 	local world = Unit.world(owner)
 	if not world or Unit.world(outfit) ~= world then return false end
-	local node_pairs, parents = {}, {}
-	for i = 1, #NAMES do
-		local name = NAMES[i]
-		if not Unit.has_node(owner, name) or not Unit.has_node(outfit, name) then return false end
-		local target = Unit.node(outfit, name)
-		local parent = Unit.scene_graph_parent(outfit, target)
-		node_pairs[i] = { name = name, target = target, source = Unit.node(owner, name), parent = parent }
-		local node, guard = target, 0
-		while node ~= 0 and not parents[node] do
-			local ancestor = Unit.scene_graph_parent(outfit, node)
-			if not ancestor or ancestor == node or guard >= 256 then return false end
-			parents[node] = ancestor
-			node, guard = ancestor, guard + 1
-		end
-	end
+	local node_pairs, parents = target_pairs(owner, outfit)
+	if not node_pairs then return false end
 	local weapon
 	for _, item in pairs(inventory and inventory.inventory_item_units or {}) do
 		if live(item, world) and Unit.get_data(item, "unit_name") == WEAPON then weapon = item; break end

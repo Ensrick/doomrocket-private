@@ -51,6 +51,25 @@ if ($OriginalLegacyClips) { $stageArgs += '--original-legacy-clips' }
 if ($IntegrationOverlay) { $stageArgs += @('--integration-overlay', (Resolve-RepoPath $IntegrationOverlay)) }
 & $PythonExecutable @pythonPrefix $verifier @stageArgs
 if ($LASTEXITCODE -ne 0) { throw 'Animator input staging failed.' }
+$packageClosure = Join-Path $PSScriptRoot 'package_closure.py'
+$checkPackageClosure = $false
+if ($IntegrationOverlay) {
+    $registration = Get-Content -LiteralPath (Join-Path $probe 'integration_receipt.json') -Raw | ConvertFrom-Json
+    $runtimeManifest = Get-Content -LiteralPath (Join-Path $probe 'integration_manifest.json') -Raw | ConvertFrom-Json
+    $profile = $runtimeManifest.profiles.($registration.profile_id)
+    if ($registration.cross_owner_transition_policy -cne $profile.cross_owner_transition_policy) {
+        throw 'Integration receipt presentation policy differs from trusted manifest.'
+    }
+    if ($profile.cross_owner_transition_policy -cnotin @('cut', 'snapshot-blend-v1')) {
+        throw 'Unsupported integration presentation policy.'
+    }
+    $checkPackageClosure = $profile.cross_owner_transition_policy -ceq 'snapshot-blend-v1'
+    if ($checkPackageClosure) {
+        Assert-ProbePaths
+        & $PythonExecutable @pythonPrefix $packageClosure --stage --probe-root $probe --integration-overlay (Resolve-RepoPath $IntegrationOverlay)
+        if ($LASTEXITCODE -ne 0) { throw 'Presentation package closure staging failed.' }
+    }
+}
 foreach ($lane in @('candidate', 'reference')) {
     Assert-ProbePaths
     Assert-CompilerAvailable
@@ -77,4 +96,11 @@ if ($RuntimePoses) { $auditArgs += @('--runtime-poses', (Resolve-RepoPath $Runti
 if ($MidpointMotion) { $auditArgs += '--midpoint-motion' }
 & $PythonExecutable @pythonPrefix $verifier @auditArgs
 if ($LASTEXITCODE -ne 0) { throw 'Decoded SDK animator contract failed.' }
+if ($checkPackageClosure) {
+    Assert-ProbePaths
+    & $PythonExecutable @pythonPrefix $packageClosure --seal-sdk-resources --probe-root $probe
+    if ($LASTEXITCODE -ne 0) { throw 'Compiled presentation resources changed before SDK receipt sealing.' }
+    & $PythonExecutable @pythonPrefix $packageClosure --probe-root $probe
+    if ($LASTEXITCODE -ne 0) { throw 'Compiled presentation sampler is absent from the mod package load closure.' }
+}
 Write-Output "Animator FBX/SDK checks passed. Report: $probe\compiled_animation_contract.json. No deployment, upload or in-game test occurred."

@@ -47,8 +47,18 @@ local function accepted(profile)
 		or not finite(profile.max_blend_time) or profile.max_blend_time < 0
 		or profile.max_blend_time > 1
 		or (profile.auxiliary_events ~= nil and type(profile.auxiliary_events) ~= "table")
-		or (profile.cross_owner_transition_policy ~= nil and profile.cross_owner_transition_policy ~= "cut") then
+		or (profile.cross_owner_transition_policy ~= nil and profile.cross_owner_transition_policy ~= "cut"
+			and profile.cross_owner_transition_policy ~= "snapshot-blend-v1") then
 		return false
+	end
+	if profile.cross_owner_transition_policy == "snapshot-blend-v1" then
+		if profile.sampler_state_machine ~= OUTFIT .. "/presentation_sampler"
+			or type(profile.bone_names) ~= "table" or #profile.bone_names ~= 138 then return false end
+		local names = {}
+		for _, name in ipairs(profile.bone_names) do
+			if type(name) ~= "string" or name == "" or names[name] then return false end
+			names[name] = true
+		end
 	end
 	for name, state in pairs(profile.states) do
 		if type(name) ~= "string" or type(state) ~= "table" or type(state.clip) ~= "string"
@@ -57,6 +67,8 @@ local function accepted(profile)
 			or type(state.visible_aim) ~= "boolean" or type(state.transitions) ~= "table"
 			or (state.owner == "authored" and state.visible_aim and state.aim_policy ~= "gameplay")
 			or (name == "base/death" and state.owner ~= "legacy") then return false end
+		if profile.cross_owner_transition_policy == "snapshot-blend-v1"
+			and type(state.loop_animation) ~= "boolean" then return false end
 		for event, transition in pairs(state.transitions) do
 			if type(event) ~= "string" or type(transition) ~= "table"
 				or type(profile.states[transition.to]) ~= "table" or not finite(transition.blend_time)
@@ -73,6 +85,7 @@ local function accepted(profile)
 end
 
 function mod._start_warlock_animation_ownership(owner, outfit)
+	if mod._stop_warlock_animation_blend then mod._stop_warlock_animation_blend(owner) end
 	if owner then entries[owner] = nil end
 	if not owner or not outfit or not Unit.alive(owner) or not Unit.alive(outfit)
 		or (health(owner) ~= nil and health(owner) ~= true)
@@ -97,6 +110,12 @@ function mod._start_warlock_animation_ownership(owner, outfit)
 	end
 	entry.profile, entry.profile_id, entry.state = profile, marker, profile.default_state
 	entry.blocked = false
+	if profile.cross_owner_transition_policy == "snapshot-blend-v1" then
+		if not mod._start_warlock_animation_blend or not mod._start_warlock_animation_blend(owner, outfit, profile) then
+			entry.blocked = true
+			return false
+		end
+	end
 	return true
 end
 
@@ -124,9 +143,21 @@ function mod._note_warlock_animation_ownership_event(owner, event, mirrored)
 		return
 	end
 	local destination = profile.states[transition.to]
+	if profile.cross_owner_transition_policy == "snapshot-blend-v1" then
+		if not mod._note_warlock_animation_blend_event
+			or not mod._note_warlock_animation_blend_event(owner, event, entry.state, transition.to, transition.blend_time) then
+			entry.blocked, entry.unknown_authored = true, true
+			return
+		end
+	end
 	local ownership_cut = profile.cross_owner_transition_policy == "cut"
 		and state.owner ~= destination.owner and transition.blend_time == 0
-	if ownership_cut then
+	if profile.cross_owner_transition_policy == "snapshot-blend-v1" then
+		-- The presentation bridge owns its exact edge duration and native clock
+		-- guard. A second maximum-duration timer would suppress legacy correction
+		-- after a shorter bridge has already returned to its native endpoint.
+		entry.protected, entry.protected_speed, entry.protected_aim = 0, nil, nil
+	elseif ownership_cut then
 		-- The generated controller and its compiled metadata guarantee this
 		-- exact direct edge has no outgoing contribution. This avoids blending
 		-- dormant legacy accessory poses into an authored localized skin.
@@ -177,7 +208,9 @@ function mod._warlock_animation_ownership(owner, outfit)
 	end
 	local profile = entry.profile
 	local state = profile and profile.states[entry.state]
-	local authored = state and (state.owner == "authored" or entry.protected > 0 or entry.unknown_authored)
+	local bridge = profile and profile.cross_owner_transition_policy == "snapshot-blend-v1"
+		and mod._warlock_animation_blend_active and mod._warlock_animation_blend_active(owner)
+	local authored = state and (state.owner == "authored" or entry.protected > 0 or entry.unknown_authored or bridge)
 	local mode = authored and "authored" or (entry.blocked and "unsupported" or "legacy")
 	local visible_aim = false
 	if mode == "legacy" then visible_aim = not state or state.visible_aim
@@ -185,27 +218,35 @@ function mod._warlock_animation_ownership(owner, outfit)
 		if state.owner == "authored" then visible_aim = state.visible_aim
 		else visible_aim = entry.protected_aim == true end
 	end
+	-- The compositor owns the displayed pose, while both ASMs must evaluate
+	-- the incoming state with identical variable/constraint policies. Keeping
+	-- the outgoing authored speed here would desynchronize a legacy endpoint.
+	local sampler_policy = state and profile.cross_owner_transition_policy == "snapshot-blend-v1"
+	if sampler_policy then visible_aim = state.visible_aim end
 	return { upper_body = mode, weapon = mode,
 		accessories = authored and "authored" or (mode == "legacy" and profile
 			and profile.accessory_skin == "localized-v1" and "legacy-pelvis" or "unsupported"),
-		speed = authored and (state.owner == "authored" and state.speed or entry.protected_speed or "authored")
+		speed = sampler_policy and state.speed or authored and (state.owner == "authored" and state.speed or entry.protected_speed or "authored")
 			or (mode == "legacy" and (state and state.speed or "measured") or "unsupported"),
 		visible_aim = visible_aim,
 		profile = profile, profile_id = entry.profile_id, state = entry.state,
-		clip = state and state.clip, transitioning = entry.protected > 0 }
+		clip = state and state.clip, transitioning = entry.protected > 0 or bridge == true }
 end
 
 mod._warlock_animation_channel_ownership = mod._warlock_animation_ownership
 
 function mod._stop_warlock_animation_ownership(owner)
+	if mod._stop_warlock_animation_blend then mod._stop_warlock_animation_blend(owner) end
 	if owner then entries[owner] = nil end
 end
 
 function mod._reset_warlock_animation_ownership()
+	if mod._reset_warlock_animation_blend then mod._reset_warlock_animation_blend() end
 	entries = {}
 end
 
 function mod._release_warlock_animation_ownership_world(world)
+	if mod._release_warlock_animation_blend_world then mod._release_warlock_animation_blend_world(world) end
 	for owner, entry in pairs(entries) do
 		if entry.world == world then entries[owner] = nil end
 	end
