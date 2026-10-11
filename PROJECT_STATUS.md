@@ -6,8 +6,8 @@ is the live work queue; this page is a short re-entry map.
 | Question | Current answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Warlock Engineer TEST v0.1.85-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-11 01:13 UTC (96,226,816 bytes; content handle `2896541613366277250`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.85-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/95388a6a05298ebf2ef08caae7b181a01aab7ca4). |
-| Next TEST work | Six issues are ready for solo checks on the verified v0.1.85-dev build: hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range rocket clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), crystal flame resizing [#15](https://github.com/Ensrick/doomrocket-private/issues/15), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44). Full sound cues [#5](https://github.com/Ensrick/doomrocket-private/issues/5) remain blocked on Arnaud's new masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) remains blocked with `needs-info` on crash evidence. |
+| Published experimental build | [Warlock Engineer TEST v0.1.86-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-11 05:38 UTC (96,247,057 bytes; content handle `5089446611079694980`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.86-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d8bee540f134e7468d23b3582dd1d148cb88a356). |
+| Next TEST work | Six issues remain ready for solo checks; v0.1.86-dev retains the playable assets from verified v0.1.85-dev: hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range rocket clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), crystal flame resizing [#15](https://github.com/Ensrick/doomrocket-private/issues/15), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44). Full sound cues [#5](https://github.com/Ensrick/doomrocket-private/issues/5) remain blocked on Arnaud's new masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) remains blocked with `needs-info` on crash evidence. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
@@ -15,15 +15,23 @@ is the live work queue; this page is a short re-entry map.
 ## Current evidence and work
 
 The separate [Blender animation authoring guide](docs/ANIMATION_AUTHORING.md)
-covers Arnaud's control rig, portable exporter, and isolated integration staging.
-The integration candidate preserves all thirteen original compiled animations
-and all 138 tracks. Authored poses own their body and accessory channels through
-blends; the launcher follows their attachment frames. An opt-in runtime correction
-supports the localized coat/belt skin during legacy playback without resampling
-its clips. Generated handoff assets stay outside Git. This work is under review
-as candidate v0.1.86-dev in [PR #47](https://github.com/Ensrick/doomrocket-private/pull/47); it does not
-change the published builds. Native game playback and the written visual verdict
-remain pending; the guide separates those from Blender, Lua, and SDK checks.
+covers Arnaud's local control rig, portable exporter, and isolated integration
+staging. TEST v0.1.86-dev ships the runtime/tooling reviewed in
+[PR #47](https://github.com/Ensrick/doomrocket-private/pull/47). The default playable
+package retains the shipping body, all thirteen original compiled animations,
+and all 138 tracks; no authored or localized profile is active. The localized
+coat/belt body, diagnostic clips, and generated artist handoff remain external
+to Git and the Workshop package. In reviewed staged integrations, authored
+poses own their body/accessory/speed channels and the launcher follows their
+attachment frames. Authored/legacy boundaries use immediate transitions;
+blends within either owner remain intact. Death retains its original clip and
+physics handoff; authored death replacement is rejected.
+
+Blender, independent FBX import, and SDK checks pass. The complete legacy
+outfit audit executes actual Lua against float32 decoded scene poses: 24,077
+poses and 850,158,870 weighted vertex comparisons, with maximum skin error
+1.410 mm below the fixed 2 mm gate. These checks captured no native `Unit`
+poses; in-game playback and the written visual verdict remain pending.
 
 Crunch's October 8-10 replies accept the v0.1.84 balance plan, including the
 flailing throw with movable camera and prompt rocket impacts. [#33](https://github.com/Ensrick/doomrocket-private/issues/33)
@@ -81,8 +89,8 @@ written observations and the matching console log establish what happened.
 No video, second player, or extra player coordination is required. See the
 [TEST quickstart](docs/TESTER_QUICKSTART.md).
 
-The verified release tag remains bound to reviewed source commit
-`95388a6a05298ebf2ef08caae7b181a01aab7ca4`; later publication-record documentation must not move it.
+The verified `v0.1.86-dev` release tag remains bound to reviewed source commit
+`d8bee540f134e7468d23b3582dd1d148cb88a356`; later publication-record documentation must not move it.
 Workshop verification confirms delivery, not an in-game pass.
 
 The TEST and public channels remain separate. Use the established
