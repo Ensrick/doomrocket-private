@@ -1163,10 +1163,18 @@ def audit(probe,runtime_path=None,midpoint_motion=False):
         from compiled_integration import verify as verify_integration
         registration=json.loads((probe/'integration_receipt.json').read_text())
         baseline_sm=indexed_resources(ROOT,probe,probe/'reference/data',[UNIT+'.state_machine'])[0]
-        integration=verify_integration(unit_payload,sm_payload,
-            json.loads((probe/'integration_manifest.json').read_text()),registration['profile_id'],baseline_sm.read_bytes())
-        authored=[]
         runtime_manifest=json.loads((probe/'integration_manifest.json').read_text())
+        integration_profile=runtime_manifest['profiles'][registration['profile_id']]
+        sampler_payload=None
+        if integration_profile.get('cross_owner_transition_policy')=='snapshot-blend-v1':
+            sampler_path=indexed_resources(ROOT,probe,probe/'candidate/data',
+                [integration_profile['sampler_state_machine']+'.state_machine'])[0]
+            sampler_payload=sampler_path.read_bytes()
+        integration=verify_integration(unit_payload,sm_payload,runtime_manifest,
+            registration['profile_id'],baseline_sm.read_bytes(),sampler_payload)
+        if sampler_payload is not None:
+            integration['presentation_sampler']['compiled_sha256']=digest(sampler_path)
+        authored=[]
         exports=runtime_manifest['profiles'][registration['profile_id']]['validation']['authored_exports']
         for name,export in exports.items():
             fbx_path=probe/'candidate/source'/(export['resource']+'.fbx')

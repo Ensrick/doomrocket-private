@@ -211,7 +211,91 @@ def runtime(start=True):
     return lua
 
 
+def helper_runtime():
+    lua = runtime()
+    lua.execute("""
+      helper=make_unit('pose-only-helper')
+      for name,node in pairs(outfit.nodes) do helper.nodes[name]=node end
+      for node,parent in pairs(outfit.parents) do helper.parents[node]=parent end
+      for node,p in pairs(outfit.locals) do helper.locals[node]=keep(p) end
+      local names={'j_spine','j_spine1','j_leftshoulder','j_rightshoulder',
+       'j_leftarm','j_rightarm','j_leftforearm','j_rightforearm',
+       'j_lefthand','j_righthand','j_leftforearmroll','j_rightforearmroll'}
+      local next_node=21
+      candidates={}
+      for i,name in ipairs(names) do
+       if not helper.nodes[name] then
+        helper.nodes[name]=next_node;helper.parents[next_node]=5
+        helper.locals[next_node]=keep(pose(.001*i,-.001*i,.001,0,0,0))
+        next_node=next_node+1
+       end
+       local node=helper.nodes[name]
+       candidates[i]={node=node,pose=Matrix4x4.copy(helper.locals[node])}
+      end
+      helper_legacy=true
+      function mod._warlock_transition_helper_valid(carrier,target,passed_profile)
+       return carrier==owner and target==helper and passed_profile==profile and helper_legacy
+      end
+    """)
+    return lua
+
+
 class OutfitCorrectionTests(unittest.TestCase):
+    def test_pure_helper_accessories_resolve_uncommitted_grip_parent_candidates(self):
+        lua = helper_runtime()
+        lua.execute("""
+          candidates[1].pose=pose(.001,-.001,.002,.5,-.3,.2)
+          candidates[2].pose=pose(-.001,.002,.002,-.4,.6,-.3)
+          local originals={};for node,p in pairs(helper.locals) do originals[node]=keep(p) end
+          local writes=assert(mod._prepare_warlock_legacy_outfit_pose(owner,helper,profile,candidates))
+          assert(#writes==7 and calls.writes==0)
+          assert(mod._warlock_outfit_correction_status(owner)=='armed')
+          for node,p in pairs(originals) do
+           for r=1,4 do for c=1,4 do assert(p[r][c]==helper.locals[node][r][c]) end end
+          end
+          outfit.locals[3]=keep(candidates[1].pose);outfit.locals[5]=keep(candidates[2].pose)
+          snapshot();assert(apply());assert_result()
+          for _,write in ipairs(writes) do
+           for r=1,4 do for c=1,4 do
+            assert(math.abs(write.pose[r][c]-outfit.locals[write.node][r][c])<1e-7)
+           end end
+          end
+          assert(calls.writes==14)
+        """)
+
+    def test_pure_helper_accessory_rejection_is_atomic_and_cannot_write_authored_target(self):
+        for mutation in (
+            "helper_legacy=false",
+            "mod._warlock_transition_helper_valid=nil",
+            "helper=outfit",
+            "helper=owner",
+            "helper.alive=false",
+            "helper.world=other_world",
+            "HEALTH_ALIVE[owner]=nil",
+            "mod._warlock_outfits[owner]=nil",
+            "profile={}",
+            "helper.nodes.j_loot_sack_component5=nil",
+            "helper.parents[11]=5",
+            "helper.parents[4]=5",
+            "helper.locals[11][1][4]=0/0",
+            "helper.locals[11][1][2]=.7",
+            "helper.locals[2][1][4]=math.huge",
+            "table.remove(candidates)",
+            "candidates[12]=candidates[11]",
+            "candidates[12].node=helper.nodes.j_backpack",
+            "candidates[12].pose[1][4]=0/0",
+            "candidates[12].pose[1][2]=.7",
+            "candidates[12].pose[1][1]=-1",
+            "candidates[12].pose[1][1]=1.3",
+        ):
+            with self.subTest(mutation=mutation):
+                lua = helper_runtime()
+                lua.execute(mutation + """
+                  local writes,status=mod._prepare_warlock_legacy_outfit_pose(owner,helper,profile,candidates)
+                  assert(writes==nil and type(status)=='string' and calls.writes==0)
+                  assert(mod._warlock_outfit_correction_status(owner)=='armed')
+                """)
+
     def test_seven_targets_use_pelvis_metres_and_actual_corrected_parent(self):
         lua = runtime()
         lua.execute("""

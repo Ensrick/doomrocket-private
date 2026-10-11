@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.86-dev"
+local MOD_VERSION = "0.1.87-dev"
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
 -- mod:dofile("scripts/mods/doomrocket/utils/LobbyManager")
@@ -34,6 +34,7 @@ mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_ownership")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_outfit_correction")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_locomotion_animation")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_grip_alignment")
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_blend")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_weapon_pose_probe")
 mod:dofile("scripts/mods/doomrocket/utils/doomrocket_action_lookup")
 mod:dofile("scripts/mods/doomrocket/extensions/projectile_rocket")

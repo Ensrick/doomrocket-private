@@ -820,12 +820,14 @@ end
 mod:hook(World, "update_animations", function(func, world, dt, ...)
 	mod._update_warlock_animation_ownership(world, dt)
 	mod._update_warlock_locomotion_animation(world, dt)
+	mod._update_warlock_animation_blend(world, dt)
 	return finish_warlock_animation_update(world, dt, func(world, dt, ...))
 end)
 
 mod:hook(World, "update_animations_with_callback", function(func, world, dt, ...)
 	mod._update_warlock_animation_ownership(world, dt)
 	mod._update_warlock_locomotion_animation(world, dt)
+	mod._update_warlock_animation_blend(world, dt)
 	return finish_warlock_animation_update(world, dt, func(world, dt, ...))
 end)
 

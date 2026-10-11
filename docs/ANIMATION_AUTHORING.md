@@ -15,7 +15,55 @@ and an in-game visual verdict are separate checks. Read the generated reports
 for their actual results; this guide does not claim native playback or an
 in-game pass.
 
-## Measured authoring and SDK results, October 11, 2026 UTC
+## Current transition candidate
+
+v0.1.87-dev replaces immediate mixed cuts with the `snapshot-blend-v1` bridge
+described below. The final compositor passes 36 executable Lua regressions;
+the ownership controller passes 68, with an independent runtime safety review.
+
+| Current check | Result and scope |
+| --- | --- |
+| Isolated staging | 74 checks using actual Windows short-path aliases; three reviewed 43-file overlay routes pass. |
+| Contract rejection guards | Nineteen package membership/format/path cases, twenty compiled Lua table cases, and thirteen numerical reference/receipt-inventory cases pass. |
+| Actual Lua mixed poses | All thirteen legacy numerical specimens, 3,276 poses (1,638 ordinary and 1,638 interrupted), 452,088 bone comparisons, and 115,675,560 weighted vertex comparisons. Maximum head error 0.687 micrometres, axis-probe error 1.550 micrometres, and skin error 5.448 micrometres, below the unchanged 2 mm gate. |
+| Authored track ownership | 234 pure-authored zero-write checks and 1,638 checks that an authored helper receives no legacy bone writes pass. |
+| Legacy Lua equivalence | Old/current Lua match all 24,077 historical poses: 3,322,626 float32 local matrices are byte-identical. The fresh SDK bridge also proves the 2,192,102-byte scene/skin/bind/actor prefix, compiled bones, and all thirteen original animations exact. The prior 850,158,870 skin comparisons and 1.410 mm maximum are inherited through that complete identity proof, with zero new legacy weighted evaluations. |
+| Final SDK/package | Fresh isolated compilation and decoded package proof pass: 21 probe root-package members include all 16 required type/resource pairs and 12 graph-referenced animation resources. The compiled Lua manifest matches all 924 literal entries and the 138 ordered bones. All 154 visible durations remain exact; all 154 helper edges are zero. All thirteen original compiled animations retain all 138 tracks byte for byte. |
+| Native playback / game | Zero native `Unit` captures; event clock reset, hidden-mesh evaluation, and rendered appearance still need a written in-game verdict. |
+
+The mixed-pose report is `snapshot_blend_numeric_v87.json`, SHA-256
+`4e9971f8b17b2936e7b2f2dc319784a45b90e17c0a7c63bcf0034f200df75e8a`.
+It executes the actual compositor and legacy builders against independent
+float32 API doubles, with decoded SDK Hermite target samples injected at the
+selected phases and independently advanced API-double clocks. Its real staged
+custom route is the frozen continuous diagnostic in `base/idle`, using the
+idle/shoot-loop event fixture. The thirteen original clips supply numerical
+endpoints; death and stagger specimens are not authored state registrations.
+This checks composition fidelity and ownership, not native clocks or whether
+these poses look natural. Each new artist clip still needs its own verified
+FBX/SDK integration and in-game verdict.
+
+The final probe is `animation_sdk_snapshot_blend_package_final_probe`.
+Its `compiled_animation_contract.json` has SHA-256
+`f5e05957fe468dd6e9016f25f44a40a7d0d7e94e7230bde11283b61f2d4e6083`;
+`compiled_package_closure.json` has SHA-256
+`ec1bf04769885b41cabff3f68765e94399906027893e306a1b4a27d622cd5370`.
+The latter proves actual package membership and decodes the compiled Lua literal
+manifest without executing or modifying it.
+`legacy_equivalence_v87_final_sdk.json`, SHA-256
+`e0c90fd3622da20cfe0e7649a89b717bd67387997c1e07db9916dc77734cad17`,
+binds the complete legacy pose identity to this fresh SDK's exact compiled
+scene/skin/bind/bone/clip lane. The separate final acceptance verifier must also
+join and recheck the report/source/compiled identities before release.
+
+## Earlier authoring and SDK results, October 11, 2026 UTC
+
+These results belong to the frozen v0.1.86-dev integration handoff. They support
+the unchanged rig, exporter, and original animation payloads; they do not
+establish acceptance of the v0.1.87-dev snapshot compositor or hidden sampler.
+Read the new handoff's source-bound reports for its current results. The final
+sampler/package and legacy compiled-lane checks pass; native playback remains
+pending.
 
 | Check | Result and scope |
 | --- | --- |
@@ -28,7 +76,7 @@ in-game pass.
 | Continuous between-key motion | 588 halfway poses, 81,144 bone comparisons against raw FBX scalar TRS and its full hierarchy; maximum joint error 0.443 mm and 0.1 m axis-probe error 0.603 mm, below the 2 mm gate. No midpoint skin or native `Unit` samples are claimed. |
 | Original thirteen clips, SDK | All thirteen compiled animation payloads match the shipping reference byte for byte, including all 138 tracks. All original FBX and sidecar files remain exact. |
 | Blender weapon preview | Neutral, maximum stretch, and maximum squash preserve rigid launcher dimensions within 0.18 micrometres and match the SDK rotation convention. All 138 GAME bones, skin data, and both existing action payloads remain unchanged. |
-| Runtime pose ownership | Executable Lua tests cover authored body/accessory ownership, transition blends, rigid weapon following, aim policy, inventory teardown, and legacy restoration. |
+| Runtime pose ownership, v0.1.86-dev | Executable Lua tests cover authored body/accessory ownership, immediate mixed transitions, rigid weapon following, aim policy, inventory teardown, and legacy restoration. These do not validate the new snapshot blend. |
 | Full legacy outfit audit | All thirteen clips: 24,077 actual-Lua/float32 decoded poses and 850,158,870 weighted vertex comparisons; maximum skin error 1.410 mm, below the fixed 2 mm gate. Every original compiled track remains exact. |
 | Native playback / game | No native `Unit` poses captured; no game installed or in-game verdict obtained. |
 
@@ -40,9 +88,14 @@ it does not install that candidate into the game.
 ## Open and animate
 
 The local handoff folder is
-`D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Integration_2026-10-11`.
-The earlier `WarlockEngineer_AnimationRig` folder and archive remain frozen
-as historical evidence. Use the integration handoff for new work.
+`D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Blends_2026-10-11`.
+Use this updated handoff for new work. The previous
+`WarlockEngineer_AnimationRig_Integration_2026-10-11` folder and ZIP, and the
+earlier `WarlockEngineer_AnimationRig` package, remain frozen as historical
+evidence. The complete updated ZIP, `START_HERE.md`, and verification receipt
+will accompany the canonical v0.1.87-dev GitHub release after verified
+publication and download verification. Project status records the actual
+delivery; this candidate guide does not claim that it has happened.
 Open `WarlockEngineer_AnimationRig.blend`, select `WARLOCK_CTRL`, and enter
 Pose Mode. Animate the visible curves. Keep the scene at 60 fps and save a
 separate working copy for each animation.
@@ -190,7 +243,10 @@ relative to the freshly evaluated hips, after native grip updates. It restores
 their existing scale and resolves the complete parent hierarchy before writing.
 The same correction follows the existing corpse handoff after its pose update.
 During authored playback, these corrections stop so Arnaud's coat and belt
-tracks retain ownership. No legacy FBX resampling is needed.
+tracks retain ownership. For a mixed transition, correction applies to the
+pure incoming legacy sample before it is mixed with the displayed snapshot;
+it never overwrites an incoming authored sample or the composed visible pose.
+No legacy FBX resampling is needed.
 
 ## Rebuild and run the behavior tests
 
@@ -358,7 +414,7 @@ and its adjacent `.animation` and `.export.json`. The plan creator calculates
 and validates the source hashes; no manual hash inventory is required.
 
 ```powershell
-$handoff = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Integration_2026-10-11'
+$handoff = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Blends_2026-10-11'
 $clip = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\ArnaudAnimations\warlock_idle.fbx'
 $plan = '.build\animator_rig\arnaud_idle_plan.json'
 $overlay = '.build\animation_integration_arnaud_idle'
@@ -385,10 +441,17 @@ verified export receipt and unique resource path.
 
 The stage tool writes a separate overlay under `.build`, containing a new
 authored animation resource, selected state bindings, the candidate body when
-requested, and a matching trusted Lua manifest. It copies all thirteen original
-FBXs and thirteen sidecars without modification. Only selected clip/speed/aim
-bindings and the ownership boundary times described below change.
-All other state fields remain unchanged. It rejects mixed skeleton/rest contracts, stale hashes,
+requested, a generated sampler ASM, and a matching trusted Lua manifest. It
+copies all thirteen original FBXs and thirteen sidecars without modification.
+Only selected clip/speed/aim bindings change in the visible ASM; all 154 original
+transition blend times and all other state fields remain unchanged. The
+sampler uses the same skeleton, states, and resources with zero internal blend
+times. The overlay also copies and hash-binds the canonical
+`resource_packages/doomrocket/doomrocket.package`, including its
+`state_machine = [ "units/*" ]` entry. The sampler is selected dynamically by
+Lua, so its presence as a compiled file or a Unit dependency alone does not
+prove that the loaded mod package includes it. It rejects mixed skeleton/rest
+contracts, stale hashes,
 incomplete export evidence, unrecognized states, and existing output paths.
 The current integration schema supports the existing single-layer graph and
 its direct event transitions; it is not a general ASM replacement tool.
@@ -397,8 +460,9 @@ Strict authored ownership is the default. The grip bridge no longer copies
 the native carrier's twelve upper-body bones over an authored pose. The
 launcher instead follows the outfit's authored attachment, hand, and barrel
 frames at rigid scale. The Blender launcher reference uses the same normalized
-rotation convention, including stretched poses. Legacy native links return
-when authored playback ends. Drop, unwield, and death release the follower
+rotation convention, including stretched poses. During a mixed transition the
+launcher follows the composed visible outfit. Legacy native links return after
+the bridge finishes in legacy playback. Drop, unwield, and death release the follower
 while preserving its current placement.
 
 Authored states retain their recorded playback speed and accessories. Their
@@ -413,7 +477,7 @@ in place and match their cadence to the intended movement speed; this graph
 retains `root_driving = "ignore"` rather than replacing AI movement with root motion.
 
 The ownership controller starts protection before dispatching an animation
-event, covers outgoing authored poses for the entire transition blend, and
+event, protects the composed pose for the entire mixed transition, and
 protects an unknown delivered event until a known state is restored. Unit
 profile markers must match the staged manifest. Missing or invalid registration
 fails closed rather than permitting a legacy writer to overwrite a custom pose.
@@ -423,24 +487,55 @@ husks. Profile registration and initial animation events are retained during
 that setup; pose and playback writers remain disabled until health is active.
 Death, outfit replacement, and world teardown invalidate ownership.
 
-In generated profiles, transitions between authored and legacy states
-use **zero blend time**. Same-owner transitions retain their existing blends.
-A mixed pose would otherwise bring the old dormant accessory tracks back into
-the weighted outfit while authored ownership disables the legacy correction.
-The native grip correction also affects the legacy upper-body endpoint.
-An independent local TRS/slerp midpoint model measured up to 178.9 mm of belt
-error and 102.7 mm of hand error across thirteen clips using actual compiled
-geometry and Lua endpoints. This is a diagnostic model, not a native pose capture.
-The generated manifest records `cross_owner_transition_policy = "cut"`,
-and the controller requires every crossing edge to be zero before accepting it.
-A known immediate crossing restores legacy correction without a delayed guard.
+Generated profiles now record
+`cross_owner_transition_policy = "snapshot-blend-v1"` and the sampler resource
+`units/warlock_bombardier/warlock_bombardier_3p/presentation_sampler`.
+All 154 visible edges retain their original blend times. The sampler runs on
+a hidden clone of the existing outfit with the same 138-bone skeleton; its
+internal transitions have zero blend times so it evaluates the pure incoming
+state. It adds no new mesh asset, game bone, or artist animation resource.
 
-These ownership boundaries can visibly jump between poses. Arnaud can match
-their endpoints or replace the relevant ordinary states with authored clips;
-authored-to-authored transitions keep their original smooth blends. The rule
-applies to both body profiles. Smooth mixed blending would need a proven
-state-local correction before blending; the current handoff does not claim
-that feature.
+At a mixed authored/legacy edge, the compositor snapshots all 138 local poses
+from the last corrected displayed outfit. It interpolates local position and
+scale, and uses normalized shortest-path quaternion interpolation for rotation,
+toward the moving incoming sample over the original duration. A legacy incoming
+sample receives the existing twelve grip and seven localized outfit corrections
+before mixing. An authored incoming sample receives neither. A transition
+interrupted by another event starts from the currently displayed composition,
+rather than either unmixed endpoint. Ordinary transitions within one owner
+continue using the visible ASM's native blending. The policy applies to both
+body profiles; localized correction requires its matching body and registration.
+
+The outgoing pose is frozen during this bridge. This is a continuous presentation
+blend toward an advancing incoming state, not an exact reproduction of a native
+ASM that continues advancing both outgoing and incoming states. Arnaud should
+still match endpoints and cadence for natural motion. Current tests must check
+the compositor and corrected endpoints together; retaining an original duration
+alone does not establish acceptable deformation.
+
+The v0.1.86-dev handoff used immediate mixed cuts. An earlier diagnostic model
+of an uncorrected native mix measured up to 178.9 mm of belt error and 102.7 mm
+of hand error across thirteen clips using compiled geometry and actual Lua
+endpoints. Those historical results explain why legacy correction must happen
+before mixing. They are not measurements of the new compositor or native poses.
+
+The helper's initial speed baseline matches the visible locomotion baseline.
+Finite pauses and hitches invalidate the movement derivative and restart the
+clock check from the observed target playhead, rather than permanently blocking
+an otherwise valid transition. Invalid frame time, owner/root transforms, aim
+targets, or pose data stop composition before those values reach native setters.
+Gameplay aim accepts the existing matrix target only after finite axis and
+translation checks. Native temporaries are consumed in the current frame.
+
+Before spawning the helper, runtime checks the sampler's loaded availability
+with `Application.can_get("state_machine", ...)`. Both its `default` and
+`shadow_caster` mesh slots are hidden. Each entry handles Lua API failures
+independently, and logs each stop reason once with the state/event, helper and visible
+clocks, frame time, rate, and expected clock. Before handing the visible pose
+back to native playback, the helper and visible destination clocks and clip
+lengths must agree within the bounded clock tolerance. This guards against stale
+or out-of-phase targets; it does not measure native blend weights or establish
+that invisible meshes animate in the installed game.
 
 Authored death-state replacement is currently rejected. Death uses the existing
 native carrier/physics handoff, with the original death track preserved and the
@@ -450,10 +545,17 @@ mode would require a separate reviewed implementation.
 ## Compile and check the staged integration
 
 The SDK runner compiles staged and reference sources in isolated directories.
-It checks the compiled Unit's actual profile markers, its own-skeleton ASM,
-every state resource and aim binding, authored deformation, and all thirteen
-original compiled clips. The integration contract also verifies compiled crossing
-transition times. It refuses unsafe paths and concurrent SDK compilers.
+It checks the compiled Unit's actual profile markers, its own-skeleton visible
+and sampler ASMs, every state resource and aim binding, authored deformation,
+and all thirteen original compiled clips. The integration contract requires
+all 154 visible transition times to match the original graph and all sampler
+transition times to be zero, with matching state bindings and skeletons.
+The compiled sampler must also be present in the canonical mod package's actual
+resource inventory; a loose compiled resource or source glob alone is not that
+membership proof. Require `compiled_package_closure.json` to pass its loaded
+Unit/controller/clip membership checks and the compiled companion Lua's full
+literal-manifest comparison, including bone order and state policies.
+It refuses unsafe paths and concurrent SDK compilers.
 
 ```powershell
 & powershell -NoProfile -ExecutionPolicy Bypass `
@@ -487,18 +589,42 @@ thirteen original compiled payloads and all 138 tracks to match the shipping
 reference exactly. With the localized profile, also require the complete
 thirteen-clip `legacy_runtime_contract.json` to pass the unchanged 2 mm gate.
 A selected single-clip investigation cannot satisfy that acceptance condition.
+An existing complete skin report can be inherited only with a complete
+old/current actual-Lua pose equivalence report and a fresh compiled-lane bridge:
+all 24,077 local poses, the compiled geometry/skin/binds and bones, every original
+animation payload, and the decoder/skin functions must match exactly. Record
+that as inherited skin evidence with zero new weighted evaluations, rather than
+claiming to have repeated the earlier 850,158,870 vertex comparisons. Without
+that complete identity proof, require a fresh full skin audit.
+That legacy audit verifies corrected endpoints, not the new mixed presentation.
+Also require current sampler and executable compositor regressions, plus the
+separate numerical blend report, bound to the actual reviewed runtime modules,
+compiled sources, and manifest. The v0.1.86-dev receipts remain historical;
+they cannot substitute for a current-source blend result.
+The diagnostic blend verifier uses its pinned continuous idle fixture and
+injected decoded target samples; it is not a general command that accepts every
+Arnaud clip or a native playback capture. Keep that reported scope when using
+its algorithm-fidelity evidence for a new integration.
 
 Successful staging and SDK checks produce a reviewable candidate. Integration
 into production must include the reviewed body, new authored resource/sidecar,
-selected ASM changes, Unit markers, and matching Lua manifest together. Follow
+selected visible ASM changes, generated sampler ASM, Unit markers, and matching
+Lua manifest together, with the reviewed canonical resource package. Follow
 the full [model pipeline](WARLOCK_MODEL_PIPELINE.md) and canonical
 [VMB release process](RELEASE_CHANNELS.md) for build and publication. The stage
 and probe tools do not deploy or upload. Keep artist masters, donor references,
 probe outputs, renders, and handoff archives outside committed source.
 
 After a reviewed TEST release, a solo written verdict should cover the authored
-state entering/exiting, launcher placement, coat/belt/backpack response, and
-return to legacy behavior including death. Use the matching build log to
+state entering/exiting, interrupted transitions, launcher placement,
+coat/belt/backpack response, same-owner blends, and return to legacy behavior
+including death. Confirm that the hidden sampler still evaluates animation
+while all its meshes are invisible; offline tests cannot establish that engine
+behavior or native event clock reset and phase agreement at release. These
+checks require a separately reviewed authored integration with
+its matching Unit, helper ASM, body, and manifest. The default Workshop package
+has no active custom profile and cannot exercise the mixed compositor. Use the
+matching build log to
 diagnose a failure. No recording or second-player test is required. The game is
 not installed on this host, so native playback and visual acceptance are pending.
 The guarded capture prototype and evidence are described in
@@ -524,12 +650,20 @@ Compiled comparisons and native playback remain distinct forms of evidence.
 ## Research behind the implementation
 
 Stingray enters a destination state immediately while the outgoing pose can
-remain visible throughout the blend. This is why authored ownership lasts for
-the full transition duration. Constraints apply after animation evaluation and
+remain visible throughout the blend. Authored ownership therefore protects the
+full transition duration. The snapshot compositor described above deliberately
+uses a frozen displayed outgoing pose instead of the native advancing outgoing
+state. Constraints apply after animation evaluation and
 can reorient an authored pose; strict authored states therefore remove the
 visible aim constraint, while gameplay aim is an explicit option.
 [Stingray transitions](https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/stingray_help/animation/animation_controllers/transitions.html),
 [Stingray constraints](https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/stingray_help/animation/animation_controllers/constraints.html)
+
+Stingray loads resources through package definitions, including resources
+selected dynamically from Lua. The canonical package therefore explicitly
+includes the sampler resource type; SDK acceptance must inspect the compiled
+package inventory as well as the compiled controller.
+[Stingray resource package definitions](https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/stingray_help/managing_content/loading_unloading/defining_packages.html)
 
 Blender's bone custom shapes provide viewport handles without changing the
 deform skeleton. Their display transforms and bone-size setting explain why

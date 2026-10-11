@@ -20,6 +20,8 @@ import tempfile
 from typing import Any
 
 UNIT = "units/warlock_bombardier/warlock_bombardier_3p"
+SAMPLER_STATE_MACHINE = UNIT + "/presentation_sampler"
+RESOURCE_PACKAGE = "resource_packages/doomrocket/doomrocket.package"
 MANIFEST = "scripts/mods/doomrocket/utils/doomrocket_animation_manifest.lua"
 APPROVED_BODY_SHA = "cb2eba0224d1eff044a30b1bf0269d1a10395e8db9244af5c011e5c0ba0bd0bc"
 APPROVED_BONES_SHA = "6e4eb323ba5a21db1e2f09f91d73cfa1e3234a03d7b183223f48ccd96c51a197"
@@ -38,6 +40,17 @@ CLIPS = ("combat_idle", "combat_reload_loop", "combat_reload_start", "combat_run
 RESERVED = ("j_whip_parent", "j_whip_dynamic", *(f"j_loot_sack_component{i}" for i in range(1, 6)))
 SOURCE_FILES = tuple(UNIT + ext for ext in (".fbx", ".bones", ".unit", ".dcc_asset", ".state_machine")) + tuple(
     f"units/warlock_bombardier/anims/{clip}.{ext}" for clip in CLIPS for ext in ("fbx", "animation"))
+REVIEWED_RESOURCE_PACKAGE = {
+    "mod": ["doomrocket"],
+    "package": ["resource_packages/doomrocket/doomrocket"],
+    "lua": ["scripts/mods/doomrocket/*", "materials/*"],
+    "material": ["materials/*"],
+    "unit": ["units/*"],
+    "state_machine": ["units/*"],
+    "texture": ["textures/*"],
+    "wwise_dep": ["wwise/*"],
+    "network_config": ["scripts/mods/doomrocket/utils/*"],
+}
 
 
 def require(condition, message):
@@ -443,6 +456,10 @@ def build_state_manifest(asm, mapping, exports, text, aim_policies=None):
                 and isinstance(state.get("animations"), list) and len(state["animations"]) == 1
                 and state["animations"][0] in legacy_resources and state.get("weights") == ["1.0"],
                 "Mixed, aliased or unsupported ASM animation state: " + name)
+        require(type(state.get("loop_animation")) is bool, "ASM loop_animation must be an actual boolean: " + name)
+        require(isinstance(state.get("speed"), str) and state["speed"].strip()
+                and all(ord(character) >= 32 for character in state["speed"]),
+                "Invalid ASM speed expression: " + name)
         transition_map = {}
         require(isinstance(state.get("transitions", []), list), "Invalid ASM transition list")
         transition_nodes = node.fields.get("transitions")
@@ -453,12 +470,7 @@ def build_state_manifest(asm, mapping, exports, text, aim_policies=None):
                     and transition.get("mode") == "direct" and transition.get("on_beat") == ""
                     and finite(transition.get("blend_time")) and 0 <= transition["blend_time"] <= 1,
                     "Automatic, ambiguous or unsupported ASM transition: " + name)
-            crossing = (name in mapping) != (transition["to"] in mapping)
-            blend_time = 0 if crossing else transition["blend_time"]
-            if crossing and transition["blend_time"] != 0:
-                value = transition_node.fields["blend_time"]
-                replacements.append((value.start, value.end, "0"))
-            transition_map[event] = {"to": transition["to"], "blend_time": blend_time}
+            transition_map[event] = {"to": transition["to"], "blend_time": transition["blend_time"]}
             used_events.add(event)
         authored = name in mapping
         aim_policy = (aim_policies or {}).get(name, "authored")
@@ -476,6 +488,8 @@ def build_state_manifest(asm, mapping, exports, text, aim_policies=None):
                                      json.dumps([item for item in constraints if item != "warlock_aim"])))
         manifest[name] = {"clip": resource, "owner": "authored" if authored else "legacy",
                           "speed": "authored" if authored else "measured",
+                          "speed_expression": "1" if authored else state["speed"],
+                          "loop_animation": state["loop_animation"],
                           "visible_aim": aim_policy == "gameplay" if authored else "warlock_aim" in constraints,
                           "transitions": transition_map}
         if authored:
@@ -488,8 +502,30 @@ def build_state_manifest(asm, mapping, exports, text, aim_policies=None):
         "weapon_links": [{"target": 0, "source": "j_leftweaponattach", "world_scale": [1, 1, 1]},
                          {"target": "a_barrel", "source": "j_leftweaponcomponent1", "world_scale": [1, 1, 1]},
                          {"target": "handle", "source": "j_lefthand", "world_scale": [1, 1, 1]}]}
-    profile["cross_owner_transition_policy"] = "cut"
+    profile["cross_owner_transition_policy"] = "snapshot-blend-v1"
+    profile["sampler_state_machine"] = SAMPLER_STATE_MACHINE
     return patches(text, replacements), profile
+
+
+def build_sampler_state_machine(visible_text):
+    """Sample the exact destination clip without a second native crossfade.
+
+    The helper is bound to a hidden clone of the existing outfit, never to a
+    new unit or mesh. Only its transition durations differ from the visible
+    state machine; runtime blends a frozen outgoing presentation pose.
+    """
+    asm = Sjson(visible_text).parse()
+    require(asm.value.get("bones") == UNIT, "Sampler must use the existing own skeleton")
+    layers = asm.fields.get("layers")
+    require(layers is not None and len(layers.children) == 1, "Sampler requires the reviewed single layer")
+    replacements = []
+    for state in layers.children[0].fields["states"].children:
+        transitions = state.fields.get("transitions")
+        for transition in transitions.children if transitions is not None else ():
+            value = transition.fields["blend_time"]
+            if value.value != 0:
+                replacements.append((value.start, value.end, "0"))
+    return patches(visible_text, replacements)
 
 
 def patch_unit(text, profile_id, manifest_id):
@@ -546,6 +582,13 @@ def prepare_integration(config_path: Path, source_root: Path, enable_localized=F
     for relative in SOURCE_FILES:
         path = relative_path(source_root, relative)
         sources[relative] = pinned_input(source_root, relative, source_hashes[relative], inputs)
+    package_path = relative_path(source_root, RESOURCE_PACKAGE)
+    require(package_path.is_file(), "Reviewed mod resource package is missing")
+    package_bytes = package_path.read_bytes()
+    package_hash = hashlib.sha256(package_bytes).hexdigest()
+    require(Sjson(package_bytes.decode("utf-8")).parse().value == REVIEWED_RESOURCE_PACKAGE,
+            "Unsupported mod resource package: reviewed unit/Lua/state_machine load globs are required")
+    sources[RESOURCE_PACKAGE] = pinned_input(source_root, RESOURCE_PACKAGE, package_hash, inputs)
     body_hash, bones_hash = inputs[sources[UNIT+".fbx"]], inputs[sources[UNIT+".bones"]]
     require(body_hash == APPROVED_BODY_SHA and bones_hash == APPROVED_BONES_SHA, "Shipping source is not the approved Warlock body/skeleton")
     names = Sjson(sources[UNIT+".bones"].read_text(encoding="utf-8")).parse().value.get("bones")
@@ -600,11 +643,18 @@ def prepare_integration(config_path: Path, source_root: Path, enable_localized=F
     asm_bytes, unit_bytes = sources[UNIT+".state_machine"].read_bytes(), sources[UNIT+".unit"].read_bytes()
     asm_text = asm_bytes.decode("utf-8")
     staged_asm, profile = build_state_manifest(Sjson(asm_text).parse(), mapping, exports, asm_text, aim_policies)
+    require(not relative_path(source_root, SAMPLER_STATE_MACHINE + ".state_machine").exists(),
+            "Presentation sampler aliases an existing source resource")
+    sampler_asm = build_sampler_state_machine(staged_asm)
+    profile["bone_names"] = list(names)
     profile.update(accessory)
     profile_id = "localized-v1-runtime" if enable_localized else "authored-v1-runtime"
     profile["validation"] = {"shipping_body_sha256": body_hash, "shipping_bones_sha256": bones_hash,
                              "rest_manifest_sha256": inputs[rest_path], "rest_contract_sha256": APPROVED_REST_SHA,
                              "source_state_machine_sha256": source_hashes[UNIT+".state_machine"],
+                             "staged_state_machine_sha256": hashlib.sha256(staged_asm.encode("utf-8")).hexdigest(),
+                             "sampler_state_machine_sha256": hashlib.sha256(sampler_asm.encode("utf-8")).hexdigest(),
+                             "resource_package": RESOURCE_PACKAGE, "resource_package_sha256": package_hash,
                              "authored_exports": {name: {"resource": export["resource"], "fbx_sha256": inputs[export["fbx"]],
                                   "sidecar_sha256": inputs[export["sidecar"]], "receipt_sha256": inputs[export["receipt"]]}
                                                   for name, export in exports.items()}}
@@ -615,7 +665,7 @@ def prepare_integration(config_path: Path, source_root: Path, enable_localized=F
     return {"config": config, "inputs": inputs, "sources": sources, "source_hashes": source_hashes,
             "selected_body": selected_body, "exports": exports, "payload": payload,
             "manifest_id": manifest_id, "profile_id": profile_id, "staged_unit": staged_unit,
-            "staged_asm": staged_asm, "rest_path": rest_path, "mapping": mapping}
+            "staged_asm": staged_asm, "sampler_asm": sampler_asm, "rest_path": rest_path, "mapping": mapping}
 
 
 def stage_integration(config_path: Path, source_root: Path, output: Path, enable_localized=False):
@@ -658,16 +708,26 @@ def stage_integration(config_path: Path, source_root: Path, output: Path, enable
             for field, relative in (("body_receipt", "localized.body-export.json"), ("offsets", "localized.bind-offsets.json")):
                 source = input_path(config_path.parent, localized[field])
                 copy_verified(source, staged/"integration_evidence"/relative, inputs[source])
-        relative_path(staged, UNIT+".state_machine").write_bytes(staged_asm.encode("utf-8"))
-        relative_path(staged, UNIT+".unit").write_bytes(staged_unit.encode("utf-8"))
-        manifest_path = relative_path(staged, MANIFEST)
-        manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text("-- Generated trusted integration manifest; no game acceptance implied.\nreturn " + lua(payload) + "\n", encoding="utf-8", newline="\n")
-        (staged/"integration_manifest.json").write_text(json.dumps(payload, indent=2, allow_nan=False)+"\n", encoding="utf-8")
+        generated = {
+            UNIT + ".state_machine": staged_asm.encode("utf-8"),
+            SAMPLER_STATE_MACHINE + ".state_machine": prepared["sampler_asm"].encode("utf-8"),
+            UNIT + ".unit": staged_unit.encode("utf-8"),
+            MANIFEST: ("-- Generated trusted integration manifest; no game acceptance implied.\nreturn " + lua(payload) + "\n").encode("utf-8"),
+            "integration_manifest.json": (json.dumps(payload, indent=2, allow_nan=False)+"\n").encode("utf-8"),
+        }
+        for relative, contents in generated.items():
+            generated_path = relative_path(staged, relative)
+            generated_path.parent.mkdir(parents=True, exist_ok=True)
+            generated_path.write_bytes(contents)
         for path, expected in inputs.items():
             require(sha256(path) == expected, "Input changed during staging: " + str(path))
         payload_files = {path.relative_to(staged).as_posix(): {"bytes": path.stat().st_size, "sha256": sha256(path)}
                          for path in sorted(staged.rglob("*")) if path.is_file()}
+        for relative, contents in generated.items():
+            require(payload_files[relative]["sha256"] == hashlib.sha256(contents).hexdigest(),
+                    "Generated integration payload changed before publication: " + relative)
+        require(payload_files[RESOURCE_PACKAGE]["sha256"] == inputs[sources[RESOURCE_PACKAGE]],
+                "Reviewed resource package changed before publication")
         for clip in CLIPS:
             for extension in ("fbx", "animation"):
                 relative = f"units/warlock_bombardier/anims/{clip}.{extension}"
@@ -676,6 +736,13 @@ def stage_integration(config_path: Path, source_root: Path, output: Path, enable
                    "staging_script_sha256": sha256(Path(__file__)),
                    "profile_id": profile_id, "output": str(output), "localized_profile_opt_in": bool(enable_localized),
                    "cross_owner_transition_policy": payload["profiles"][profile_id].get("cross_owner_transition_policy"),
+                   "sampler_state_machine": SAMPLER_STATE_MACHINE,
+                   "resource_package": RESOURCE_PACKAGE,
+                   "resource_package_sha256": inputs[sources[RESOURCE_PACKAGE]],
+                   "sampler_resource_in_mod_package": True,
+                   "all_visible_transition_blends_preserved": True,
+                   "sampler_transition_blends_zero": True,
+                   "sampler_presentation": "hidden existing-outfit clone; pure target sample, not a visible cut",
                    "same_owner_transition_blends_preserved": True,
                    "shipping_clips_and_sidecars_preserved": 26, "legacy_sources_unchanged": True,
                    "source_inputs_sha256": {str(path): value for path, value in inputs.items()},
@@ -755,6 +822,7 @@ def create_plan(plan_path: Path, source_root: Path, rest_manifest: Path, clip: P
                 "staging_script_sha256": sha256(Path(__file__)),
                 "plan_sha256": sha256(plan_path), "profile_id": prepared["profile_id"],
                 "authored_states": sorted(state_names), "shipping_files_pinned": len(SOURCE_FILES),
+                "resource_package_sha256": prepared["payload"]["profiles"][prepared["profile_id"]]["validation"]["resource_package_sha256"],
                 "localized_profile_opt_in": bool(enable_localized), "integration_staged": False}
     finally:
         if temporary.exists():

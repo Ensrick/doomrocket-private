@@ -102,6 +102,7 @@ jobs:
         run: |
           python tools/tests/test_doomrocket_animation_ownership.py
           python tools/tests/test_doomrocket_animation_dispatch.py
+          python tools/tests/test_doomrocket_animation_blend.py
           python tools/tests/test_doomrocket_inventory_animation_links.py
 
       - name: Run opt-in outfit correction regressions
@@ -113,6 +114,11 @@ jobs:
       - name: Run compiled integration metadata and runtime scene guards
         run: |
           python tools/tests/test_animation_compiled_integration.py
+          python tools/tests/test_animation_sampler_contract.py
+          python tools/tests/test_animation_package_closure.py
+          python tools/tests/test_compiled_lua_table.py
+          python tools/tests/test_animation_blend_numeric.py
+          python tools/tests/test_animation_blend_acceptance.py
           python tools/tests/test_animation_runtime_scene.py
           python tools/tests/test_animation_runtime_acceptance.py
           python tools/tests/test_animation_runtime_bridge.py
