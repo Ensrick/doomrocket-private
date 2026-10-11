@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.1.86-dev - preserve authored animation and outfit ownership
+
+- **Animation integration:** register reviewed authored states through matching
+  Unit markers and a trusted manifest. Preserve custom body, hand, accessory and
+  speed tracks; release native upper-body grip writes during authored playback.
+  Visible gameplay aim is an explicit opt-in for clips designed to accept it.
+  Register ownership and retain initial events before native health initializes;
+  keep pose writes gated on the live, healthy owner.
+  Generated profiles use immediate authored/legacy boundaries to preserve the
+  corrected legacy endpoint; blends within either owner remain unchanged.
+- **Weapon following:** keep the launcher rigid while following the authored
+  attachment, hand and barrel frames. Restore native links for legacy playback,
+  and release the follower safely during drop, unwield, death and teardown.
+- **Localized outfit skin:** support the reviewed coat/belt weight candidate
+  through seven runtime corrections after legacy grip and corpse updates.
+  Preserve all thirteen original FBXs, sidecars and compiled animation tracks.
+  Immediate ownership boundaries prevent unsafe dormant tracks contributing
+  to a mixed pose.
+  The localized skin and diagnostic animation remain isolated candidates.
+- **Animator handoff:** correct the Blender launcher preview through stretch
+  and squash without changing GAME bones, skin or existing action tracks. Add
+  automatic hash-plan creation, isolated staging and compiled Unit/ASM checks.
+  Generated artist files remain outside Git; native game acceptance is pending.
+
 ## v0.1.85-dev - grip, audio, rocket clearance and crystal scaling candidates
 
 - **Lingering audio (#44):** stop the exact owned backpack, combat voice and

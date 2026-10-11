@@ -66,13 +66,16 @@ root-space export, projectile, and death-drop contract is in
 
 ## Ship procedure
 
-Clean `VMBLauncher build` -> `tools/splice_warlock_materials.ps1` ->
-`tools/Test-WarlockPipeline.ps1` -> local `deploy --no-remote` -> `upload` ->
-verify the fresh Workshop log and deployed hashes -> git commit+push. NEVER
-`vmblauncher all` (it would upload the unspliced bundle). Use the known
-headless v0.5.6 launcher and Doomrocket-specific configuration; the exact
-commands and publication checks are authoritative in
-`docs/research/WARLOCK_WEAPON_PIPELINE.md`.
+Follow the September 13 user ruling in [RELEASE_CHANNELS.md](RELEASE_CHANNELS.md)
+and the preserved Tweaker standards, section 6.6. The operational adapter is
+`tools/ship/ship.ps1`; keep the material splice and full pipeline checks before
+its build receipt, then verify the actual Workshop transaction. Publication-only
+mode applies while the game is absent. Never use `vmblauncher all`. The v0.5.6
+procedure in historical records is superseded.
+
+For the separate Blender animator handoff and isolated FBX/SDK checks, see
+[ANIMATION_AUTHORING.md](ANIMATION_AUTHORING.md). These probes do not publish or
+deploy a mod.
 
 ## Failure ledger
 

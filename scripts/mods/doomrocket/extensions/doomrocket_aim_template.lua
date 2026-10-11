@@ -5,8 +5,9 @@ local mod = get_mod("doomrocket")
 -- on another skeleton. Death removes this outfit from the living registry.
 local function aim_visible_outfit(unit, data, target)
 	local outfit = mod._warlock_outfits and mod._warlock_outfits[unit]
+	local ownership = mod._warlock_animation_ownership and mod._warlock_animation_ownership(unit, outfit)
 	if not outfit or not Unit.alive(outfit) or not HEALTH_ALIVE or not HEALTH_ALIVE[unit]
-		or not Vector3.is_valid(target) then
+		or not Vector3.is_valid(target) or (ownership and not ownership.visible_aim) then
 		data.visible_aim_outfit = nil
 		data.visible_aim_constraint = nil
 		return

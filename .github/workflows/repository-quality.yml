@@ -94,7 +94,28 @@ jobs:
         run: python tools/tests/test_doomrocket_weapon_pose_probe.py
 
       - name: Run upper-body grip alignment regressions
-        run: python tools/tests/test_doomrocket_grip_alignment.py
+        run: |
+          python tools/tests/test_doomrocket_grip_alignment.py
+          python tools/tests/test_doomrocket_authored_weapon.py
+
+      - name: Run authored animation ownership and dispatch regressions
+        run: |
+          python tools/tests/test_doomrocket_animation_ownership.py
+          python tools/tests/test_doomrocket_animation_dispatch.py
+          python tools/tests/test_doomrocket_inventory_animation_links.py
+
+      - name: Run opt-in outfit correction regressions
+        run: python tools/tests/test_doomrocket_outfit_correction.py
+
+      - name: Run isolated animation integration staging guards
+        run: python tools/tests/test_stage_integration.py
+
+      - name: Run compiled integration metadata and runtime scene guards
+        run: |
+          python tools/tests/test_animation_compiled_integration.py
+          python tools/tests/test_animation_runtime_scene.py
+          python tools/tests/test_animation_runtime_acceptance.py
+          python tools/tests/test_animation_runtime_bridge.py
 
       - name: Run retargeting math tests
         run: python tools/tests/test_warlock_retarget_math.py
@@ -140,6 +161,12 @@ jobs:
 
       - name: Run isolated compiler path guards (no SDK)
         run: python tools/hose_lab/test_compile_paths.py
+
+      - name: Run animator compiled-data rejection tests (no Blender or SDK)
+        run: python tools/animation_rig/verify_compiled_animation.py --self-test
+
+      - name: Run native pose capture staging guards (no SDK)
+        run: python tools/animation_rig/test_runtime_pose_probe.py
 
       - name: Run compiled hose acceptance guard tests (no SDK)
         run: python tools/hose_lab/compiled/test_verifier.py

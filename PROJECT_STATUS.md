@@ -14,6 +14,17 @@ is the live work queue; this page is a short re-entry map.
 
 ## Current evidence and work
 
+The separate [Blender animation authoring guide](docs/ANIMATION_AUTHORING.md)
+covers Arnaud's control rig, portable exporter, and isolated integration staging.
+The integration candidate preserves all thirteen original compiled animations
+and all 138 tracks. Authored poses own their body and accessory channels through
+blends; the launcher follows their attachment frames. An opt-in runtime correction
+supports the localized coat/belt skin during legacy playback without resampling
+its clips. Generated handoff assets stay outside Git. This work is under review
+as candidate v0.1.86-dev in [PR #47](https://github.com/Ensrick/doomrocket-private/pull/47); it does not
+change the published builds. Native game playback and the written visual verdict
+remain pending; the guide separates those from Blender, Lua, and SDK checks.
+
 Crunch's October 8-10 replies accept the v0.1.84 balance plan, including the
 flailing throw with movable camera and prompt rocket impacts. [#33](https://github.com/Ensrick/doomrocket-private/issues/33)
 is closed; the 2 s aim (#16) and portrait frame (#30) are also closed. No repeat
