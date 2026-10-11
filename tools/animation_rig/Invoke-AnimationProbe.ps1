@@ -5,6 +5,8 @@ param(
     [string]$ExportManifest,
     [string]$SkinProfile,
     [string]$AdaptedClips,
+    [switch]$OriginalLegacyClips,
+    [string]$IntegrationOverlay,
     [string]$RuntimePoses,
     [switch]$MidpointMotion,
     [string]$ProbeRoot = '.build\animation_sdk_probe',
@@ -45,6 +47,8 @@ foreach ($required in @($animation, $body, $manifest, $compiler)) {
 $stageArgs = @('--stage', '--probe-root', $probe, '--animation-fbx', $animation, '--body-fbx', $body, '--manifest', $manifest, '--sdk-executable', $compiler)
 if ($SkinProfile) { $stageArgs += @('--skin-profile', (Resolve-RepoPath $SkinProfile)) }
 if ($AdaptedClips) { $stageArgs += @('--adapted-clips', (Resolve-RepoPath $AdaptedClips)) }
+if ($OriginalLegacyClips) { $stageArgs += '--original-legacy-clips' }
+if ($IntegrationOverlay) { $stageArgs += @('--integration-overlay', (Resolve-RepoPath $IntegrationOverlay)) }
 & $PythonExecutable @pythonPrefix $verifier @stageArgs
 if ($LASTEXITCODE -ne 0) { throw 'Animator input staging failed.' }
 foreach ($lane in @('candidate', 'reference')) {

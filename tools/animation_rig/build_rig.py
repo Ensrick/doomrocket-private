@@ -37,6 +37,57 @@ def driver(owner, field, expression, variables, index=None):
         v.targets[0].id = target; v.targets[0].data_path = path
     return d
 
+def weapon_reference_rotation(reference, game):
+    """Match the engine's normalized-axis quaternion policy, including shear.
+
+    Child Of removes scale using Blender's decomposition, whose rotation differs
+    from Unit.world_rotation under anatomical stretch. These reference-only
+    scalar drivers use ordinary math expressions and work with autoexec disabled.
+    Separate dependency stages keep evaluated pose reads ahead of the reference.
+    """
+    helpers = []
+    for suffix in ('WORLD', 'AXES', 'QUATERNION'):
+        obj = bpy.data.objects.new('WARLOCK_WEAPON_REFERENCE_' + suffix, None)
+        bpy.context.scene.collection.objects.link(obj)
+        obj['authoring_reference_only'] = True
+        obj.hide_render = True
+        obj.hide_set(True)
+        helpers.append(obj)
+    world, axes, quaternion = helpers
+    bone = 'pose.bones["j_leftweaponattach"].matrix'
+    for row in range(3):
+        for column in range(3):
+            key = 'm%d%d' % (row, column)
+            world[key] = 0.0
+            variables = []
+            for k in range(4):
+                # RNA driver paths index matrix storage by column, unlike
+                # mathutils' Python row indexing used by the validation oracle.
+                variables.extend(((chr(97 + 2*k), game, 'matrix_world[%d][%d]' % (k, row)),
+                                  (chr(98 + 2*k), game, bone + '[%d][%d]' % (column, k))))
+            driver(world, '["' + key + '"]', 'a*b+c*d+e*f+g*h', variables)
+            axes[key] = 0.0
+            driver(axes, '["' + key + '"]', 'a/sqrt(a*a+b*b+c*c)',
+                   [(name, world, '["m%d%d"]' % (r, column))
+                    for name, r in zip('abc', (row, (row+1) % 3, (row+2) % 3))])
+    variables = [(name, axes, '["m%d%d"]' % cell)
+                 for name, cell in zip('abcdefghi',
+                     ((0,0),(1,1),(2,2),(2,1),(1,2),(0,2),(2,0),(1,0),(0,1)))]
+    expressions = (
+        'sqrt(1+a+b+c)/2 if a+b+c>0 else (d-e)/(2*sqrt(1+a-b-c)) if a>b and a>c else (f-g)/(2*sqrt(1+b-a-c)) if b>c else (h-i)/(2*sqrt(1+c-a-b))',
+        '(d-e)/(2*sqrt(1+a+b+c)) if a+b+c>0 else sqrt(1+a-b-c)/2 if a>b and a>c else (i+h)/(2*sqrt(1+b-a-c)) if b>c else (f+g)/(2*sqrt(1+c-a-b))',
+        '(f-g)/(2*sqrt(1+a+b+c)) if a+b+c>0 else (i+h)/(2*sqrt(1+a-b-c)) if a>b and a>c else sqrt(1+b-a-c)/2 if b>c else (d+e)/(2*sqrt(1+c-a-b))',
+        '(h-i)/(2*sqrt(1+a+b+c)) if a+b+c>0 else (f+g)/(2*sqrt(1+a-b-c)) if a>b and a>c else (d+e)/(2*sqrt(1+b-a-c)) if b>c else sqrt(1+c-a-b)/2',
+    )
+    for component, expression in zip('wxyz', expressions):
+        quaternion[component] = 0.0
+        driver(quaternion, '["' + component + '"]', expression, variables)
+    reference.rotation_mode = 'QUATERNION'
+    for index, component in enumerate('wxyz'):
+        driver(reference, 'rotation_quaternion', component + '/sqrt(w*w+x*x+y*y+z*z)',
+               [(name, quaternion, '["' + name + '"]') for name in 'wxyz'], index=index)
+    return helpers
+
 def widget(name, kind):
     # Geometry is in bone-local units. Object transforms are deliberately identity.
     if kind == 'diamond':
@@ -327,6 +378,9 @@ def build(options):
     weapon_rig.name='WARLOCK_LAUNCHER_REFERENCE';weapon_rig.animation_data_clear()
     weapon_rig.matrix_world=Matrix.Identity(4)
     c=weapon_rig.constraints.new('CHILD_OF');c.target=game;c.subtarget='j_leftweaponattach';c.inverse_matrix=Matrix.Identity(4)
+    c.use_scale_x=False;c.use_scale_y=False;c.use_scale_z=False
+    c.use_rotation_x=False;c.use_rotation_y=False;c.use_rotation_z=False
+    weapon_reference_rotation(weapon_rig,game)
     weapon_rig['authoring_reference_only']=True;weapon_rig.hide_set(True)
     for obj in weapon_objects: obj['authoring_reference_only']=True
     WIDGETS.hide_viewport=True

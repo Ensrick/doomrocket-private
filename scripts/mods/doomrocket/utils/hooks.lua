@@ -216,6 +216,7 @@ local unit_get_data = Unit.get_data
 -- with the units). The owner is the native ratling carrier; its render meshes
 -- stay hidden while its authored skeleton/PhysX scene drives the custom skin.
 mod._warlock_outfits = mod._warlock_outfits or setmetatable({}, { __mode = "kv" })
+mod._warlock_outfit_owners = mod._warlock_outfit_owners or setmetatable({}, { __mode = "kv" })
 mod._warlock_carriers = mod._warlock_carriers or setmetatable({}, { __mode = "k" })
 mod._warlock_pending_death_drivers = mod._warlock_pending_death_drivers or setmetatable({}, { __mode = "k" })
 mod._warlock_active_death_drivers = mod._warlock_active_death_drivers or {}
@@ -312,16 +313,26 @@ mod:hook(Unit, "animation_event", function(func, unit, event, ...)
 
 	-- Mirror registry (self-ASM driving mode only; empty in bridge mode).
 	local outfit = mod._warlock_outfits[unit]
+	local outfit_owner = mod._warlock_outfit_owners[unit]
+	if outfit_owner and mod._warlock_outfits[outfit_owner] == unit and Unit.alive(unit) then
+		local supported = has_animation_event(unit, event)
+		mod._note_warlock_animation_ownership_event(outfit_owner, event, supported)
+		if not supported then return end
+	elseif outfit_owner then
+		mod._warlock_outfit_owners[unit] = nil
+	end
 
 	if outfit then
 		if Unit.alive(outfit) then
 			local mirrored = has_animation_event(outfit, event)
+			mod._note_warlock_animation_ownership_event(unit, event, mirrored)
 			if mirrored then
 				func(outfit, event, ...)
 			end
 			mod._note_warlock_weapon_pose_event(unit, event, mirrored)
 			mod._note_warlock_grip_alignment_event(unit, event, mirrored)
 		else
+			mod._warlock_outfit_owners[outfit] = nil
 			mod._warlock_outfits[unit] = nil
 		end
 	end
@@ -478,6 +489,7 @@ local function stop_warlock_death_driver(driver, reason)
 
 	driver.stopped = true
 	mod._warlock_active_death_drivers[driver] = nil
+	mod._stop_warlock_outfit_correction(driver.owner)
 	if not driver.monitor_complete then
 		local now = warlock_game_time()
 		local owner_alive = driver.owner and Unit.alive(driver.owner) or false
@@ -557,7 +569,8 @@ local function sample_warlock_death_driver(driver, now, checkpoint_ms, wall_gap_
 				pair.initial_local_scale:unbox()) > 0.0001 then
 			scale_mutations = scale_mutations + 1
 		end
-		if not pair.is_hips and Vector3.length(Unit.local_position(outfit_unit, pair.target) -
+		if not pair.is_hips and not mod._warlock_outfit_correction_owns_node(driver.owner, pair.target)
+			and Vector3.length(Unit.local_position(outfit_unit, pair.target) -
 				pair.initial_local_position:unbox()) > 0.0001 then
 			nonhips_translation_mutations = nonhips_translation_mutations + 1
 		end
@@ -722,6 +735,7 @@ local function apply_warlock_death_pose(driver)
 
 	if not carrier_sleeping then
 		World.update_unit(Unit.world(outfit_unit), outfit_unit)
+		mod._apply_warlock_outfit_correction(driver.owner, outfit_unit, true)
 		driver.pose_write_callbacks = driver.pose_write_callbacks + 1
 	end
 
@@ -804,11 +818,13 @@ end
 
 -- The owner has already moved; this world's dt also covers interpolated husks.
 mod:hook(World, "update_animations", function(func, world, dt, ...)
+	mod._update_warlock_animation_ownership(world, dt)
 	mod._update_warlock_locomotion_animation(world, dt)
 	return finish_warlock_animation_update(world, dt, func(world, dt, ...))
 end)
 
 mod:hook(World, "update_animations_with_callback", function(func, world, dt, ...)
+	mod._update_warlock_animation_ownership(world, dt)
 	mod._update_warlock_locomotion_animation(world, dt)
 	return finish_warlock_animation_update(world, dt, func(world, dt, ...))
 end)
@@ -821,11 +837,13 @@ mod._reset_warlock_death_drivers = function()
 	mod._warlock_active_death_drivers = {}
 	mod._warlock_pending_death_drivers = setmetatable({}, { __mode = "k" })
 	mod._warlock_outfits = setmetatable({}, { __mode = "kv" })
+	mod._warlock_outfit_owners = setmetatable({}, { __mode = "kv" })
 	mod._warlock_carriers = setmetatable({}, { __mode = "k" })
 end
 
 mod._prepare_warlock_death = function(owner_unit, source)
 	mod._stop_warlock_grip_alignment(owner_unit)
+	mod._stop_warlock_animation_ownership(owner_unit)
 	mod._stop_warlock_locomotion_animation(owner_unit)
 	mod._stop_warlock_hose(owner_unit, "death_" .. tostring(source))
 	mod._stop_warlock_weapon_pose_probe(owner_unit)
@@ -1011,7 +1029,9 @@ mod._prepare_warlock_death = function(owner_unit, source)
 
 	-- Calibration above must see the last proven living pose. Only after it is
 	-- boxed do we detach event mirroring and switch animation ownership.
+	mod._handoff_warlock_outfit_correction(owner_unit, outfit_unit)
 	mod._warlock_outfits[owner_unit] = nil
+	mod._warlock_outfit_owners[outfit_unit] = nil
 	Unit.set_animation_bone_mode(outfit_unit, "ignore")
 	Unit.set_bones_lod(outfit_unit, 0)
 	Unit.set_unit_visibility(outfit_unit, true)
@@ -1128,10 +1148,13 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
 				Unit.enable_animation_state_machine(outfit_unit)
+				mod._warlock_outfits[unit] = outfit_unit
+				mod._warlock_outfit_owners[outfit_unit] = unit
+				mod._start_warlock_animation_ownership(unit, outfit_unit)
+				mod._start_warlock_outfit_correction(unit, outfit_unit)
 				if Unit.has_animation_event(outfit_unit, "idle") then
 					Unit.animation_event(outfit_unit, "idle")
 				end
-				mod._warlock_outfits[unit] = outfit_unit
 				mod._start_warlock_locomotion_animation(unit, outfit_unit)
 				mod:pcall(mod._start_warlock_grip_alignment, unit, outfit_unit, self)
 				wearing_warlock_body = true
@@ -1178,6 +1201,8 @@ end)
 -- Stop before native inventory teardown unlinks/deletes the parent outfit.
 mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
 	mod._stop_warlock_grip_alignment(self.unit)
+	mod._stop_warlock_animation_ownership(self.unit)
+	mod._stop_warlock_outfit_correction(self.unit)
 	mod._stop_warlock_living_sounds(self.unit, "inventory_destroy")
 	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_destroy")
@@ -1189,6 +1214,8 @@ end)
 
 mod:hook(AIInventoryExtension, "freeze", function(func, self, ...)
 	mod._stop_warlock_grip_alignment(self.unit)
+	mod._stop_warlock_animation_ownership(self.unit)
+	mod._stop_warlock_outfit_correction(self.unit, true)
 	mod._stop_warlock_living_sounds(self.unit, "inventory_freeze")
 	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_freeze")
@@ -1208,6 +1235,7 @@ mod:hook(AIInventoryExtension, "drop_single_item", function(func, self, index, r
 	local template = item and (item.unit_extension_template or "ai_inventory_item")
 	if dropped == nil and extension and not extension.dropped and item and item.drop_reasons and item.drop_reasons[reason]
 		and template ~= "ai_helmet_unit" and template ~= "ai_outfit_unit" and template ~= "ai_skin_unit" then
+		mod._stop_warlock_grip_alignment_item(self.unit, item_unit)
 		mod._stop_warlock_hose_item(self.unit, item_unit, "inventory_drop")
 		mod._stop_warlock_weapon_pose_probe_item(self.unit, item_unit)
 		mod._stop_warlock_crystal_flame_item(self.unit, item_unit, "inventory_drop")
@@ -1216,16 +1244,56 @@ mod:hook(AIInventoryExtension, "drop_single_item", function(func, self, index, r
 end)
 
 mod:hook(AIInventoryExtension, "disable_inventory_item", function(func, self, item, item_unit, ...)
+	mod._stop_warlock_grip_alignment_item(self.unit, item_unit)
 	mod._stop_warlock_hose_item(self.unit, item_unit, "inventory_disable_item")
 	mod._stop_warlock_weapon_pose_probe_item(self.unit, item_unit)
 	mod._stop_warlock_crystal_flame_item(self.unit, item_unit, "inventory_disable_item")
 	return func(self, item, item_unit, ...)
 end)
 
+-- Native inventory wielding relinks the launcher independently of animation
+-- events. Resume only after that exact queued wield has completed; an explicit
+-- unwield remains stowed until a later native wield, even for the same set.
+mod:hook(AIInventoryExtension, "unwield_set", function(func, self, set_index, ...)
+	local item_set = self.item_sets and self.item_sets[set_index]
+	if item_set then
+		for index = item_set.start_index, item_set.end_index do
+			mod._stop_warlock_grip_alignment_item(self.unit, self.inventory_item_units[index])
+		end
+	end
+	return func(self, set_index, ...)
+end)
+
+local function finish_warlock_inventory_wield(self, queued, ...)
+	for _, owner in ipairs(queued) do
+		local inventory = self.unit_extension_data[owner]
+		if inventory and inventory.wielded and not inventory.dropped then
+			local item_set = inventory.item_sets and inventory.item_sets[inventory.current_item_set_index]
+			local first = item_set and item_set.start_index or 1
+			local last = item_set and item_set.end_index or inventory.inventory_items_n or 0
+			for index = first, last do
+				mod._resume_warlock_grip_alignment_item(owner, inventory.inventory_item_units[index])
+			end
+		end
+	end
+	return ...
+end
+
+mod:hook(AIInventorySystem, "update", function(func, self, ...)
+	local queued = {}
+	for index = 1, self.units_to_wield_n or 0 do
+		local owner = self.units_to_wield[index]
+		if mod._warlock_outfits[owner] then queued[#queued + 1] = owner end
+	end
+	return finish_warlock_inventory_wield(self, queued, func(self, ...))
+end)
+
 -- Forget IDs before the engine releases the world. The engine owns destruction
 -- here; a later reset must never operate on a recycled particle/world handle.
 mod:hook(Application, "release_world", function(func, world, ...)
 	mod._release_warlock_grip_alignment_world(world)
+	mod._release_warlock_animation_ownership_world(world)
+	mod._release_warlock_outfit_correction_world(world)
 	mod._release_warlock_audio_world(world)
 	mod._release_warlock_locomotion_world(world)
 	mod._release_warlock_hose(world)

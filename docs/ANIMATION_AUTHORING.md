@@ -7,11 +7,13 @@ and localized coat and belt corrections. The user's October 10, 2026 request
 explicitly authorizes engineering to prepare this animation rig. It does not
 transfer responsibility for new character art, models, or sound masters.
 
-The authoring files are candidates outside the repository. They do not change
-the published TEST v0.1.85-dev or public alpha v0.1.59-alpha. Blender behavior,
-FBX roundtrip, SDK compilation, and an in-game visual verdict are separate
-checks. Read the generated reports for their actual results; this guide does
-not claim native playback or an in-game pass.
+The authoring files are candidates outside the repository. The localized body
+and diagnostic clips are separate from the playable package. Public alpha
+v0.1.59-alpha remains unchanged; [project status](https://github.com/Ensrick/doomrocket-private/blob/private-copy/PROJECT_STATUS.md) records
+the current TEST publication. Blender behavior, FBX roundtrip, SDK compilation,
+and an in-game visual verdict are separate checks. Read the generated reports
+for their actual results; this guide does not claim native playback or an
+in-game pass.
 
 ## Measured authoring and SDK results, October 11, 2026 UTC
 
@@ -24,8 +26,10 @@ not claim native playback or an in-game pass.
 | Portable package | 17/17 checks using adjacent references and the final exporter; source files remain unchanged. |
 | Decoded SDK deformation | The 97-frame and 589-frame diagnostics stay below 0.991 mm across 3,425,070 and 20,797,590 weighted vertex comparisons respectively. These sample authored frames. |
 | Continuous between-key motion | 588 halfway poses, 81,144 bone comparisons against raw FBX scalar TRS and its full hierarchy; maximum joint error 0.443 mm and 0.1 m axis-probe error 0.603 mm, below the 2 mm gate. No midpoint skin or native `Unit` samples are claimed. |
-| Existing thirteen clips, FBX | All thirteen pass 1,662,210 bone comparisons. The 131 untouched tracks have zero pose error; the seven calibrated tracks stay within 2.253 micrometres at keys and 0.301 mm between keys. |
-| Existing thirteen clips, SDK | The current calibrated candidate fails the 2 mm gate on run, run-start, shoot-loop, death and both staggers. All 131 other compiled tracks remain exact; the largest correction error is 24.827 mm between retained SDK keys. This weight profile is blocked from integration. |
+| Original thirteen clips, SDK | All thirteen compiled animation payloads match the shipping reference byte for byte, including all 138 tracks. All original FBX and sidecar files remain exact. |
+| Blender weapon preview | Neutral, maximum stretch, and maximum squash preserve rigid launcher dimensions within 0.18 micrometres and match the SDK rotation convention. All 138 GAME bones, skin data, and both existing action payloads remain unchanged. |
+| Runtime pose ownership | Executable Lua tests cover authored body/accessory ownership, transition blends, rigid weapon following, aim policy, inventory teardown, and legacy restoration. |
+| Full legacy outfit audit | All thirteen clips: 24,077 actual-Lua/float32 decoded poses and 850,158,870 weighted vertex comparisons; maximum skin error 1.410 mm, below the fixed 2 mm gate. Every original compiled track remains exact. |
 | Native playback / game | No native `Unit` poses captured; no game installed or in-game verdict obtained. |
 
 The existing 138-bone names, hierarchy, binds, geometry, UVs, normals, and
@@ -36,7 +40,9 @@ it does not install that candidate into the game.
 ## Open and animate
 
 The local handoff folder is
-`D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig`.
+`D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Integration_2026-10-11`.
+The earlier `WarlockEngineer_AnimationRig` folder and archive remain frozen
+as historical evidence. Use the integration handoff for new work.
 Open `WarlockEngineer_AnimationRig.blend`, select `WARLOCK_CTRL`, and enter
 Pose Mode. Animate the visible curves. Keep the scene at 60 fps and save a
 separate working copy for each animation.
@@ -173,22 +179,18 @@ outside the masks remain unchanged. Each vertex retains at most four positive,
 normalized influences. The selected rigid thigh plates, underlying trousers,
 body, limbs, and backpack are excluded.
 
-**This profile requires a candidate body FBX and matching clips together.**
-Animation clips alone cannot make new coat/belt controls deform the current
-shipping skin. `export_body.py` patches only the audited weight records in the
-original shipping FBX and independently checks the resulting body. It does
-not replace geometry or rewrite the game skeleton.
+**This profile requires the candidate body and its runtime registration.**
+Animation clips alone cannot make coat/belt controls deform the shipping skin.
+`export_body.py` changes only the audited weight records in the approved FBX;
+geometry and the game skeleton stay unchanged.
 
-The original thirteen clips contain tracks on those newly weighted channels.
-`adapt_existing_clips.py` rewrites only those seven dormant tracks so they
-follow the pelvis through the correct rest offsets. All other encoded
-property payloads, IDs, connections, defaults, binds, geometry, skin data, and
-the aim helper remain unchanged. The source-FBX bootstrap receives independent
-roundtrip checks at 60 samples/second, or 240 for fast death/stagger clips,
-plus probes between corrective keys. The final SDK-calibrated set uses the
-240/960 Hz refinement described below. Do not combine the corrective-weight
-body with the original thirteen clips: their old dormant motion can move the
-newly weighted coat and belt incorrectly.
+The original thirteen clips are preserved exactly. During legacy playback,
+`doomrocket_outfit_correction.lua` places the seven newly weighted channels
+relative to the freshly evaluated hips, after native grip updates. It restores
+their existing scale and resolves the complete parent hierarchy before writing.
+The same correction follows the existing corpse handoff after its pose update.
+During authored playback, these corrections stop so Arnaud's coat and belt
+tracks retain ownership. No legacy FBX resampling is needed.
 
 ## Rebuild and run the behavior tests
 
@@ -201,7 +203,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = 'C:\Users\danjo\source\repos\doomrocket'
 $blenderExe = 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
 $toolRoot = Join-Path $repoRoot 'tools\animation_rig'
-$authoringRoot = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig'
+$authoringRoot = Join-Path $repoRoot '.build\animator_rig_rebuild' # choose a fresh directory
 $rigSeed = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_DoomRocket_Rigify_ControlsReady.blend'
 $rigFile = Join-Path $authoringRoot 'WarlockEngineer_AnimationRig.blend'
 $reviewRoot = Join-Path $repoRoot '.build\animator_rig\review'
@@ -268,13 +270,12 @@ vertex/joint movement. Read `validation-continuous/continuous_behavior_report.js
 and `continuous_samples.json`. A passing Blender report still requires the
 separate FBX and SDK checks below.
 
-## Export the candidate body, legacy clips, and diagnostic clip
+## Export the candidate body and diagnostic clips
 
 Continue in the same PowerShell session:
 
 ```powershell
 $candidateBody = Join-Path $reviewRoot 'warlock_candidate_body.fbx'
-$adaptedClips = Join-Path $reviewRoot 'adapted_clips'
 $diagnosticRig = Join-Path $authoringRoot 'WarlockEngineer_Rig_Diagnostic.blend'
 $diagnosticClip = Join-Path $reviewRoot 'warlock_rig_diagnostic.fbx'
 $continuousClip = Join-Path $reviewRoot 'warlock_rig_continuous.fbx'
@@ -283,12 +284,6 @@ $continuousClip = Join-Path $reviewRoot 'warlock_rig_continuous.fbx'
     --python (Join-Path $toolRoot 'export_body.py') -- `
     --rig $rigFile --output $candidateBody
 if ($LASTEXITCODE -ne 0) { throw 'Candidate body export failed.' }
-
-& $blenderExe --background --factory-startup --disable-autoexec --python-exit-code 1 `
-    --python (Join-Path $toolRoot 'adapt_existing_clips.py') -- `
-    --clips-root (Join-Path $repoRoot 'units\warlock_bombardier\anims') `
-    --output $adaptedClips
-if ($LASTEXITCODE -ne 0) { throw 'Legacy clip adaptation failed.' }
 
 & $blenderExe --background --factory-startup --disable-autoexec --python-exit-code 1 `
     --python (Join-Path $toolRoot 'export_animation.py') -- `
@@ -301,11 +296,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Diagnostic animation export failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Continuous animation export failed.' }
 ```
 
-Check the candidate body's `.body-export.json`, the diagnostic clip's
-`.export.json`, and `adapted_clips/adapted-clips.json`. The legacy adaptation
-summary must report `all_thirteen_adapted: true`; a selected single-clip probe
-does not satisfy that condition. Keep all thirteen adapted FBX files and their
-sidecars with the candidate body for later integration.
+Check the candidate body's `.body-export.json` and each diagnostic clip's
+`.export.json`. Keep `accessory_bind_offsets.json` and `rig_manifest.json`
+with the body. Keep the original thirteen shipping FBXs and their sidecars
+unchanged; do not substitute the historical adapted set.
 
 New authored clips use this exact legacy VT2 `.animation` sidecar:
 
@@ -325,10 +319,8 @@ array ending in one `false` disables only position packing and leaves rotation
 packing enabled by default. The exporter checks the actual staged sidecar
 bytes and records its hash and six settings in the export receipt. This
 prototype prioritizes fidelity; any later compression optimization needs its
-own comparison before replacing it. Initial source-FBX adapters retain their
-shipping sidecars. The final SDK-calibrated adapters retain the original
-default policy and add exact-name lossless overrides for only the seven
-corrective channels, as described below.
+own comparison before replacing it. Existing shipping sidecars retain their
+original compression settings and bytes.
 
 ## Portable handoff
 
@@ -359,154 +351,185 @@ Compare the new export report against the approved skeleton and pose checks.
 Use Blender 5.2 for this handoff; another Blender version requires a new
 behavior, UI, and FBX roundtrip run.
 
-## Isolated SDK check and eventual mod integration
+## Stage Arnaud's clip without replacing existing tracks
 
-The SDK runner compiles candidate and reference sources in an isolated probe
-directory, then decodes their compiled skeleton, body, animation, skin weights,
-and aim controller. It validates SDK-weighted vertex samples against the
-authoring samples. It also refuses unsafe probe paths and concurrent SDK
-compiler processes. The compiler defaults to the installed Vermintide 2 SDK.
+Run this step from the development repository, using a verified exported clip
+and its adjacent `.animation` and `.export.json`. The plan creator calculates
+and validates the source hashes; no manual hash inventory is required.
+
+```powershell
+$handoff = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Integration_2026-10-11'
+$clip = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\ArnaudAnimations\warlock_idle.fbx'
+$plan = '.build\animator_rig\arnaud_idle_plan.json'
+$overlay = '.build\animation_integration_arnaud_idle'
+
+py -3 tools/animation_rig/stage_integration.py --create-plan $plan `
+    --rig-manifest (Join-Path $handoff 'rig_manifest.json') `
+    --clip $clip --clip-id arnaud_idle --state base/idle `
+    --body (Join-Path $handoff 'validation\warlock_candidate_body.fbx') `
+    --offsets (Join-Path $handoff 'accessory_bind_offsets.json') `
+    --enable-localized-profile
+if ($LASTEXITCODE -ne 0) { throw 'Integration plan rejected.' }
+
+py -3 tools/animation_rig/stage_integration.py --plan $plan --output $overlay `
+    --enable-localized-profile
+if ($LASTEXITCODE -ne 0) { throw 'Integration staging rejected.' }
+```
+
+Both the plan and overlay must be new paths. Use another name for a later
+revision. Omit `--body`, `--offsets`, and `--enable-localized-profile` from both
+steps when using the shipping body without localized coat/belt controls.
+Repeat `--state` to use one clip in several compatible existing states.
+Separate clips can be recorded in a reviewed JSON plan; each needs its own
+verified export receipt and unique resource path.
+
+The stage tool writes a separate overlay under `.build`, containing a new
+authored animation resource, selected state bindings, the candidate body when
+requested, and a matching trusted Lua manifest. It copies all thirteen original
+FBXs and thirteen sidecars without modification. Only selected clip/speed/aim
+bindings and the ownership boundary times described below change.
+All other state fields remain unchanged. It rejects mixed skeleton/rest contracts, stale hashes,
+incomplete export evidence, unrecognized states, and existing output paths.
+The current integration schema supports the existing single-layer graph and
+its direct event transitions; it is not a general ASM replacement tool.
+
+Strict authored ownership is the default. The grip bridge no longer copies
+the native carrier's twelve upper-body bones over an authored pose. The
+launcher instead follows the outfit's authored attachment, hand, and barrel
+frames at rigid scale. The Blender launcher reference uses the same normalized
+rotation convention, including stretched poses. Legacy native links return
+when authored playback ends. Drop, unwield, and death release the follower
+while preserving its current placement.
+
+Authored states retain their recorded playback speed and accessories. Their
+visible aim constraint is removed so it cannot rotate Arnaud's authored pose
+after evaluation. An explicit `--aim-policy gameplay` keeps the existing
+visible gameplay aim constraint instead; use that option deliberately for a
+clip designed to accept it. The carrier's gameplay aiming and rocket launch
+logic continue in both modes.
+
+Gameplay movement remains controlled by the native AI. Author walk/run clips
+in place and match their cadence to the intended movement speed; this graph
+retains `root_driving = "ignore"` rather than replacing AI movement with root motion.
+
+The ownership controller starts protection before dispatching an animation
+event, covers outgoing authored poses for the entire transition blend, and
+protects an unknown delivered event until a known state is restored. Unit
+profile markers must match the staged manifest. Missing or invalid registration
+fails closed rather than permitting a legacy writer to overwrite a custom pose.
+
+The native inventory extension initializes before health on both units and
+husks. Profile registration and initial animation events are retained during
+that setup; pose and playback writers remain disabled until health is active.
+Death, outfit replacement, and world teardown invalidate ownership.
+
+In generated profiles, transitions between authored and legacy states
+use **zero blend time**. Same-owner transitions retain their existing blends.
+A mixed pose would otherwise bring the old dormant accessory tracks back into
+the weighted outfit while authored ownership disables the legacy correction.
+The native grip correction also affects the legacy upper-body endpoint.
+An independent local TRS/slerp midpoint model measured up to 178.9 mm of belt
+error and 102.7 mm of hand error across thirteen clips using actual compiled
+geometry and Lua endpoints. This is a diagnostic model, not a native pose capture.
+The generated manifest records `cross_owner_transition_policy = "cut"`,
+and the controller requires every crossing edge to be zero before accepting it.
+A known immediate crossing restores legacy correction without a delayed guard.
+
+These ownership boundaries can visibly jump between poses. Arnaud can match
+their endpoints or replace the relevant ordinary states with authored clips;
+authored-to-authored transitions keep their original smooth blends. The rule
+applies to both body profiles. Smooth mixed blending would need a proven
+state-local correction before blending; the current handoff does not claim
+that feature.
+
+Authored death-state replacement is currently rejected. Death uses the existing
+native carrier/physics handoff, with the original death track preserved and the
+localized outfit correction applied afterward. A new custom death playback
+mode would require a separate reviewed implementation.
+
+## Compile and check the staged integration
+
+The SDK runner compiles staged and reference sources in isolated directories.
+It checks the compiled Unit's actual profile markers, its own-skeleton ASM,
+every state resource and aim binding, authored deformation, and all thirteen
+original compiled clips. The integration contract also verifies compiled crossing
+transition times. It refuses unsafe paths and concurrent SDK compilers.
 
 ```powershell
 & powershell -NoProfile -ExecutionPolicy Bypass `
-    -File (Join-Path $toolRoot 'Invoke-AnimationProbe.ps1') `
-    -AnimationFbx $continuousClip -BodyFbx $candidateBody `
-    -ExportManifest ([IO.Path]::ChangeExtension($continuousClip, '.export.json')) `
-    -SkinProfile (Join-Path $authoringRoot 'rig_manifest.json') `
-    -AdaptedClips $adaptedClips `
-    -MidpointMotion `
-    -ProbeRoot '.build\animation_sdk_probe'
-if ($LASTEXITCODE -ne 0) {
-    $bootstrapReport = Get-Content -LiteralPath (Join-Path $repoRoot `
-        '.build\animation_sdk_probe\compiled_animation_contract.json') -Raw | ConvertFrom-Json
-    $unexpectedErrors = @($bootstrapReport.adapted_clip_compatibility.fidelity_errors | `
-        Where-Object { $_ -notmatch 'SDK hip-follow correction exceeds 2 mm' })
-    if ($bootstrapReport.diagnostic_status -ne 'sdk-compiled-and-decoded' -or `
-        -not $bootstrapReport.adapted_clip_compatibility.all_thirteen_compiled -or `
-        $unexpectedErrors.Count) { throw 'SDK bootstrap failed outside legacy corrective fitting.' }
-    Write-Output 'Raw legacy adapters failed corrective fitting; continue with calibrated targets below.'
-}
+    -File tools/animation_rig/Invoke-AnimationProbe.ps1 `
+    -AnimationFbx $clip `
+    -BodyFbx (Join-Path $handoff 'validation\warlock_candidate_body.fbx') `
+    -ExportManifest ([IO.Path]::ChangeExtension($clip, '.export.json')) `
+    -SkinProfile (Join-Path $handoff 'rig_manifest.json') `
+    -OriginalLegacyClips -IntegrationOverlay $overlay -MidpointMotion `
+    -ProbeRoot '.build\animation_sdk_arnaud_idle'
+if ($LASTEXITCODE -ne 0) { throw 'Staged SDK contract failed.' }
+
+py -3 tools/animation_rig/verify_runtime_outfit.py `
+    --probe-root .build/animation_sdk_arnaud_idle `
+    --animation-manifest (Join-Path $overlay 'integration_manifest.json') `
+    --skin --post-grip
+if ($LASTEXITCODE -ne 0) { throw 'Legacy outfit/runtime contract failed.' }
 ```
 
-The report is `.build/animation_sdk_probe/compiled_animation_contract.json`.
-When corrective weights are included, require `all_thirteen_compiled` in its
-legacy-clip compatibility result. This compares the 131 unmodified native
-tracks with separately compiled shipping clips and checks the seven corrective
-channels. A diagnostic-only pass does not cover the existing animation set.
-This runner does not deploy or upload. It is an isolated authoring check,
-separate from the canonical [release process](RELEASE_CHANNELS.md). No game is
-installed on the authoring host, so in-game acceptance requires the published
-tester's written verdict after an explicitly reviewed integration and release.
+For a stock-body integration, use the shipping body FBX and omit `-SkinProfile`
+and the localized runtime verifier. The runtime verifier executes the actual
+Lua correction and grip modules against independent float32 engine API doubles,
+using binary-decoded SDK scene poses. It checks dense keys and halfway samples,
+all seven corrected bones and the weighted skin, while requiring every other
+bone's local pose to remain exact. These are numerical runtime checks, not
+captured native `Unit` playback or an in-game visual verdict.
 
-The first source-FBX adapters are calibration-bootstrap inputs and can fail the
-seven-channel SDK gate because the
-shipping pelvis and corrective curves are fitted independently. In the initial
-probe this reached 16.95 mm. A source-FBX hip-follow pass alone is insufficient.
-Keep that failed comparison as evidence; require its diagnostic result to pass
-and its thirteen unmodified-track checks to succeed before calibrating.
+The generated `compiled_animation_contract.json` must pass its diagnostic,
+`original_clip_compatibility`, and `compiled_integration` results. Require all
+thirteen original compiled payloads and all 138 tracks to match the shipping
+reference exactly. With the localized profile, also require the complete
+thirteen-clip `legacy_runtime_contract.json` to pass the unchanged 2 mm gate.
+A selected single-clip investigation cannot satisfy that acceptance condition.
 
-Generate corrective local targets from the separately compiled shipping lane,
-then build the final candidate set. The targets bind the SDK executable,
-compiled unit and clips, original FBX/sidecars, and skeleton hashes. They use the
-binary-verified evaluator and include both key times and midpoints. This does
-not claim captured native poses. Target generation requires the hash-bound,
-successful shipping-reference lane even though the raw candidate's seven-track
-audit failed. The preceding bootstrap guard also requires the diagnostic and
-all thirteen unmodified-track checks; target generation alone is not that gate.
-This bootstrap exception does not waive the final acceptance gate.
+Successful staging and SDK checks produce a reviewable candidate. Integration
+into production must include the reviewed body, new authored resource/sidecar,
+selected ASM changes, Unit markers, and matching Lua manifest together. Follow
+the full [model pipeline](WARLOCK_MODEL_PIPELINE.md) and canonical
+[VMB release process](RELEASE_CHANNELS.md) for build and publication. The stage
+and probe tools do not deploy or upload. Keep artist masters, donor references,
+probe outputs, renders, and handoff archives outside committed source.
 
-```powershell
-$nativeTargets = Join-Path $repoRoot '.build\animator_rig\sdk_hip_targets_dense4.json'
-$calibratedClips = Join-Path $repoRoot '.build\animator_rig\adapted_native_clips'
-py -3 (Join-Path $toolRoot 'verify_compiled_animation.py') `
-    --probe-root '.build\animation_sdk_probe' --export-shipping-targets $nativeTargets `
-    --target-sample-multiplier 4
-if ($LASTEXITCODE -ne 0) { throw 'Shipping target provenance check failed.' }
+After a reviewed TEST release, a solo written verdict should cover the authored
+state entering/exiting, launcher placement, coat/belt/backpack response, and
+return to legacy behavior including death. Use the matching build log to
+diagnose a failure. No recording or second-player test is required. The game is
+not installed on this host, so native playback and visual acceptance are pending.
+The guarded capture prototype and evidence are described in
+[NATIVE_POSE_ORACLE.md](../tools/animation_rig/NATIVE_POSE_ORACLE.md).
 
-& $blenderExe --background --factory-startup --disable-autoexec --python-exit-code 1 `
-    --python (Join-Path $toolRoot 'adapt_existing_clips.py') -- `
-    --output $calibratedClips --native-targets $nativeTargets
-if ($LASTEXITCODE -ne 0) { throw 'Calibrated legacy adaptation failed.' }
+## Historical conversion failure
 
-& powershell -NoProfile -ExecutionPolicy Bypass `
-    -File (Join-Path $toolRoot 'Invoke-AnimationProbe.ps1') `
-    -AnimationFbx $continuousClip -BodyFbx $candidateBody `
-    -ExportManifest ([IO.Path]::ChangeExtension($continuousClip, '.export.json')) `
-    -SkinProfile (Join-Path $authoringRoot 'rig_manifest.json') `
-    -AdaptedClips $calibratedClips -MidpointMotion `
-    -ProbeRoot '.build\animation_sdk_calibrated_probe'
-if ($LASTEXITCODE -ne 0) { throw 'Final calibrated SDK contract failed.' }
-```
+The earlier `adapt_existing_clips.py` experiment is retained for reproducibility,
+not used by the integration workflow above. It rewrote seven dormant tracks and
+preserved 131 other source tracks. Its dense 240/960 Hz FBX corrections passed
+their source checks, but the SDK resampled the legacy scenes at 30 Hz. Six clips
+failed the fixed 2 mm gate; death reached 24.827 mm between retained keys.
+Changing only death's scene rate to 120 fps altered all 131 other compiled
+tracks and failed at 73.355 mm. Those adapted clips remain unsuitable for use.
 
-Exact quoted bone names select the seven overrides in the legacy tolerance
-dictionary. The final gate checks that all 131 other compiled tracks remain
-identical, all seven corrective tracks are unpacked, and pelvis-follow head
-and axis errors remain below 2 mm at frames and midpoints. Use this calibrated
-set with the candidate body only after its compiled compatibility report passes;
-the current candidate does not pass. The earlier source-only set is also
-unsuitable for integration.
-The calibrated target set samples ordinary clips at 240 Hz and fast death/
-stagger clips at 960 Hz, with independent half-key checks. The extra density
-preserves the 0.5 mm FBX-local gate rather than relaxing it; original timing and
-all unreserved source curves remain unchanged. This source-FBX result does not
-remove the compiled sampling failure described below.
-
-The thirteen original FBXs retain scene `TimeMode = 6` and
-`CustomFrameRate = 30`. The SDK samples them at 30 Hz before fitting and packing,
-discarding the added 240/960 Hz correction keys. At the retained SDK keys the
-calibrated candidate's maximum head error is 1.134 micrometres and its 0.1 m
-axis-probe error is 1.692 micrometres. Between those keys, six clips exceed the
-unchanged 2 mm gate. Death reaches 24.827 mm. More source keys cannot resolve a
-scene-rate bottleneck. The diagnostic FBXs declare 60 fps and retain that
-sampling grid; their passing measurements above cover those diagnostic clips.
-
-A single isolated death-clip experiment changed only the two scene-rate
-scalars to supported 120 fps, preserving all other FBX bytes. The SDK retained
-261 native times instead of 66, but all 131 other compiled track dictionaries
-changed. The old shipping-parent calibration also became invalid, reaching
-73.355 mm in that experiment. It fails the same compatibility contract; it is
-not a replacement candidate. No additional rate experiments or tolerance
-relaxations followed. Until a compatible conversion is established or a
-separately reviewed matching animation set exists, keep the corrective-weight
-body and thirteen candidate clips out of production. Arnaud can use the Blender
-controls now; the authoring package does not resolve this engine boundary.
-
-Compiled key times are not evidence of a fixed importer rate. Adaptive curve
-fitting can insert interval midpoints, producing apparent 25 ms spacing in a
-1.6-second diagnostic clip. Both diagnostic FBX scenes remain 60 fps. The installed SDK's compiler and
-runtime use the same four-key, time-weighted Hermite evaluator; position and
-scale interpolate as vectors, while quaternion components interpolate and
-are normalized. Linear vectors plus SLERP do not reproduce that evaluator.
-Compiled-data checks must use the matching interpolation, retain the stated
-2 mm weighted-deformation gate, and distinguish exact-key fidelity from
-between-key motion. A step-action discontinuity and a continuous motion are
-different test cases; neither may be reported as passing before its report
-actually passes.
-
-These are decoded compiled-data comparisons, not captured `Unit` playback.
-The installed mod-tools executable entered compiler prerequisites even with
-`--no-compile` and a boot INI; it produced no Lua boot marker or native pose
-samples. The guarded native capture prototype and exact evidence are described
-in [NATIVE_POSE_ORACLE.md](../tools/animation_rig/NATIVE_POSE_ORACLE.md).
-Native playback remains unverified until an accessible runtime is available.
-
-Before integrating authored arm clips, reconcile the v0.1.85 grip alignment
-module: it writes twelve upper-body game joints after outfit animation
-evaluation. It would overwrite authored arm/hand poses during its supported
-events. This rig does not resolve that runtime ownership conflict. Preserve
-the own-skeleton state machine, native carrier, weapon links, calibrated aim
-helper, corpse handoff, and hose physics during that follow-up.
-The five belt channels descend from `j_spine` and `j_spine1`, which that module
-also writes. Their isolated SDK hip-follow result must be checked again after
-the runtime pose owners are reconciled; the coat channels descend from hips.
-
-An eventual corrective-weight integration must include the reviewed candidate
-body and all thirteen adapted legacy clips, plus any separately reviewed new
-clips. It must pass the full existing Warlock asset pipeline and the canonical
-VMB release gates. Keep authoring masters, reference/donor payloads, SDK probe
-outputs, renders, and handoff archives outside committed source.
+The current runtime correction avoids that resampling boundary while retaining
+all 138 original compiled tracks. Both failed receipts remain historical
+evidence; do not copy their adapted clips into an integration overlay or the
+operative handoff. The SDK comparisons use the binary-verified four-key Hermite
+evaluator with quaternion normalization, rather than linear vectors and SLERP.
+Compiled comparisons and native playback remain distinct forms of evidence.
 
 ## Research behind the implementation
+
+Stingray enters a destination state immediately while the outgoing pose can
+remain visible throughout the blend. This is why authored ownership lasts for
+the full transition duration. Constraints apply after animation evaluation and
+can reorient an authored pose; strict authored states therefore remove the
+visible aim constraint, while gameplay aim is an explicit option.
+[Stingray transitions](https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/stingray_help/animation/animation_controllers/transitions.html),
+[Stingray constraints](https://help.autodesk.com/cloudhelp/ENU/Stingray-Help/stingray_help/animation/animation_controllers/constraints.html)
 
 Blender's bone custom shapes provide viewport handles without changing the
 deform skeleton. Their display transforms and bone-size setting explain why

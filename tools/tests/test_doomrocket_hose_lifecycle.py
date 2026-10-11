@@ -217,7 +217,21 @@ ScriptUnit={has_extension=function(u,kind)
  if kind=='ai_inventory_system' then return u.inventory end
 end}
 ScriptUnit.extension=ScriptUnit.has_extension
-mod={_warlock_outfits={[owner]=outfit}}
+mod={_warlock_outfits={[owner]=outfit},_warlock_outfit_owners={}}
+-- Shared lifecycle hooks also notify the animation owner and outfit correction.
+-- Their pose/metadata contracts have dedicated executable suites; keep the
+-- actual hose controller and production lifecycle callbacks unchanged here.
+mod._start_warlock_animation_ownership=function() end
+mod._stop_warlock_animation_ownership=function() end
+mod._reset_warlock_animation_ownership=function() end
+mod._release_warlock_animation_ownership_world=function() end
+mod._update_warlock_animation_ownership=function() end
+mod._note_warlock_animation_ownership_event=function() end
+mod._start_warlock_outfit_correction=function() end
+mod._stop_warlock_outfit_correction=function() end
+mod._reset_warlock_outfit_correction=function() end
+mod._release_warlock_outfit_correction_world=function() end
+mod._handoff_warlock_outfit_correction=function() end
 -- Shared hooks also notify the independent visible gait controller. Its native
 -- variable/lifetime contract is exercised in test_doomrocket_locomotion_animation.py;
 -- retain the strict hose engine doubles and all hose assertions in this harness.
@@ -237,6 +251,8 @@ mod._note_warlock_weapon_pose_event=function() end
 -- Living grip transfer has its own strict hierarchy/lifetime suite.
 mod._start_warlock_grip_alignment=function() end
 mod._stop_warlock_grip_alignment=function() end
+mod._stop_warlock_grip_alignment_item=function() end
+mod._resume_warlock_grip_alignment_item=function() end
 mod._reset_warlock_grip_alignment=function() end
 mod._release_warlock_grip_alignment_world=function() end
 mod._note_warlock_grip_alignment_event=function() end

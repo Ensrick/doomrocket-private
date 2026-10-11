@@ -116,13 +116,25 @@ ScriptWorld={create_particles_linked=function(w,name,u,node,policy,pose)
  World.link_particles(w,id,u,node,pose or Matrix4x4.identity(),policy)
  return id
 end}
-mod={}; function get_mod(name) assert(name=='doomrocket'); return mod end
+mod={_warlock_outfit_owners={}}; function get_mod(name) assert(name=='doomrocket'); return mod end
 function mod:pcall(fn,...)
  local ok,result=pcall(fn,...);if not ok then self.last_error=result end;return ok,result
 end
 -- Isolate smoke assertions while executing shared production lifecycle hooks.
 -- Actual hose ownership/native boundary behavior is exercised independently in
 -- test_doomrocket_hose_lifecycle.py; these are not mocked smoke operations.
+-- The new animation/outfit modules likewise have their own executable suites.
+mod._start_warlock_animation_ownership=function() end
+mod._stop_warlock_animation_ownership=function() end
+mod._reset_warlock_animation_ownership=function() end
+mod._release_warlock_animation_ownership_world=function() end
+mod._update_warlock_animation_ownership=function() end
+mod._note_warlock_animation_ownership_event=function() end
+mod._start_warlock_outfit_correction=function() end
+mod._stop_warlock_outfit_correction=function() end
+mod._reset_warlock_outfit_correction=function() end
+mod._release_warlock_outfit_correction_world=function() end
+mod._handoff_warlock_outfit_correction=function() end
 mod._start_warlock_hose=function() end
 mod._stop_warlock_hose=function() end
 mod._stop_warlock_hose_item=function() end
@@ -149,6 +161,8 @@ mod._note_warlock_weapon_pose_event=function() end
 -- Living grip transfer has its own strict hierarchy/lifetime suite.
 mod._start_warlock_grip_alignment=function() end
 mod._stop_warlock_grip_alignment=function() end
+mod._stop_warlock_grip_alignment_item=function() end
+mod._resume_warlock_grip_alignment_item=function() end
 mod._reset_warlock_grip_alignment=function() end
 mod._release_warlock_grip_alignment_world=function() end
 mod._note_warlock_grip_alignment_event=function() end

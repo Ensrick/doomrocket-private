@@ -465,7 +465,7 @@ def verify_motion(unit, names, payload, fbx, manifest, runtime=None):
             frame_head=max(frame_head,math.dist(transform_point(actual,(0,0,0)),transform_point(expected,(0,0,0))))
             frame_axis=max(frame_axis,max(math.dist(transform_point(actual,tuple(.1 if i==a else 0. for i in range(3))),
                           transform_point(expected,tuple(.1 if i==a else 0. for i in range(3)))) for a in range(3)))
-        if frame_head>.03 or frame_axis>.04:
+        if frame_head>.002 or frame_axis>.002:
             fidelity_errors.append(f'Frame {frame}: SDK world pose mismatch head={frame_head} axis={frame_axis}')
         heads=max(heads,frame_head); axes=max(axes,frame_axis)
         per_frame.append({'frame':snapshot['frame'],'time':frame/fps,'head_error_m':frame_head,'axis_error_m':frame_axis})
@@ -861,8 +861,50 @@ def export_shipping_targets(probe,destination,multiplier=1):
                       'clips':len(entries),'samples':sum(len(c['samples']) for c in entries)}))
 
 
+def verify_original_clips(probe,names):
+    """Prove all thirteen legacy inputs and all 138 native tracks are retained.
+
+    This establishes the unmodified animation boundary for a separate runtime
+    correction audit. It does not claim the new weighted body is corrected.
+    """
+    receipt=json.loads((probe/'input_receipt.json').read_text())
+    require(digest(probe/'original-clips.json')==receipt['original_clips_manifest_sha256'],
+            'Original legacy clip receipt changed')
+    manifest=json.loads((probe/'original-clips.json').read_text())
+    expected={p.name for p in (ROOT/'units/warlock_bombardier/anims').glob('*.fbx')}
+    require(len(manifest['clips'])==13 and {clip['clip'] for clip in manifest['clips']}==expected,
+            'Original legacy clip inventory differs from the complete thirteen')
+    results=[]
+    for clip in manifest['clips']:
+        resource='units/warlock_bombardier/anims/'+Path(clip['clip']).stem
+        for suffix,key in (('.fbx','fbx_sha256'),('.animation','sidecar_sha256')):
+            require(digest(ROOT/(resource+suffix))==clip[key],'Original legacy input changed: '+resource)
+            for lane in ('candidate','reference'):
+                require(digest(probe/f'{lane}/source/{resource}{suffix}')==clip[key],
+                        'Staged original legacy input changed: '+lane+'/'+resource)
+        candidate=indexed_resources(ROOT,probe,probe/'candidate/data',[resource+'.animation'])[0]
+        reference=indexed_resources(ROOT,probe,probe/'reference/data',[resource+'.animation'])[0]
+        a=decode_animation(candidate.read_bytes());b=decode_animation(reference.read_bytes())
+        require(a['bones']==b['bones']==len(names)==138 and a['duration']==b['duration'],
+                'Original legacy skeleton/duration changed: '+resource)
+        require(a==b,'One of the original 138 compiled tracks changed: '+resource)
+        require(candidate.read_bytes()==reference.read_bytes(),'Original compiled animation bytes changed: '+resource)
+        results.append({'clip':clip['clip'],'duration_seconds':a['duration'],
+                        'unchanged_compiled_tracks':138,'compiled_bytes_identical':True,
+                        'compiled_candidate_sha256':digest(candidate),'compiled_reference_sha256':digest(reference),
+                        'source_fbx_sha256':clip['fbx_sha256'],'source_sidecar_sha256':clip['sidecar_sha256']})
+    return {'status':'all-thirteen-original-compiled-clips-identical','clips':results,
+            'all_thirteen_compiled':True,'unchanged_tracks_per_clip':138,
+            'runtime_correction_acceptance':'requires separate executed runtime/hierarchy/skin audit',
+            'native_Unit_pose_samples':0}
+
+
 def stage(args,probe):
     require(args.animation_fbx and args.body_fbx and args.manifest, 'Stage requires animation/body FBX and manifest')
+    overlay=getattr(args,'integration_overlay',None)
+    legacy=bool(getattr(args,'original_legacy_clips',False))
+    require(not overlay or legacy,'Integration overlay requires original legacy clips')
+    require(not (legacy and args.adapted_clips),'Original legacy clips cannot be combined with adapted replacements')
     manifest=json.loads(args.manifest.read_text(encoding='utf8'))
     require(manifest['status']=='fbx-roundtrip-passed' and digest(args.animation_fbx)==manifest['fbx_sha256'],
             'Animation FBX differs from its independently verified export')
@@ -910,7 +952,7 @@ def stage(args,probe):
         unit=re.sub(r'"materials/warlock_bombardier/[^"]+"','"materials/animation_probe"',unit)
         destination.with_suffix('.unit').write_text(unit,encoding='utf8',newline='\n')
         controller=(ROOT/f'{UNIT}.state_machine').read_text()
-        if not extra:
+        if not extra and not legacy:
             controller=re.sub(r'"units/warlock_bombardier/anims/[^"]+"','"'+CLIP+'"',controller)
         destination.with_suffix('.state_machine').write_text(controller,encoding='utf8',newline='\n')
         (source/'materials/animation_probe.material').write_text(material,encoding='utf8',newline='\n')
@@ -922,15 +964,57 @@ def stage(args,probe):
                     origin=(args.adapted_clips if lane=='candidate' else ROOT/'units/warlock_bombardier/anims')/clip['clip']
                     target=source/'units/warlock_bombardier/anims'/clip['clip']
                     shutil.copyfile(origin.with_suffix(suffix),target.with_suffix(suffix))
+        if legacy:
+            for origin in sorted((ROOT/'units/warlock_bombardier/anims').glob('*.fbx')):
+                for suffix in ('.fbx','.animation'):
+                    target=source/'units/warlock_bombardier/anims'/origin.name
+                    shutil.copyfile(origin.with_suffix(suffix),target.with_suffix(suffix))
+    overlay_receipt=None
+    if overlay:
+        overlay=validate_probe(ROOT,overlay)
+        overlay_receipt=json.loads((overlay/'integration_receipt.json').read_text())
+        require(overlay_receipt['status']=='isolated-integration-staged'
+                and overlay_receipt['legacy_sources_unchanged'] is True,'Integration overlay is not validated staging')
+        for relative,item in overlay_receipt['payload_files'].items():
+            path=overlay/relative;reject_redirect(path)
+            require(path.resolve().is_relative_to(overlay.resolve()) and digest(path)==item['sha256'],
+                    'Integration payload changed: '+relative)
+        for source,sha in overlay_receipt['source_inputs_sha256'].items():
+            require(digest(source)==sha,'Integration source input changed: '+source)
+        source=probe/'candidate/source'
+        require(digest(overlay/f'{UNIT}.fbx')==digest(args.body_fbx),'Integration overlay body differs')
+        for relative in overlay_receipt['payload_files']:
+            if not relative.startswith('units/') or relative==UNIT+'.unit':continue
+            origin=overlay/relative;target=source/relative;target.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copyfile(origin,target)
+        unit=(overlay/f'{UNIT}.unit').read_text()
+        unit=re.sub(r'"materials/warlock_bombardier/[^\"]+"','"materials/animation_probe"',unit)
+        (source/f'{UNIT}.unit').write_text(unit,encoding='utf8',newline='\n')
+        for name in ('integration_receipt.json','integration_manifest.json'):
+            shutil.copyfile(overlay/name,probe/name)
     shutil.copyfile(args.manifest,probe/'animation_export.json')
     if args.skin_profile: shutil.copyfile(args.skin_profile,probe/'skin_profile.json')
     if extra: shutil.copyfile(args.adapted_clips/'adapted-clips.json',probe/'adapted-clips.json')
+    legacy_manifest=None
+    if legacy:
+        clips=[]
+        for path in sorted((ROOT/'units/warlock_bombardier/anims').glob('*.fbx')):
+            require(path.with_suffix('.animation').is_file(),'Original legacy clip sidecar missing')
+            clips.append({'clip':path.name,'fbx_sha256':digest(path),
+                          'sidecar_sha256':digest(path.with_suffix('.animation'))})
+        require(len(clips)==13,'Expected the complete thirteen original legacy clips')
+        legacy_manifest={'schema':1,'status':'original-clips-staged-not-validated','clips':clips}
+        (probe/'original-clips.json').write_text(json.dumps(legacy_manifest,indent=2),encoding='utf8')
     production={f'{UNIT}{suffix}':digest(ROOT/f'{UNIT}{suffix}')
                 for suffix in ('.fbx','.bones','.unit','.dcc_asset','.state_machine')}
     if extra:
         production.update({f'units/warlock_bombardier/anims/{Path(clip["clip"]).stem}{suffix}':
              digest(ROOT/f'units/warlock_bombardier/anims/{Path(clip["clip"]).stem}{suffix}')
              for clip in extra['clips'] for suffix in ('.fbx','.animation')})
+    if legacy:
+        production.update({f'units/warlock_bombardier/anims/{Path(clip["clip"]).stem}{suffix}':
+             digest(ROOT/f'units/warlock_bombardier/anims/{Path(clip["clip"]).stem}{suffix}')
+             for clip in legacy_manifest['clips'] for suffix in ('.fbx','.animation')})
     (probe/'input_receipt.json').write_text(json.dumps({'schema':1,'animation_fbx_sha256':digest(args.animation_fbx),
         'animation_sidecar_sha256':digest(sidecar),
         'body_fbx_sha256':digest(args.body_fbx),'shipping_fbx_sha256':digest(ROOT/f'{UNIT}.fbx'),
@@ -940,6 +1024,11 @@ def stage(args,probe):
         'sdk_executable_path':str(args.sdk_executable.resolve()) if args.sdk_executable else None,
         'sdk_executable_sha256':digest(args.sdk_executable) if args.sdk_executable else None,
         'adapted_clips_manifest_sha256':digest(args.adapted_clips/'adapted-clips.json') if extra else None,
+        'original_clips_manifest_sha256':digest(probe/'original-clips.json') if legacy else None,
+        'integration_receipt_sha256':digest(probe/'integration_receipt.json') if overlay else None,
+        'integration_manifest_sha256':digest(probe/'integration_manifest.json') if overlay else None,
+        'integration_staged_inputs':{str(p.relative_to(probe)):digest(p)
+             for p in (probe/'candidate/source/units').rglob('*') if p.is_file()} if overlay else None,
         'production_units_modified':False},indent=2),encoding='utf8')
 
 
@@ -1037,6 +1126,9 @@ def audit(probe,runtime_path=None,midpoint_motion=False):
     if receipt.get('adapted_clips_manifest_sha256'):
         require(digest(probe/'adapted-clips.json')==receipt['adapted_clips_manifest_sha256'],
                 'Staged compatibility clip receipt changed during compilation')
+    if receipt.get('original_clips_manifest_sha256'):
+        require(digest(probe/'original-clips.json')==receipt['original_clips_manifest_sha256'],
+                'Staged original legacy clip receipt changed during compilation')
     resources=[f'{UNIT}.unit',f'{UNIT}.bones',f'{UNIT}.state_machine',f'{CLIP}.animation']
     paths=indexed_resources(ROOT,probe,probe/'candidate/data',resources)
     reference=indexed_resources(ROOT,probe,probe/'reference/data',[f'{UNIT}.unit'])[0]
@@ -1060,6 +1152,36 @@ def audit(probe,runtime_path=None,midpoint_motion=False):
                           BinaryFbx(probe/f'reference/source/{UNIT}.fbx'),names,profile)
     deformation=verify_deformed_samples(unit,names,animation,manifest,skin,profile,runtime)
     compatibility=verify_adapted_clips(probe,unit,baseline,names,manifest) if receipt.get('adapted_clips_manifest_sha256') else None
+    original=verify_original_clips(probe,names) if receipt.get('original_clips_manifest_sha256') else None
+    integration=None
+    if receipt.get('integration_receipt_sha256'):
+        require(digest(probe/'integration_receipt.json')==receipt['integration_receipt_sha256']
+                and digest(probe/'integration_manifest.json')==receipt['integration_manifest_sha256'],
+                'Integration receipt/manifest changed during compile')
+        for relative,sha in receipt['integration_staged_inputs'].items():
+            require(digest(probe/relative)==sha,'Integration staged source changed: '+relative)
+        from compiled_integration import verify as verify_integration
+        registration=json.loads((probe/'integration_receipt.json').read_text())
+        baseline_sm=indexed_resources(ROOT,probe,probe/'reference/data',[UNIT+'.state_machine'])[0]
+        integration=verify_integration(unit_payload,sm_payload,
+            json.loads((probe/'integration_manifest.json').read_text()),registration['profile_id'],baseline_sm.read_bytes())
+        authored=[]
+        runtime_manifest=json.loads((probe/'integration_manifest.json').read_text())
+        exports=runtime_manifest['profiles'][registration['profile_id']]['validation']['authored_exports']
+        for name,export in exports.items():
+            fbx_path=probe/'candidate/source'/(export['resource']+'.fbx')
+            sidecar_path=fbx_path.with_suffix('.animation')
+            require(digest(fbx_path)==export['fbx_sha256'] and digest(sidecar_path)==export['sidecar_sha256'],
+                    'Registered authored clip changed: '+name)
+            compiled=indexed_resources(ROOT,probe,probe/'candidate/data',[export['resource']+'.animation'])[0]
+            decoded=decode_animation(compiled.read_bytes())
+            require(decoded['bones']==138,'Registered authored clip has another skeleton')
+            prior=json.loads((Path(registration['output'])/f'integration_evidence/{name}.sdk.json').read_text())
+            require(digest(compiled)==prior['compiled_animation_sha256'],
+                    'Registered authored compilation differs from its full diagnostic gate: '+name)
+            authored.append({'name':name,'resource':export['resource'],'bones':138,
+                'compiled_animation_sha256':digest(compiled),'full_diagnostic_compilation_identical':True})
+        integration['authored_clips']=authored
     diagnostic_errors=motion['fidelity_errors']+deformation['fidelity_errors']+(midpoints['fidelity_errors'] if midpoints else [])
     fidelity_errors=diagnostic_errors+(compatibility['fidelity_errors'] if compatibility else [])
     report={'schema':1,'status':'sdk-decoded-fidelity-failed' if fidelity_errors else 'sdk-compiled-and-decoded',
@@ -1069,6 +1191,8 @@ def audit(probe,runtime_path=None,midpoint_motion=False):
             'purpose':'isolated animator asset validation',
             'body':body,'animation':motion,'deformation':deformation,'midpoint_motion':midpoints,
             'adapted_clip_compatibility':compatibility,
+            'original_clip_compatibility':original,
+            'compiled_integration':integration,
             'input_receipt':receipt,
             'native_pose_oracle':{'path':str(runtime_path),'sha256':digest(runtime_path),
                 'provenance':native.get('provenance',{})} if native else 'not sampled; runtime Hermite reconstructed from binary',
@@ -1213,6 +1337,8 @@ def main():
     parser.add_argument('--manifest',type=Path)
     parser.add_argument('--skin-profile',type=Path)
     parser.add_argument('--adapted-clips',type=Path)
+    parser.add_argument('--original-legacy-clips',action='store_true')
+    parser.add_argument('--integration-overlay',type=Path)
     parser.add_argument('--runtime-poses',type=Path)
     parser.add_argument('--midpoint-motion',action='store_true')
     parser.add_argument('--midpoint-motion-only',action='store_true',

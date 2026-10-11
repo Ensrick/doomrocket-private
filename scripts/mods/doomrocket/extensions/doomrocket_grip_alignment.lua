@@ -3,7 +3,10 @@ local mod = get_mod("doomrocket")
 -- The launcher is linked to the native Ratling, but the visible arms used an
 -- independently advancing animation machine. Match the twelve upper-body
 -- deform joints to the carrier's evaluated rigid world pose. Keep the custom
--- hierarchy, scales, lower-body gait, own ASM, and native weapon links intact.
+-- hierarchy, scales, lower-body gait and own ASM intact. Explicit authored
+-- ownership bypasses this transfer and follows all three authored weapon
+-- frames through the weapon's approved internal graph. Only its root is linked
+-- to the uniform carrier root; animated outfit shear never becomes link scale.
 -- Never copy a native local pose into the custom rig's 100x parent space.
 local OUTFIT = "units/warlock_bombardier/warlock_bombardier_3p"
 local WEAPON = "units/rocket/pRocketLauncher"
@@ -11,6 +14,11 @@ local NAMES = {
 	"j_spine", "j_spine1", "j_leftshoulder", "j_rightshoulder",
 	"j_leftarm", "j_rightarm", "j_leftforearm", "j_rightforearm",
 	"j_lefthand", "j_righthand", "j_leftforearmroll", "j_rightforearmroll",
+}
+local WEAPON_LINKS = {
+	{ target = 0, source = "j_leftweaponattach" },
+	{ target = "a_barrel", source = "j_leftweaponcomponent1" },
+	{ target = "handle", source = "j_lefthand" },
 }
 
 if mod._reset_warlock_grip_alignment then
@@ -47,6 +55,212 @@ local function times(v, scale)
 	return Vector3(v.x * scale, v.y * scale, v.z * scale)
 end
 
+local function ownership(owner, entry)
+	if mod._warlock_animation_ownership then
+		return mod._warlock_animation_ownership(owner, entry.outfit)
+	end
+	return { upper_body = "legacy", weapon = "legacy" }
+end
+
+local function scene_graph(weapon)
+	local graph = Unit.get_data(weapon, "scene_graph_data")
+	if type(graph) ~= "table" or #graph ~= 2 then return end
+	local expected, found = {}, {}
+	for i = 2, #WEAPON_LINKS do
+		local name = WEAPON_LINKS[i].target
+		if not Unit.has_node(weapon, name) then return end
+		expected[Unit.node(weapon, name)] = true
+	end
+	for _, link in ipairs(graph) do
+		if type(link) ~= "table" or not expected[link.i] or found[link.i]
+			or not finite(link.parent) or link.parent ~= math.floor(link.parent)
+			or link.parent < 0 or link.parent >= link.i
+			or not link.local_pose then return end
+		local ok, pose = pcall(function() return link.local_pose:unbox() end)
+		if not ok or not Matrix4x4.is_valid(pose) then return end
+		found[link.i] = true
+	end
+	for i = 2, #WEAPON_LINKS do
+		local name = WEAPON_LINKS[i].target
+		if not Unit.has_node(weapon, name) or not found[Unit.node(weapon, name)] then return end
+	end
+	return graph
+end
+
+local function unlink_weapon(entry)
+	if not entry.authored_weapon then return true end
+	if not live(entry.weapon, entry.world) then entry.authored_weapon = nil; return true end
+	local graph = scene_graph(entry.weapon)
+	if not graph then return false end
+	-- This is the same convention as AIInventoryExtension.unlink_unit. Never
+	-- replace its pre-link metadata with an externally linked animated pose.
+	-- Unlink preserves the current root world placement for native drop actors.
+	World.update_unit(entry.world, entry.weapon)
+	World.unlink_unit(entry.world, entry.weapon)
+	for _, link in ipairs(graph) do
+		Unit.scene_graph_link(entry.weapon, link.i, link.parent)
+		Unit.set_local_pose(entry.weapon, link.i, link.local_pose:unbox())
+	end
+	entry.authored_weapon = nil
+	World.update_unit(entry.world, entry.weapon)
+	return true
+end
+
+local function wielded_weapon(entry)
+	local inventory = entry.inventory
+	if not inventory or inventory.wielded ~= true or inventory.dropped or not inventory.inventory_item_units
+		or not inventory.inventory_item_definitions then return end
+	-- Native inventory has sets only for multiple_configurations. The ordinary
+	-- doomrocket_inventory uses all of its items, as AIInventorySystem.update does.
+	local first, last = 1, inventory.inventory_items_n
+	if inventory.item_sets then
+		local set = inventory.item_sets[inventory.current_item_set_index]
+		if not set then return end
+		first, last = set.start_index, set.end_index
+	end
+	if not finite(first) or not finite(last) or first ~= math.floor(first) or last ~= math.floor(last)
+		or first < 1 or last < first or last - first > 256 then return end
+	for index = first, last do
+		local item = inventory.inventory_item_units[index]
+		local definition = inventory.inventory_item_definitions[index]
+		-- Definitions are shared configuration tables; native drops mutate them.
+		-- Only the inventory and item extension describe this instance's state.
+		if live(item, entry.world) and definition
+			and not (entry.stopped_items and entry.stopped_items[item])
+			and Unit.get_data(item, "unit_name") == WEAPON then
+			local extension = ScriptUnit and ScriptUnit.has_extension(item, "ai_inventory_item_system")
+			if extension and not extension.dropped and extension.wielding_unit == inventory.unit then
+				return item
+			end
+		end
+	end
+end
+
+local function weapon_links(profile)
+	local links = profile and profile.weapon_links
+	if type(links) ~= "table" or #links ~= #WEAPON_LINKS then return false end
+	for i, expected in ipairs(WEAPON_LINKS) do
+		local link = links[i]
+		local scale = type(link) == "table" and link.world_scale
+		if type(link) ~= "table" or link.target ~= expected.target or link.source ~= expected.source
+			or type(scale) ~= "table" or #scale ~= 3
+			or scale[1] ~= 1 or scale[2] ~= 1 or scale[3] ~= 1
+			or link.offset ~= nil then return false end
+	end
+	return true
+end
+
+local function positive_frame(pose)
+	if not Matrix4x4.is_valid(pose) then return false end
+	local x, y, z = Matrix4x4.x(pose), Matrix4x4.y(pose), Matrix4x4.z(pose)
+	local determinant = x.x * (y.y * z.z - y.z * z.y)
+		- x.y * (y.x * z.z - y.z * z.x) + x.z * (y.x * z.y - y.y * z.x)
+	return finite(determinant) and determinant > 0.000000000001
+end
+
+local function follow_authored_weapon(owner, entry, channels)
+	local weapon = wielded_weapon(entry)
+	if not weapon then
+		unlink_weapon(entry)
+		entry.status = "authored_no_wielded_weapon"
+		return
+	end
+	if entry.weapon ~= weapon then
+		if not unlink_weapon(entry) then entry.status = "invalid_weapon_graph"; return end
+		entry.weapon = weapon
+	end
+	if not weapon_links(channels.profile) then entry.status = "invalid_weapon_manifest"; return end
+	local graph = scene_graph(weapon)
+	if not graph then entry.status = "invalid_weapon_graph"; return end
+	local prepared, desired, parents, original = {}, {}, {}, {}
+	for _, link in ipairs(graph) do
+		parents[link.i] = link.parent
+		original[link.i] = link.local_pose:unbox()
+	end
+	local root_parent = Unit.world_pose(owner, 0)
+	local root_ok, a, b, c = orthogonal(root_parent)
+	if not root_ok or not positive_frame(root_parent) or math.abs(a - b) > a * 0.0001
+		or math.abs(a - c) > a * 0.0001 then entry.status = "invalid_weapon_parent"; return end
+	for i, link in ipairs(WEAPON_LINKS) do
+		if not Unit.has_node(entry.outfit, link.source)
+			or (type(link.target) == "string" and not Unit.has_node(weapon, link.target)) then
+			entry.status = "missing_weapon_node"; return
+		end
+		local source = Unit.node(entry.outfit, link.source)
+		local target = type(link.target) == "string" and Unit.node(weapon, link.target) or link.target
+		local parent = Unit.world_pose(entry.outfit, source)
+		if not positive_frame(parent) then entry.status = "invalid_weapon_frame"; return end
+		local rotation = Unit.world_rotation(entry.outfit, source)
+		if not Quaternion or not Quaternion.normalize then entry.status = "invalid_weapon_rotation"; return end
+		rotation = Quaternion.normalize(rotation)
+		local rigid = Matrix4x4.from_quaternion_position(rotation,
+			Unit.world_position(entry.outfit, source))
+		if not orthogonal(rigid) or not positive_frame(rigid) then
+			entry.status = "invalid_weapon_frame"; return
+		end
+		desired[target] = rigid
+		prepared[i] = { target = target }
+		local node, guard = target, 0
+		while node ~= 0 do
+			local ancestor = parents[node]
+			if ancestor == nil then ancestor = Unit.scene_graph_parent(weapon, node); parents[node] = ancestor end
+			if type(ancestor) ~= "number" or ancestor < 0 or ancestor >= node or guard >= 256 then
+				entry.status = "invalid_weapon_graph"; return
+			end
+			node, guard = ancestor, guard + 1
+		end
+	end
+	local cache = {}
+	local function parent_world(node)
+		if desired[node] then return desired[node] end
+		if cache[node] then return cache[node] end
+		local pose = Matrix4x4.multiply(original[node] or Unit.local_pose(weapon, node), parent_world(parents[node]))
+		cache[node] = pose
+		return pose
+	end
+	for _, link in ipairs(prepared) do
+		local parent = link.target == 0 and root_parent or parent_world(parents[link.target])
+		if not positive_frame(parent) then entry.status = "invalid_weapon_parent"; return end
+		local pose = Matrix4x4.multiply(desired[link.target], Matrix4x4.inverse(parent))
+		-- The uniform-root route needs no local shear. Keep this bound explicit
+		-- rather than silently changing the weapon's approved internal geometry.
+		if not orthogonal(pose) or not positive_frame(pose) then
+			entry.status = "invalid_weapon_local"; return
+		end
+		link.pose = pose
+	end
+	-- Validate every graph/pose first. Native wield may reparent this unit even
+	-- without an animation event, so reconcile its internal graph every frame.
+	World.unlink_unit(entry.world, weapon)
+	for _, link in ipairs(graph) do
+		Unit.scene_graph_link(weapon, link.i, link.parent)
+		Unit.set_local_pose(weapon, link.i, link.local_pose:unbox())
+	end
+	entry.authored_weapon = true
+	World.link_unit(entry.world, weapon, 0, owner, 0)
+	for _, link in ipairs(prepared) do
+		Unit.set_local_pose(weapon, link.target, link.pose)
+	end
+	World.update_unit(entry.world, weapon)
+	entry.status = "authored"
+end
+
+local function restore_native_weapon(owner, entry)
+	if not entry.authored_weapon then return true end
+	local wielded = wielded_weapon(entry) == entry.weapon
+	if not wielded then return unlink_weapon(entry) end
+	for _, link in ipairs(WEAPON_LINKS) do
+		if not Unit.has_node(owner, link.source) then return false end
+	end
+	if not unlink_weapon(entry) then return false end
+	for _, link in ipairs(WEAPON_LINKS) do
+		local target = type(link.target) == "string" and Unit.node(entry.weapon, link.target) or link.target
+		World.link_unit(entry.world, entry.weapon, target, owner, Unit.node(owner, link.source))
+	end
+	World.update_unit(entry.world, entry.weapon)
+	return true
+end
+
 local function apply(owner, entry)
 	-- Both units need their freshly evaluated local bones composed before reading
 	-- world poses. pre_scene_update alone does not establish this cache boundary.
@@ -55,6 +269,15 @@ local function apply(owner, entry)
 	if live(entry.weapon, entry.world) then
 		World.update_unit(entry.world, entry.weapon)
 	end
+	local channels = ownership(owner, entry)
+	if channels.upper_body == "authored" then
+		follow_authored_weapon(owner, entry, channels)
+		return
+	elseif channels.upper_body ~= "legacy" then
+		entry.status = "unsupported_ownership"
+		return
+	end
+	if not restore_native_weapon(owner, entry) then entry.status = "invalid_weapon_graph"; return end
 	if not entry.mirrored then
 		-- There are no authored jump clips on the custom rig. Pulling only the
 		-- upper torso onto a jumping native pelvis would stretch the body.
@@ -129,7 +352,7 @@ local function apply(owner, entry)
 end
 
 function mod._start_warlock_grip_alignment(owner, outfit, inventory)
-	if owner then entries[owner] = nil end
+	if owner then mod._stop_warlock_grip_alignment(owner) end
 	if not owner or not Unit.alive(owner) or not outfit or not Unit.alive(outfit)
 		or not mod._warlock_outfits or mod._warlock_outfits[owner] ~= outfit
 		or Unit.get_data(outfit, "unit_name") ~= OUTFIT then return false end
@@ -154,7 +377,7 @@ function mod._start_warlock_grip_alignment(owner, outfit, inventory)
 	for _, item in pairs(inventory and inventory.inventory_item_units or {}) do
 		if live(item, world) and Unit.get_data(item, "unit_name") == WEAPON then weapon = item; break end
 	end
-	entries[owner] = { world = world, outfit = outfit, weapon = weapon, pairs = node_pairs,
+	entries[owner] = { world = world, outfit = outfit, weapon = weapon, inventory = inventory, pairs = node_pairs,
 		parents = parents, mirrored = true, status = "armed" }
 	return true
 end
@@ -169,10 +392,28 @@ function mod._warlock_grip_alignment_status(owner)
 end
 
 function mod._stop_warlock_grip_alignment(owner)
+	if not owner then return end
+	local entry = entries[owner]
+	if entry then unlink_weapon(entry) end
 	entries[owner] = nil
 end
 
+function mod._stop_warlock_grip_alignment_item(owner, item)
+	local entry = entries[owner]
+	if not entry or not live(item, entry.world) or Unit.get_data(item, "unit_name") ~= WEAPON then return end
+	if item == entry.weapon then unlink_weapon(entry) end
+	entry.stopped_items = entry.stopped_items or setmetatable({}, { __mode = "k" })
+	entry.stopped_items[item] = true
+end
+
+function mod._resume_warlock_grip_alignment_item(owner, item)
+	if not owner or not item then return end
+	local entry = entries[owner]
+	if entry and entry.stopped_items then entry.stopped_items[item] = nil end
+end
+
 function mod._reset_warlock_grip_alignment()
+	for _, entry in pairs(entries) do unlink_weapon(entry) end
 	entries, pending, epoch = {}, {}, epoch + 1
 end
 
@@ -180,7 +421,7 @@ function mod._release_warlock_grip_alignment_world(world)
 	pending = {}
 	epoch = epoch + 1
 	for owner, entry in pairs(entries) do
-		if entry.world == world then entries[owner] = nil end
+		if entry.world == world then unlink_weapon(entry); entries[owner] = nil end
 	end
 end
 
@@ -197,8 +438,16 @@ function mod._queue_warlock_grip_alignment(world, dt)
 		for owner, entry in pairs(entries) do
 			if entry.world == world then
 				if valid(owner, entry) then
-					if not mod:pcall(apply, owner, entry) then entries[owner] = nil end
-				else entries[owner] = nil end
+					if not mod:pcall(apply, owner, entry) then
+						mod:pcall(unlink_weapon, entry)
+						entries[owner] = nil
+					elseif mod._apply_warlock_outfit_correction then
+						mod:pcall(mod._apply_warlock_outfit_correction, owner, entry.outfit, false)
+					end
+				else
+					mod:pcall(unlink_weapon, entry)
+					entries[owner] = nil
+				end
 			end
 		end
 	end)
