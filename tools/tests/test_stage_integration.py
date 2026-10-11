@@ -92,6 +92,8 @@ def edge_inventory(asm):
 
 class Fixture:
     def __init__(self, root):
+        # Match stager canonicalization when Windows temp roots use 8.3 aliases.
+        root = Path(root).resolve()
         self.root = root
         self.output = root / ".build/animation_integration_test"
         self.plan_path = root / "authoring/plan.json"
