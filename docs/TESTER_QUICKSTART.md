@@ -1,7 +1,9 @@
 # Development TEST quickstart
 
-**TEST v0.1.85-dev is a candidate awaiting verified publication.** Use it for
-the new issue checks only after the release is confirmed on Workshop.
+**Warlock Engineer TEST v0.1.85-dev is published and verified.**
+Verification completed 2026-10-11 01:13 UTC; the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.85-dev)
+binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/95388a6a05298ebf2ef08caae7b181a01aab7ca4).
+Publication supplies the build for testing; it does not establish its in-game result.
 
 Use the verified [TEST Workshop build](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730)
 named in [current status](../PROJECT_STATUS.md) and the issue's latest test
@@ -17,6 +19,20 @@ breed-name typo remains. Hose [#3](https://github.com/Ensrick/doomrocket-private
 awaits a verdict on the firmer resting curve, with visibility and physics already
 accepted. Follow each issue's current instructions for other work.
 
+The six current TEST checks are:
+
+- [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): firmer resting curve while retaining natural flex; visibility and physics are already accepted.
+- [#6 rocket clearance](https://github.com/Ensrick/doomrocket-private/issues/6): whether close shots clear the floor and reach the aimed point.
+- [#15 crystal flame](https://github.com/Ensrick/doomrocket-private/issues/15): whether the flame fits the crystal and changing its command values visibly changes size.
+- [#28 launcher/hand alignment](https://github.com/Ensrick/doomrocket-private/issues/28): whether the weapon remains aligned during ordinary movement, aim and reload.
+- [#35 Dutch Spice arena](https://github.com/Ensrick/doomrocket-private/issues/35): whether Into the Nest arena Stormvermin waves spawn on Cataclysm.
+- [#44 lingering audio](https://github.com/Ensrick/doomrocket-private/issues/44): whether living-enemy sounds stop on death during ordinary play; the report is rare, so absence in a short session is not final proof.
+
+Follow the latest steps in the issue you choose; there is no requirement to
+complete all six in one session. Full sound-cue work #5 needs Arnaud's new
+masters, and alpha crash #34 needs crash evidence; neither is a repeat TEST
+acceptance assignment.
+
 Use this short path for an issue labeled `ready-for-testing`:
 
 ```text
@@ -26,7 +42,7 @@ Setup
 [ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
 [ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
 [ ] Enable the TEST item only; disable public item 3771657344.
-[ ] Confirm the exact [doomrocket:LOAD] version named in the issue's latest instructions.
+[ ] Confirm [doomrocket:LOAD] v0.1.85-dev in the matching new log.
 [ ] If the version differs, stop and report the mismatch.
 
 Test and report
@@ -43,8 +59,9 @@ player, or coordinated lobby test is required. If a bug appears while playing
 with friends, report it normally; the process does not require arranging that
 session in advance.
 
-An issue marked `blocked` needs the engineering or prerequisite named in its
-current status before another acceptance test. An issue marked
+An issue marked `blocked` names a missing prerequisite such as engineering,
+publication, source assets, or crash evidence. Resolve that prerequisite before
+asking for an acceptance test it prevents. An issue marked
 `ready-for-testing` names a verified published build and a concrete remaining
 question. Do not re-run old acceptance steps after a newer written verdict.
 
