@@ -50,6 +50,15 @@ artist masters when adjusting their packaging. When a fix needs a new source
 asset, name that missing asset in the issue and keep it blocked until Arnaud
 supplies it.
 
+The user's October 10, 2026 instruction explicitly authorizes engineering to
+prepare the existing Warlock model for Arnaud to animate: control curves,
+FK/IK, native twist, stretch/squash, and localized cloth/accessory corrections.
+The reproducible tools and diagnostic poses are documented in
+`docs/ANIMATION_AUTHORING.md`. Preserve artist masters and the shipping skeleton;
+keep generated `.blend`/FBX handoff assets outside Git. This exception does not
+authorize replacement art or a new production animation set. Authoring and SDK
+checks do not establish an in-game pass or authorize alpha promotion.
+
 ## Start every session
 
 1. Read `PROJECT_STATUS.md` and the relevant GitHub issue.

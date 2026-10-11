@@ -14,6 +14,13 @@ is the live work queue; this page is a short re-entry map.
 
 ## Current evidence and work
 
+The separate [Blender animation authoring guide](docs/ANIMATION_AUTHORING.md)
+covers Arnaud's control rig, portable exporter, and isolated SDK comparisons.
+Generated handoff assets stay outside Git. This authoring work does not change
+the published builds; actual game playback and ownership of the existing
+upper-body grip overrides remain integration checks. The coat/belt weight
+candidate is blocked by the measured legacy-clip sampling failure in that guide.
+
 Crunch's October 8-10 replies accept the v0.1.84 balance plan, including the
 flailing throw with movable camera and prompt rocket impacts. [#33](https://github.com/Ensrick/doomrocket-private/issues/33)
 is closed; the 2 s aim (#16) and portrait frame (#30) are also closed. No repeat

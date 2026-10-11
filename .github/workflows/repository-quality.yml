@@ -141,6 +141,12 @@ jobs:
       - name: Run isolated compiler path guards (no SDK)
         run: python tools/hose_lab/test_compile_paths.py
 
+      - name: Run animator compiled-data rejection tests (no Blender or SDK)
+        run: python tools/animation_rig/verify_compiled_animation.py --self-test
+
+      - name: Run native pose capture staging guards (no SDK)
+        run: python tools/animation_rig/test_runtime_pose_probe.py
+
       - name: Run compiled hose acceptance guard tests (no SDK)
         run: python tools/hose_lab/compiled/test_verifier.py
 
