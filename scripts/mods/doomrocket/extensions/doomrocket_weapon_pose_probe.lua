@@ -70,6 +70,11 @@ end
 
 local function sample(entry)
 	local owner, outfit, weapon = entry.owner, entry.outfit, entry.weapon
+	-- Read composed world transforms, not cached transforms from before this
+	-- animation evaluation. The unit flush is also required with the driver off.
+	World.update_unit(entry.world, owner)
+	World.update_unit(entry.world, outfit)
+	World.update_unit(entry.world, weapon)
 	local native, visual, carried = entry.native, entry.visual, entry.carried
 	local n_left = position(owner, native.j_lefthand)
 	local n_right = position(owner, native.j_righthand)
@@ -135,13 +140,14 @@ local function sample(entry)
 	state.total = state.total + 1
 	entry.last_root = n_root
 	entry.last_sample_t = entry.elapsed
-	printf("[doomrocket:GRIP] id=%d t=%.2f n=%d event=%s mirrored=%s speed_mps=%.2f frame=carrier_root stage=pre_scene_update attach_source=%s " ..
+	printf("[doomrocket:GRIP] id=%d t=%.2f n=%d event=%s mirrored=%s speed_mps=%.2f frame=carrier_root stage=post_unit_update alignment=%s attach_source=%s " ..
 		"left_native_root_cm=%.2f,%.2f,%.2f left_visual_root_cm=%.2f,%.2f,%.2f " ..
 		"left_vn_cm=%.2f,%.2f,%.2f aux_attach_vn_cm=%.2f,%.2f,%.2f " ..
 		"right_vn_cm=%.2f,%.2f,%.2f handle_n_cm=%.2f,%.2f,%.2f " ..
 		"handle_v_cm=%.2f,%.2f,%.2f root_n_cm=%.2f,%.2f,%.2f " ..
 		"barrel_n_cm=%.2f,%.2f,%.2f left_rot_deg=%.1f aux_attach_rot_deg=%.1f right_rot_deg=%.1f",
 		entry.id, entry.elapsed, entry.samples, entry.event, tostring(entry.mirrored), speed,
+		mod._warlock_grip_alignment_status and mod._warlock_grip_alignment_status(owner) or "off",
 		visual.j_leftweaponattach and "attach" or "hand_fallback",
 		nlx, nly, nlz, vlx, vly, vlz, lhx, lhy, lhz, ahx, ahy, ahz, rhx, rhy, rhz,
 		nhx, nhy, nhz, vhx, vhy, vhz, wrx, wry, wrz,

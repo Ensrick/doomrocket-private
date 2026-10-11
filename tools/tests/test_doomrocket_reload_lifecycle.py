@@ -21,6 +21,16 @@ HARNESS = Path(__file__).with_name("fixtures") / "doomrocket_combat_harness.lua"
 def create_runtime():
     lua = LuaRuntime(unpack_returned_tuples=True)
     lua.execute(HARNESS.read_text(encoding="utf-8"))
+    # Execute the authoritative solver/constants rather than keeping a stale
+    # test-only ballistic namespace. Only the invalid-solution input is injected.
+    lua.execute((ROOT / "scripts/mods/doomrocket/utils/doomrocket_ballistics.lua").read_text(encoding="utf-8"))
+    lua.execute("""
+        local production_solve = mod.doomrocket_ballistics.solve_launch_velocity
+        mod.doomrocket_ballistics.solve_launch_velocity = function(...)
+            if reject_solution then return nil, nil end
+            return production_solve(...)
+        end
+    """)
     for name in ("reload", "launch", "shove", "reposition"):
         lua.execute((NODES / f"bt_doomrocket_{name}_action.lua").read_text(encoding="utf-8"))
     # Load the production tuning table, not a duplicate test configuration.

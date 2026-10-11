@@ -1,9 +1,17 @@
-# Warprocket Bombardier combat regression protocol
+# Warlock Engineer combat regression protocol
 
-This protocol protects the v0.1.56 survivability and close-range shove
-contracts. Run the offline gate before every deploy, then complete the short
-host/client matrix in-game. A source-only test cannot prove the live damage
-pipeline, animation callbacks, or networked player status transition.
+This protocol records combat regressions for the channel being tested.
+Maintainers run the offline gate for relevant changes; testers follow the
+current open issue's remaining solo check on its verified published build.
+A written observation and matching log are sufficient. No video, second player,
+or arranged multiplayer session is required. If a problem occurs naturally
+while playing with friends, report it normally.
+
+The five-change balance plan in TEST v0.1.84-dev was accepted in issue #33,
+including the two-second aim, Ratling breakpoints, and camera-free flailing
+throw. It is not a standing request to repeat the full matrix. Public alpha
+v0.1.59-alpha already uses Ratling health/armor and retains its earlier explosion
+parameters; TEST changes are not implicitly promoted.
 
 ## Offline gate
 
@@ -17,10 +25,10 @@ The combat contract suite verifies all of the following:
 
 - the Bombardier retains the native Ratling carrier and its physics-coupled
   hit zones;
-- maximum health is cloned from the live Stormvermin breed table rather than
-  copied as a second set of numeric constants;
-- the general armor category is explicitly inherited from Stormvermin, with
-  no per-hit-zone or primary-armor override;
+- TEST maximum health and armor are cloned from the live Ratling Gunner
+  breed table rather than copied as a second set of numeric constants;
+- the public v0.1.59-alpha baseline also uses Ratling health and armor;
+  neither channel substitutes the native Ratling carrier or its hit zones;
 - the close shove is the first branch inside the existing attack-pattern root,
   ahead of the ranged sequence, while the hand-written generated selector
   retains its matching root-child layout;
@@ -36,41 +44,41 @@ The combat contract suite verifies all of the following:
 
 ## Health baseline
 
-For the current game patch, the Stormvermin health table resolves as follows.
-These numbers are an observation for manual verification; runtime code derives
-from `Breeds.skaven_storm_vermin.max_health` so a future game rebalance remains
-in parity automatically.
+Choose the donor for the exact channel. Current TEST derives health and armor
+from `Breeds.skaven_ratling_gunner`; public v0.1.59-alpha uses that same
+Ratling donor. The following numbers are a manual reference, not a second
+runtime table. Mutators may change the live donor values.
 
-| Difficulty | Expected maximum health |
-| --- | ---: |
-| Recruit | 16 |
-| Veteran | 24 |
-| Champion | 35.25 |
-| Legend | 52.75 |
-| Cataclysm 1 | 86.5 |
-| Cataclysm 2 | 102.5 |
-| Cataclysm 3 | 118.5 |
+| Difficulty | TEST Ratling health | Public v0.1.59-alpha Ratling health |
+| --- | ---: | ---: |
+| Recruit | 12 | 12 |
+| Veteran | 18 | 18 |
+| Champion | 26.5 | 26.5 |
+| Legend | 39.5 | 39.5 |
+| Cataclysm 1 | 54 | 54 |
+| Cataclysm 2 | 72 | 72 |
+| Cataclysm 3 | 90 | 90 |
 
-The underlying game table contains two initial 16-health steps before the
-Veteran step, plus a versus step of 24. Do not shift the difficulty indexes
-when checking the live health extension.
+Each vanilla table includes two initial Recruit steps plus a versus step.
+Do not shift difficulty indexes when checking the live health extension.
 
 ## In-game survivability check
 
 Use an unmodded official difficulty profile and disable balance mods that
-replace breed health or armor. On the host, spawn one Stormvermin and one
-Warprocket Bombardier. For each relevant difficulty:
+replace breed health or armor. In solo play, compare one Engineer with the
+correct channel's donor: Ratling Gunner for both current TEST and public
+v0.1.59-alpha. Use the difficulty relevant to the reported change:
 
 1. Read or damage-probe both maximum-health values. They must be identical.
 2. Strike both in the torso with the same non-armor-piercing attack at the same
    power level and without crit/headshot/proc buffs.
-3. Confirm both use armor category 2 and produce the same armored damage result.
+3. Confirm both use armor category 2 and compare the armored damage result.
 4. Repeat one headshot to ensure the retained Ratling hit-zone carrier still
    resolves the head correctly.
 
-Record the exact weapon, power, difficulty, displayed damage, and whether the
-hit was a crit. A statement such as “felt unarmored” is not sufficient evidence
-because the Ratling donor already used armor category 2 before this change.
+Accept the tester's written observation of what happened. If damage was
+measured, retain the weapon, power, difficulty, displayed value and crit status
+so a suspected breakpoint mismatch can be reproduced.
 
 ## Close-range shove check
 
@@ -96,13 +104,14 @@ Test on open, level ground with one Bombardier and no other enemies:
 7. Repeat while dodging out of range, becoming downed, and killing/staggering
    the Bombardier during wind-up. Each interruption must leave navigation and
    attack-token state usable; there must be no stuck action or repeated impact.
-8. Repeat once with a remote client as the target. The server remains the shove
-   authority, while the client must observe the same networked pushed status.
+8. If a shove problem occurs during ordinary play with friends, record who
+   observed it and the matching build. There is no separate remote-player gate.
 
 ## Reload interruption and resumption (#12)
 
-Verify the announced build's load marker (v0.1.65-dev for the reposition
-candidate) and use one Bombardier on open ground.
+Verify the exact published build named in the issue's latest instructions
+and use one Engineer on open ground. Issue #12 is already accepted; re-run
+these cases only when a relevant change or new report warrants it.
 
 1. On a fresh spawn, interrupt its first aim with a shove. Step away and confirm
    it resumes aiming with the original loaded rocket, without a reload cycle.
@@ -116,8 +125,8 @@ candidate) and use one Bombardier on open ground.
    The rocket appears and is synced to peers only when reloading completes.
 5. Repeat with stagger, death, and a career switch during reload. No stale
    callback, deleted target access, free shot, or stuck navigation may result.
-6. Repeat as a remote client while the host runs AI. Compare the visible
-   loaded/empty weapon on both peers and attach both complete logs.
+6. Report any naturally encountered multiplayer discrepancy normally; no
+   arranged session or second log is required for this solo acceptance.
 
 The selector can interrupt both reload and aiming; no new aim-only restriction
 or stronger knockback is part of the reload fix. v0.1.74 deliberately changes
@@ -135,7 +144,8 @@ runtime-pass claim. Record the exact announced candidate version from its
 movement is present. See the [audited baseline](2026-09-08_TESTER_RESULTS.md).
 
 Use one Bombardier, retain the complete console log, and run
-these cases on host and with a remote client as the target:
+the relevant cases in solo play when a movement change or new report warrants
+them. The accepted issue #13 does not require a new full-matrix test:
 
 1. **Open ground:** finish a reload, approach for a successful shove, and watch
    the follow-up movement. With safe routes available, it should run at 4 m/s
@@ -174,10 +184,9 @@ these cases on host and with a remote client as the target:
    and attack state must clean up without a stuck navigation override,
    post-death movement, deleted-unit access, or unpaired bot-attack
    notification. Recovery and later attacks must remain possible when alive.
-9. **Host/client agreement:** compare movement, loaded/empty weapon state,
-   kick timing and push response, and rocket firing on both peers. Only the
-   host should decide the action. Capture both complete logs with matching
-   version banners and describe what each player observed.
+9. **Naturally encountered multiplayer problems:** report movement, weapon
+   visibility, kick or firing discrepancies if they occur while playing with
+   friends. This is not a standing test or arranged-session requirement.
 
 Record blocked-route outcomes as well as successful retreats. Preserve the
 existing armor/health, ragdoll, death-audio, career-switch, and explosion
@@ -203,12 +212,12 @@ Bombardier was attacking two victims.
 
 ## Pass criteria
 
-- Bombardier and Stormvermin maximum health match at every tested difficulty.
-- Torso armor behavior matches Stormvermin and the head hit zone remains valid.
+- Engineer health and armor match the correct channel's donor for the tested
+  difficulty; its native Ratling head hit zone remains valid.
 - Every eligible close approach yields at most one zero-damage shove.
 - Cooldown, facing, range, downed-target, and interruption gates all work.
 - The Bombardier never fires inside the 1.8-metre shove envelope and resumes
   ranged behavior only after the target leaves it.
 - Repeated career switches leave every bot attack notification paired.
-- Host and client logs contain no script error, assertion, missing animation
-  event, stuck behavior node, or repeated shove impact for one action.
+- The matching tested-session log contains no script error, assertion, missing
+  animation event, stuck behavior node, or repeated shove impact for one action.

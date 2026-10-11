@@ -75,6 +75,13 @@ ProjectileRocket.init = function (self, unit, attacker_unit, target_pos, launch_
     self.unit = unit
     local actor = Unit.actor(unit, "throw")
     self.actor = actor
+	-- The native locomotion extension has already decoded the launch velocity.
+	-- Align and seed its path now, before the first physics step/update can use
+	-- an inherited carrier yaw or lose the initial contact segment.
+	local launch_velocity = Actor.velocity(actor)
+	self:straighten_rocket(launch_velocity)
+	Actor.set_angular_velocity(actor, Vector3.zero())
+	self:_remember_path(Actor.position(actor), launch_velocity)
     self.target_z = target_pos.z
     self.target_y = target_pos.y
     self.target_x = target_pos.x
@@ -94,7 +101,7 @@ ProjectileRocket.init = function (self, unit, attacker_unit, target_pos, launch_
 
 	-- Prefer the launcher's p_fx node; fall back to the projectile if the weapon vanished.
 	mod._play_doomrocket_launch_sound(
-		launch_sound_unit and Unit.alive(launch_sound_unit) and launch_sound_unit or unit)
+		launch_sound_unit and Unit.alive(launch_sound_unit) and launch_sound_unit or unit, attacker_unit)
 
     local position = Actor.position(actor)
     local rotation = Actor.rotation(actor)
@@ -252,7 +259,10 @@ ProjectileRocket._left_ballistic_path = function(self, vel, dt)
 end
 
 ProjectileRocket._log_impact = function(self, reason, speed)
-    printf("[doomrocket:IMPACT] reason=%s flight_s=%.2f speed=%.2f", reason, self.time_pass or 0, speed or 0)
+    local position = self.actor and Actor.position(self.actor) or Vector3.zero()
+    printf("[doomrocket:IMPACT] reason=%s flight_s=%.2f speed=%.2f attacker_go_id=%s position=%.3f,%.3f,%.3f target=%.3f,%.3f,%.3f",
+        reason, self.time_pass or 0, speed or 0, tostring(self.attacker_goid),
+        position.x, position.y, position.z, self.target_x or 0, self.target_y or 0, self.target_z or 0)
 end
 
 ProjectileRocket._remember_path = function(self, position, vel)

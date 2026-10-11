@@ -41,6 +41,7 @@ HARNESS = r"""
     Vector3 = Vector3Ops
     Vector3.normal = function(v) return (Vector3.direction_length(v)) end
     Vector3.distance = function(a, b) return Vector3.length(a - b) end
+    Vector3.zero = function() return Vector3(0, 0, 0) end
     setmetatable(Vector3, { __call = function(_, x, y, z) return construct(x, y, z) end })
     function Vector3Box(v)
         local box = { value = Vector3(v.x, v.y, v.z) }
@@ -75,6 +76,9 @@ HARNESS = r"""
         rotation = function(actor) return { rotation = true } end,
         teleport_rotation = function() end,
         add_velocity = function() end,
+        set_angular_velocity = function(actor, value)
+            body.angular_velocity = Vector3(value.x, value.y, value.z)
+        end,
         unit = function(actor) return actor.unit end,
     }
     function printf(fmt, ...) impact_logs[#impact_logs + 1] = string.format(fmt, ...) end

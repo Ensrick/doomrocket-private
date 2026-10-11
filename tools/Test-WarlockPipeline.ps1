@@ -79,7 +79,8 @@ $portraitRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_portrait_pi
 foreach ($integrationRegression in @('test_doomrocket_hose_lifecycle.py', 'test_doomrocket_hose_pose_adapter.py', 'test_doomrocket_crystal_anchor.py',
         'test_doomrocket_action_lookup.py', 'test_doomrocket_aim_timing.py',
         'test_doomrocket_locomotion_animation.py', 'test_doomrocket_visible_aim.py',
-        'test_doomrocket_animation_callbacks.py')) {
+        'test_doomrocket_animation_callbacks.py', 'test_doomrocket_weapon_pose_probe.py',
+        'test_doomrocket_grip_alignment.py')) {
     & py -3 (Join-Path $PSScriptRoot "tests\$integrationRegression")
     if ($LASTEXITCODE -ne 0) {
         [void]$failures.Add("$integrationRegression failed (exit $LASTEXITCODE)")
@@ -89,7 +90,7 @@ foreach ($integrationRegression in @('test_doomrocket_hose_lifecycle.py', 'test_
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("kill-feed portrait source/compiled regression suite failed (exit $LASTEXITCODE)")
 }
-foreach ($smokeRegression in @('test_doomrocket_chimney_anchor.py', 'test_doomrocket_backpack_smoke.py')) {
+foreach ($smokeRegression in @('test_doomrocket_chimney_anchor.py', 'test_doomrocket_backpack_smoke.py', 'test_doomrocket_crystal_flame.py')) {
     & py -3 (Join-Path $PSScriptRoot "tests\$smokeRegression")
     if ($LASTEXITCODE -ne 0) {
         [void]$failures.Add("$smokeRegression failed (exit $LASTEXITCODE)")
@@ -117,11 +118,19 @@ if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("ballistic visual-aim/launch regression suite failed (exit $LASTEXITCODE)")
 }
 $soundRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_sound_contract.py'
+& py -3 (Join-Path $PSScriptRoot 'tests\test_doomrocket_hull_clearance.py')
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("Doomrocket hull/quantized clearance regression suite failed (exit $LASTEXITCODE)")
+}
 & py -3 $soundRegression
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("Doomrocket sound-bank/runtime regression suite failed (exit $LASTEXITCODE)")
 }
 $projectileLifecycleRegression = Join-Path $PSScriptRoot 'tests\test_doomrocket_projectile_lifecycle.py'
+& py -3 (Join-Path $PSScriptRoot 'tests\test_doomrocket_audio_lifecycle.py')
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("Doomrocket executable audio teardown regression suite failed (exit $LASTEXITCODE)")
+}
 & py -3 $projectileLifecycleRegression
 if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("Doomrocket projectile one-shot lifecycle regression suite failed (exit $LASTEXITCODE)")

@@ -74,6 +74,7 @@ Unit={
  set_local_pose=function(...) writes=writes+1;error('probe wrote a pose') end,
 }
 animation={add_safe_animation_callback=function(self,fn) callbacks[#callbacks+1]=fn end}
+World={update_unit=function(w,u) valid(u);assert(u.world==w) end}
 Managers={state={entity={system=function(self,name)
  assert(name=='animation_system');return animation
 end}}}
@@ -105,7 +106,8 @@ class WeaponPoseProbeTests(unittest.TestCase):
         lua = runtime()
         lua.execute("assert(mod._start_warlock_weapon_pose_probe(owner,outfit,inventory));tick(0.05)")
         line = lua.eval("messages[#messages]")
-        self.assertIn("stage=pre_scene_update", line)
+        self.assertIn("stage=post_unit_update", line)
+        self.assertIn("alignment=off", line)
         self.assertIn("left_vn_cm=10.00,0.00,0.00", line)
         self.assertIn("handle_n_cm=0.00,0.00,0.00", line)
         self.assertRegex(line, r"handle_v_cm=-10\.00,-?0\.00,0\.00")

@@ -117,7 +117,10 @@ try {
         }
     } finally { $zip.Dispose(); $zipStream.Dispose() }
     $notes = Join-Path $artifactDir 'release-notes.md'
-    [IO.File]::WriteAllText($notes, "Warlock Engineer TEST $tag. Built from $sourceCommit through the standalone adaptation of the Tweaker ship transaction. Native material splice, package checks and hosted QA passed. Strengthens the visible hose's resting curve while retaining its physics, and adds bounded hand/launcher pose diagnostics for the still-open grip issue. The new hose shape needs an in-game visual verdict; the weapon grip is not claimed fixed. Workshop item: $($profile.Id). Publication only; no game installation or local deployment is claimed.`n")
+    $changelogText = [IO.File]::ReadAllText((Join-Path $repoRoot 'CHANGELOG.md'))
+    $releaseEntry = [regex]::Match($changelogText, '(?ms)^##[ \t]+[^\r\n]+\r?\n.*?(?=^##[ \t]+|\z)').Value.Trim()
+    if (-not $releaseEntry) { throw 'Current release notes are missing from CHANGELOG.md.' }
+    [IO.File]::WriteAllText($notes, "Warlock Engineer TEST $tag. Built from $sourceCommit through the standalone adaptation of the Tweaker ship transaction. Native material splice, package checks and hosted QA passed. Workshop item: $($profile.Id). Publication only; no game installation or local deployment is claimed.`n`n$releaseEntry`n")
     $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {

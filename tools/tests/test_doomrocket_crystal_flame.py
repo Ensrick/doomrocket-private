@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Issue #15: one persistent warpfire flame linked to the launcher crystal.
+"""Issue #15: one scaled, linked warpfire flame on the launcher crystal.
 
-v0.1.84: the Warpfire ground fire, sized through its vanilla size variable,
-with its rising +Z laid along the crystal; plus a TEST resize command.
+The fixed native billboard clouds are scaled through the engine link pose, with
+their rising +Z laid along the crystal. A TEST resize restarts the emitter.
 
 Executes the production controller in Lua 5.1 against strict engine lifetime
 doubles (the backpack smoke suite's boundary): handle and package ownership,
 start/stop/drop/death/world-release ordering. A deleted launcher recycles its
-old particle ID to catch unsafe cleanup. The anchor is checked against the
+linked emitter's ID, so cleanup must not reclaim that recycled handle. The anchor is checked against the
 measured fixture and, when bundleV2 exists, regenerated from the compiled
 launcher node. None of this proves how the flame looks in game.
 """
@@ -35,12 +35,35 @@ HARNESS = r"""
 events={created=0,linked=0,destroyed=0,queried=0,loads=0,unloads=0,nodes=0}
 function printf() end
 local function v(x,y,z) return {x=x,y=y,z=z} end
-Vector3=v
+Vector3=setmetatable({length=function(a) return math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z) end},
+ {__call=function(_,x,y,z) return v(x,y,z) end})
 Matrix4x4={
  identity=function() return {x=v(1,0,0),y=v(0,1,0),z=v(0,0,1),p=v(0,0,0)} end,
  set_x=function(m,x) m.x=x end,set_y=function(m,x) m.y=x end,
  set_z=function(m,x) m.z=x end,set_translation=function(m,x) m.p=x end,
+ translation=function(m) return m.p end,
+ rotation=function(m) return m end,
 }
+local function transform(m,a,point)
+ return v(m.x.x*a.x+m.y.x*a.y+m.z.x*a.z+(point and m.p.x or 0),
+  m.x.y*a.x+m.y.y*a.y+m.z.y*a.z+(point and m.p.y or 0),
+  m.x.z*a.x+m.y.z*a.y+m.z.z*a.z+(point and m.p.z or 0))
+end
+-- Stingray composition is local then parent world, as used by native action_sweep.
+function Matrix4x4.multiply(local_pose,parent)
+ return {x=transform(parent,local_pose.x),y=transform(parent,local_pose.y),
+  z=transform(parent,local_pose.z),p=transform(parent,local_pose.p,true)}
+end
+function Matrix4x4.set_scale(m,scale)
+ local function axis(a,s)
+  local n=Vector3.length(a)
+  return v(a.x/n*s,a.y/n*s,a.z/n*s)
+ end
+ m.x=axis(m.x,scale.x); m.y=axis(m.y,scale.y); m.z=axis(m.z,scale.z)
+end
+function Matrix4x4.scale(m)
+ return v(Vector3.length(m.x),Vector3.length(m.y),Vector3.length(m.z))
+end
 world={alive=true}
 weapon_name='units/rocket/pRocketLauncher'
 function new_owner() return {alive=true,world=world} end
@@ -56,6 +79,10 @@ Unit={
  node=function(u,node)
   assert(u.alive and u.has_node and node=='pRocketLauncher','unsafe node lookup')
   events.nodes=events.nodes+1; return 7
+ end,
+ world_pose=function(u,node)
+  assert(u.alive and node==7,'dead or wrong Unit.world_pose')
+  return u.pose or {x=v(100,0,0),y=v(0,100,0),z=v(0,0,100),p=v(10,20,30)}
  end,
 }
 ScriptUnit={has_extension=function(u,system)
@@ -96,16 +123,18 @@ end}
 effects={}; next_id=1
 local function check_world(w) assert(w and w.alive,'released world touched') end
 World={
- create_particles=function(w,name)
+ create_particles=function(w,name,position,rotation,scale)
   check_world(w); assert(name==effect_name)
+  assert(position and not rotation and not scale,'use the native scaled link-pose pattern')
   local id=next_id; next_id=id+1
   effects[id]={world=w}; events.created=events.created+1
+  events.latest_id=id
   return id
  end,
  link_particles=function(w,id,u,node,pose,policy)
   check_world(w); assert(effects[id] and u.alive and u.world==w)
   assert(node==7 and policy=='destroy')
-  effects[id].weapon=u; effects[id].pose=pose
+  effects[id].weapon=u; effects[id].node=node; effects[id].pose=pose
   events.linked=events.linked+1; events.last_pose=pose
  end,
  are_particles_playing=function(w,id)
@@ -119,30 +148,28 @@ World={
   effects[id]=nil; events.destroyed=events.destroyed+1
  end,
  find_particles_variable=function(w,name,variable)
-  check_world(w); assert(name==effect_name and variable=='warp_fire_flamethrower_remains_size')
-  return 3
+  error('a ground-fire variable does not size every cloud')
  end,
  set_particles_variable=function(w,id,variable,value)
-  check_world(w); assert(effects[id] and not effects[id].foreign and variable==3)
-  effects[id].size=value; events.sized=(events.sized or 0)+1
+  error('a ground-fire variable does not size every cloud')
  end,
 }
-ScriptWorld={create_particles_linked=function(w,name,u,node,policy,pose)
- local id=World.create_particles(w,name)
- World.link_particles(w,id,u,node,pose or Matrix4x4.identity(),policy)
- return id
-end}
 mod={commands={},echoes={}}
 function mod:command(name,description,fn) self.commands[name]=fn end
 function mod:echo(message,...) self.echoes[#self.echoes+1]=string.format(message,...) end
 function get_mod(name) assert(name=='doomrocket'); return mod end
 function delete_weapon(w)
  w=w or weapon
- -- The engine destroys a linked emitter with its unit; its ID may be reused.
+ -- Native linking destroys the emitter with the launcher and may recycle its ID.
  for id,e in pairs(effects) do
   if e.weapon==w then effects[id]={world=e.world,foreign=true} end
  end
  w.alive=false
+end
+function particles_pose(id)
+ local e=effects[id]
+ assert(e and not e.foreign)
+ return Matrix4x4.multiply(e.pose,Unit.world_pose(e.weapon,e.node))
 end
 function count() local n=0; for _ in pairs(effects) do n=n+1 end; return n end
 function start(o,inv) return mod._start_warlock_crystal_flame(o or owner,inv or inventory) end
@@ -159,18 +186,21 @@ def runtime():
 
 
 class CrystalFlameLifecycleTests(unittest.TestCase):
-    def test_start_links_one_flame_at_the_anchor_and_is_idempotent(self):
+    def test_start_links_one_scaled_flame_at_the_anchor_and_is_idempotent(self):
         lua = runtime()
         lua.execute("""
             assert(start()); assert(start())
             assert(events.created==1 and events.linked==1 and events.loads==1)
             local a, p = mod._doomrocket_crystal_anchor, events.last_pose
             -- Effect +Z rises along the crystal's mount-to-tip axis (anchor +X).
-            assert(p.z.x==a.x_axis[1] and p.z.y==a.x_axis[2] and p.z.z==a.x_axis[3])
-            assert(p.x.x==a.y_axis[1] and p.y.x==a.z_axis[1])
+            local function close(a,b) return math.abs(a-b)<1e-12 end
+            assert(close(p.z.x,a.x_axis[1]*(0.2/1.2)) and close(p.z.y,a.x_axis[2]*(0.2/1.2)))
+            assert(close(p.x.x,a.y_axis[1]*(0.06/0.6)) and close(p.y.x,a.z_axis[1]*(0.06/0.6)))
             assert(p.p.x==a.position[1] and p.p.y==a.position[2] and p.p.z==a.position[3])
-            local size = effects[1].size
-            assert(events.sized==1 and size.x==0.06 and size.y==0.2 and size.z==0)
+            local global=particles_pose(1)
+            local scale=Matrix4x4.scale(global)
+            assert(close(scale.x,0.06/0.6) and close(scale.y,0.06/0.6) and close(scale.z,0.2/1.2))
+            assert(global.p.x==10+a.position[1]*100 and global.p.y==20+a.position[2]*100 and global.p.z==30+a.position[3]*100)
         """)
 
     def test_stop_destroys_its_own_flame_and_releases_the_package_on_reset(self):
@@ -245,6 +275,25 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             assert(events.created==2 and events.destroyed==1 and count()==1)
         """)
 
+    def test_native_link_follows_rotated_translated_scale100_launcher_without_respawning(self):
+        lua = runtime()
+        lua.execute("""
+            assert(start())
+            weapon.pose={x=Vector3(0,100,0),y=Vector3(-100,0,0),z=Vector3(0,0,100),p=Vector3(50,60,70)}
+            mod._update_warlock_crystal_flame()
+            local pose,a=particles_pose(events.latest_id),mod._doomrocket_crystal_anchor
+            assert(events.created==1 and events.linked==1, 'pose changes never respawn or relink')
+            assert(pose.p.x==50-a.position[2]*100 and pose.p.y==60+a.position[1]*100)
+            assert(math.abs(pose.z.x+a.x_axis[2]*100*(0.2/1.2))<1e-12)
+            assert(math.abs(pose.z.y-a.x_axis[1]*100*(0.2/1.2))<1e-12)
+            local scale=Matrix4x4.scale(pose)
+            assert(math.abs(scale.x-0.06/0.6)<1e-12 and math.abs(scale.z-0.2/1.2)<1e-12)
+            mod._release_warlock_crystal_flame_world(world)
+            world.alive=false; wm._worlds.level_world=nil
+            mod._update_warlock_crystal_flame()
+            assert(events.queried==0, 'released worlds must not be accessed')
+        """)
+
 
 class CrystalFlameTuningTests(unittest.TestCase):
     def test_resize_command_updates_live_flames_and_later_ones(self):
@@ -252,14 +301,15 @@ class CrystalFlameTuningTests(unittest.TestCase):
         lua.execute("""
             assert(start())
             mod.commands.warlock_crystal_flame('0.1', '0.35')
-            assert(effects[1].size.x==0.1 and effects[1].size.y==0.35)
+            local scale=Matrix4x4.scale(particles_pose(events.latest_id))
+            assert(math.abs(scale.x-0.1/0.6)<1e-12 and math.abs(scale.z-0.35/1.2)<1e-12)
+            assert(events.created==2 and events.destroyed==1 and count()==1)
             assert(mod.echoes[#mod.echoes]:find('radius 0.100', 1, true))
             mod._stop_warlock_crystal_flame(owner,'test')
             owner=new_owner(); weapon=new_weapon(); inventory=new_inventory(owner,weapon)
             assert(start())
-            local latest
-            for _, e in pairs(effects) do latest = e end
-            assert(latest.size.x==0.1 and latest.size.y==0.35)
+            local latest=Matrix4x4.scale(particles_pose(events.latest_id))
+            assert(math.abs(latest.x-0.1/0.6)<1e-12 and math.abs(latest.z-0.35/1.2)<1e-12)
         """)
 
     def test_bad_or_extreme_sizes_are_rejected_or_clamped(self):
@@ -267,10 +317,15 @@ class CrystalFlameTuningTests(unittest.TestCase):
         lua.execute("""
             assert(start())
             mod.commands.warlock_crystal_flame('big')
-            assert(effects[1].size.x==0.06, 'non-numbers leave the size alone')
+            assert(events.created==1, 'non-numbers leave the size alone')
             assert(mod.echoes[#mod.echoes]:find('Usage', 1, true))
             mod.commands.warlock_crystal_flame('-1', '50')
-            assert(effects[1].size.x==0.01 and effects[1].size.y==2)
+            local scale=Matrix4x4.scale(particles_pose(events.latest_id))
+            assert(math.abs(scale.x-0.01/0.6)<1e-12 and math.abs(scale.z-2/1.2)<1e-12)
+            local before=events.created
+            assert(not mod._set_warlock_crystal_flame_size(math.huge,0.2))
+            assert(not mod._set_warlock_crystal_flame_size(0.1,-math.huge))
+            assert(events.created==before)
         """)
 
     def test_resize_skips_flames_in_a_releasing_world(self):
@@ -278,9 +333,22 @@ class CrystalFlameTuningTests(unittest.TestCase):
         lua.execute("""
             assert(start())
             mod._release_warlock_crystal_flame_world(world)
-            local before = events.sized
+            local before = events.created
             assert(mod._set_warlock_crystal_flame_size(0.2, 0.2))
-            assert(events.sized==before)
+            assert(events.created==before)
+        """)
+
+    def test_failed_resize_creation_does_not_retain_the_destroyed_handle(self):
+        lua = runtime()
+        lua.execute("""
+            assert(start())
+            World.create_particles=function() return nil end
+            local valid,live=mod._set_warlock_crystal_flame_size(0.1,0.3)
+            assert(valid and live==0 and events.destroyed==1 and count()==0)
+            assert(not mod._stop_warlock_crystal_flame(owner,'later'))
+            local before=events.queried
+            mod._update_warlock_crystal_flame()
+            assert(events.queried==before, 'the destroyed handle must not be queried')
         """)
 
 

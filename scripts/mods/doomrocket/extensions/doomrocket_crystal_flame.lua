@@ -1,17 +1,17 @@
 local mod = get_mod("doomrocket")
 
 -- #15: a persistent warpfire flame on the crystal under the launcher barrel.
--- Lifecycle follows the accepted backpack smoke: one linked effect per live
--- carried launcher on each peer, never re-created per frame, stopped before
--- death, drop or inventory teardown, and forgotten before world release.
--- v0.1.83 linked the Warpfire nozzle effect; it was created on every Engineer
--- but Crunch saw no flame. This uses the Warpfire Thrower's persistent green
--- ground fire instead, sized through its own vanilla size variable
--- (DamageBlobExtension starts it at radius 0.6, height 1.2 and grows it). Its
--- flames rise along local +Z, so +Z is laid along the crystal, mount to tip.
+-- One linked effect per carried launcher at its measured crystal pose.
+-- The native ground fire contains fixed-size billboard clouds:
+-- its damage-blob variable does NOT scale the whole effect (Crunch's v84 report).
+-- Use native VortexExtension's scaled attachment-pose pattern, and restart only
+-- on a tuning change so particles emitted at the previous size do not linger. The dimensions
+-- are approximate visual targets; native fire curves are not a solid bounding box.
 local EFFECT = "fx/chr_warp_fire_flamethrower_remains_01"
-local SIZE_VARIABLE = "warp_fire_flamethrower_remains_size"
 local DEFAULT_SIZE = { 0.06, 0.2 }
+-- Native fire spawn cylinder radius is 0.6 m; vanilla's mature fire height target
+-- is 1.2 m. These reference dimensions shrink every cloud, including its sparks.
+local REFERENCE_RADIUS, REFERENCE_HEIGHT = 0.6, 1.2
 local MIN_SIZE, MAX_SIZE = 0.01, 2
 local PACKAGE = "resource_packages/breeds/skaven_warpfire_thrower"
 local PACKAGE_REFERENCE = "doomrocket_crystal_flame"
@@ -99,8 +99,8 @@ local function stop(owner, reason)
 					state.unknown_worlds[entry.world] = true
 				end
 			end
-			-- A deleted launcher already destroyed its linked emitter. Do NOT query the
-			-- old ID: another effect may now own that integer in the same world.
+			-- Deleting a linked launcher destroys its emitter. Its old ID may have
+			-- been recycled, so never query or destroy it after unit deletion.
 		else
 			state.unknown_worlds[entry.world] = true
 		end
@@ -139,6 +139,15 @@ local function anchor_pose(anchor)
 	Matrix4x4.set_y(pose, Vector3(unpack(anchor.z_axis)))
 	Matrix4x4.set_z(pose, Vector3(unpack(anchor.x_axis)))
 	Matrix4x4.set_translation(pose, Vector3(unpack(anchor.position)))
+	-- Native VortexExtension scales the local attachment pose before linking.
+	-- Multiply the inverse-node compensation by the requested visual scale;
+	-- replacing it with an absolute scale would expand the effect 100 times.
+	local radius_scale = state.size[1] / REFERENCE_RADIUS
+	local height_scale = state.size[2] / REFERENCE_HEIGHT
+	Matrix4x4.set_scale(pose, Vector3(
+		Vector3.length(Vector3(unpack(anchor.y_axis))) * radius_scale,
+		Vector3.length(Vector3(unpack(anchor.z_axis))) * radius_scale,
+		Vector3.length(Vector3(unpack(anchor.x_axis))) * height_scale))
 	return pose
 end
 
@@ -160,10 +169,14 @@ local function ensure_resource()
 		and Application.can_get("particles", EFFECT)
 end
 
-local function apply_size(entry)
-	local variable = World.find_particles_variable(entry.world, EFFECT, SIZE_VARIABLE)
-
-	World.set_particles_variable(entry.world, entry.id, variable, Vector3(state.size[1], state.size[2], 0))
+local function create_emitter(entry, pose)
+	pose = pose or anchor_pose(mod._doomrocket_crystal_anchor)
+	if not pose then return nil end
+	local id = World.create_particles(entry.world, EFFECT, Vector3(0, 0, 0))
+	if type(id) == "number" then
+		World.link_particles(entry.world, id, entry.weapon, entry.node, pose, "destroy")
+	end
+	return id
 end
 
 local function carried_launcher(owner, inventory, world)
@@ -215,19 +228,20 @@ mod._start_warlock_crystal_flame = function (owner, inventory)
 	end
 
 	local node = Unit.node(weapon, anchor.node)
-	local id = ScriptWorld.create_particles_linked(world, EFFECT, weapon, node, "destroy", pose)
+	local entry = { weapon = weapon, world = world, node = node }
+	local id = create_emitter(entry, pose)
 
 	if type(id) ~= "number" then
 		return false
 	end
 
-	local entry = { weapon = weapon, world = world, id = id }
+	entry.id = id
 
 	state.entries[owner] = entry
 	state.weapons[weapon] = owner
-	apply_size(entry)
-	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s radius=%.3f height=%.3f",
-		EFFECT, anchor.node, state.size[1], state.size[2])
+	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s radius=%.3f height=%.3f scale_xy=%.3f scale_z=%.3f",
+		EFFECT, anchor.node, state.size[1], state.size[2], state.size[1] / REFERENCE_RADIUS,
+		state.size[2] / REFERENCE_HEIGHT)
 	return true
 end
 
@@ -277,26 +291,47 @@ end
 mod._set_warlock_crystal_flame_size = function (radius, height)
 	radius, height = tonumber(radius), tonumber(height)
 
-	if not radius or not height or radius ~= radius or height ~= height then
+	if not radius or not height or radius ~= radius or height ~= height
+		or math.abs(radius) == math.huge or math.abs(height) == math.huge then
 		return false
 	end
 
 	state.size[1] = math.min(math.max(radius, MIN_SIZE), MAX_SIZE)
 	state.size[2] = math.min(math.max(height, MIN_SIZE), MAX_SIZE)
 
-	for _, entry in pairs(state.entries) do
-		if not state.releasing_worlds[entry.world] and known_world(entry.world) and Unit.alive(entry.weapon) then
-			apply_size(entry)
+	local restarted = 0
+
+	for owner, entry in pairs(state.entries) do
+		if not state.releasing_worlds[entry.world] and not state.unknown_worlds[entry.world]
+			and known_world(entry.world) and Unit.alive(owner) and Unit.alive(entry.weapon)
+			and Unit.world(owner) == entry.world and Unit.world(entry.weapon) == entry.world then
+			-- Recreate at the newly scaled link pose, so particles emitted at the
+			-- previous size cannot obscure the immediate comparison.
+			if World.are_particles_playing(entry.world, entry.id) then
+				World.destroy_particles(entry.world, entry.id)
+			end
+			local id = create_emitter(entry)
+			if type(id) == "number" then
+				entry.id = id
+				restarted = restarted + 1
+			else
+				-- The old emitter is gone; never retain its recycled integer if
+				-- the engine did not return a replacement handle.
+				forget(owner)
+				printf("[doomrocket:CRYSTAL] phase=stop reason=resize_creation_failed")
+			end
 		end
 	end
 
-	printf("[doomrocket:CRYSTAL] phase=resize radius=%.3f height=%.3f", state.size[1], state.size[2])
-	return true
+	printf("[doomrocket:CRYSTAL] phase=resize radius=%.3f height=%.3f scale_xy=%.3f scale_z=%.3f live=%d",
+		state.size[1], state.size[2], state.size[1] / REFERENCE_RADIUS, state.size[2] / REFERENCE_HEIGHT, restarted)
+	return true, restarted
 end
 
-mod:command("warlock_crystal_flame", "TEST: crystal flame size in metres: /warlock_crystal_flame <radius> <height>", function (radius, height)
-	if mod._set_warlock_crystal_flame_size(radius, height) then
-		mod:echo(string.format("Crystal flame size: radius %.3f m, height %.3f m", state.size[1], state.size[2]))
+mod:command("warlock_crystal_flame", "TEST: approximate crystal flame radius/height in metres: /warlock_crystal_flame <radius> <height>", function (radius, height)
+	local valid, restarted = mod._set_warlock_crystal_flame_size(radius, height)
+	if valid then
+		mod:echo(string.format("Crystal flame target: radius %.3f m, height %.3f m (%d live flames resized)", state.size[1], state.size[2], restarted))
 	else
 		mod:echo("Usage: /warlock_crystal_flame <radius> <height>   (current: %.3f %.3f)", state.size[1], state.size[2])
 	end

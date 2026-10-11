@@ -25,6 +25,11 @@
       "ground",
       "air"
     ],
+    "playback_gain": {
+      "approximate_db": -3.01,
+      "denominator": 1000,
+      "numerator": 707
+    },
     "positioning": "3D emitter-relative, position and orientation"
   },
   "bank": {
@@ -34,7 +39,7 @@
     "resource": "wwise/doomrocket",
     "stored_vt2_bank_version": "0x9211BC28",
     "wrapped_bytes": 3824303,
-    "wrapped_sha256": "d64acb9a984c6dc3f580469a7f5d952e931ce4add86233f1fb75b6677e827ff2",
+    "wrapped_sha256": "7a6aca6b39c129762dab1090354127ed350924b6593fff67d2627495c44e29f1",
     "wrapper_bytes": 44,
     "wwise_release": "2018.1"
   },
@@ -117,10 +122,11 @@
       "loop": false,
       "media_id": 713559198,
       "pcm_sha256": "c2d186008e783455abff305875bca4cb6024052827763614644f00cdcaf9328c",
+      "playback_pcm_sha256": "f8a7b0ce8aa865c4ec28dc0afe6ac760a7ddf0028d3d089ed36aafb84cda2670",
       "sound_id": 519288883,
       "source_sha256": "ccd097981acd434fa182b3fb0b85b2b1872a2800f16cffc87fda7560f33ac2fe",
       "wem_bytes": 163742,
-      "wem_sha256": "b5eecb7365aa4533520d74ac693d239abc428537640ea311763bd00125fc4e69"
+      "wem_sha256": "73bcb8b30861ad90121bf980fe45ddff1f7aa91762c6f6f717e2b62b645d8044"
     },
     "backpack": {
       "attenuation_id": 2461371463,
@@ -129,10 +135,11 @@
       "loop": true,
       "media_id": 3677124376,
       "pcm_sha256": "b94bc6161a2d2c29a970348c972ce8fc31328172f73283dd9e29334fc22e6684",
+      "playback_pcm_sha256": "b642fb9d8b044eb9cc15984d1b1403d30cf8ac5a139cbf7874e2a5afaa0ba517",
       "sound_id": 2701548699,
       "source_sha256": "483d8ccb127ba01cd172c2b7e47f6f6d0eaf476e13e678032092df12771c173e",
       "wem_bytes": 1302710,
-      "wem_sha256": "1e35154daa513ed742e4f17fecd4daf6b4982d6de87bacc611788d505657285c"
+      "wem_sha256": "51ac09102551f734f290cb7e3b6ab0ad80b6fdff8503dee9b2ea2d42339da63f"
     },
     "ground": {
       "attenuation_id": 1603010183,
@@ -141,10 +148,11 @@
       "loop": false,
       "media_id": 1421715659,
       "pcm_sha256": "80c5ad422207ffceebdee1a309522bd8f32e211e279a3d9e9b5eccbc7c9f1c02",
+      "playback_pcm_sha256": "45566928875e81d3ad643a2f8bf05266d76df8a436d8127a9d8ae03a6173eca3",
       "sound_id": 3901591400,
       "source_sha256": "662c912f3c6804838e02dca97c0f33da36cea01ffb49e7c34257c7771c9db6fb",
       "wem_bytes": 397388,
-      "wem_sha256": "13c59edb5e86b1fcbeb32b9d6cdc3f4bd1cd9496b5092c1a3ec3bca866cc3db6"
+      "wem_sha256": "904d741948c004048c145bf7a8ac6e50446f5922ea3dca3198efd92c613652f6"
     },
     "launch": {
       "attenuation_id": 2381287409,
@@ -153,10 +161,11 @@
       "loop": false,
       "media_id": 312139811,
       "pcm_sha256": "0cd5a397751f59af989eee4c6932a016f748e2ce4e0e501c97c5298a87e0ce86",
+      "playback_pcm_sha256": "c301e2d61a22b03691c49fe622b8072e514fb002a67813f22ac3d401dff318c0",
       "sound_id": 2259235528,
       "source_sha256": "e6f2a145ba4c4d1ca09b83de11b829c187fc27ba4bf1b7cbe04a77a1fdfcc883",
       "wem_bytes": 71302,
-      "wem_sha256": "00f88bf64bc730588154618a3d67accf315a8312ac64deff913a4caae1061cb2"
+      "wem_sha256": "1539a47b5df09a698d50dc70a107a00cb2a9fb4796bb9c3147d6288ad562130c"
     },
     "voice_01": {
       "attenuation_id": 2075529366,
@@ -165,10 +174,11 @@
       "loop": false,
       "media_id": 3626322630,
       "pcm_sha256": "52c4a8fb59a728230953c12fc91fc7cd83f836993e2414a17e8bd93cf9448c9a",
+      "playback_pcm_sha256": "15e8c5683daedeae49a6f6363f5d41227d71d1e0abb729a665eb3b669118325c",
       "sound_id": 1928733989,
       "source_sha256": "f11d5da39d082ff4d865417bdb03d701cbe455cd137846c544edc96914854ebb",
       "wem_bytes": 264664,
-      "wem_sha256": "a5fba70567ad8ad409c31650b5f653b858c90bbbd64dbb8d5231c5053009d2b0"
+      "wem_sha256": "ffa0930ba8d35909b082092421654c7be0d7b528ffbce273a498394bec0eec9c"
     },
     "voice_02": {
       "attenuation_id": 2075529366,
@@ -177,10 +187,11 @@
       "loop": false,
       "media_id": 3626322629,
       "pcm_sha256": "9cdf73b3207cdd164bdb6b2160d84a37c2e1a603b67fc5f2281d9cbb8e3714c2",
+      "playback_pcm_sha256": "8477fa65b08e0710bc838891df646e07fa4f6d676c5d7e8956522bc2b19fbd9f",
       "sound_id": 1928733990,
       "source_sha256": "0b17488038ab637c24663600f22a8dcd6e28f43423e82a2e8e8f4f368dfb80bf",
       "wem_bytes": 305372,
-      "wem_sha256": "5048a656694a9d1b35eb681f649f1f63467d9e644a567236c7dfcad6bfb9df44"
+      "wem_sha256": "38d58811973e680c97263c7da8323e843c3a8903290493d1dfe24d915dc03654"
     },
     "voice_03": {
       "attenuation_id": 2075529366,
@@ -189,10 +200,11 @@
       "loop": false,
       "media_id": 3626322628,
       "pcm_sha256": "8f9ed5c5ba408a85ba6870aaac936b12c3dc9217ff836dcb4acb547503ee5d35",
+      "playback_pcm_sha256": "294df3e92704a2cbca6d601b480ee398b452771ded6f7f8ea692f6c13003a932",
       "sound_id": 1928733991,
       "source_sha256": "9e2cd95cecd3bc638392eb649fb9d228619a455ed67106b3077b0cca5d1dc294",
       "wem_bytes": 234134,
-      "wem_sha256": "0a4bd57b0d06de1db6f3fc0fa57666af0977ab95ad361856d1681eed546ddb09"
+      "wem_sha256": "f9561dc162b28d15532d7847d8c91e429c87234cbd8dc58710531957dd734c2e"
     },
     "voice_04": {
       "attenuation_id": 2075529366,
@@ -201,10 +213,11 @@
       "loop": false,
       "media_id": 3626322627,
       "pcm_sha256": "206a545967e5ada182d92e35c03d3264d3aae6bc24cdaf25852b9f1db14487b6",
+      "playback_pcm_sha256": "2e2edd641d353b200b83e5c6237fdff2bdfa0c8546604367c0e03ee6312aa9f0",
       "sound_id": 1928733984,
       "source_sha256": "5a64d634353b202c269ef9e873f50202558963314559bac4436c2533de0514c7",
       "wem_bytes": 203602,
-      "wem_sha256": "3331964524ec605e3793231745be5e8dfe80f3487c43c7555a3e7e85a5c5f7fd"
+      "wem_sha256": "49b88ca0cf0702943e708b2378e28408cbe67984ce662a93e98b10eb96e9e61b"
     },
     "voice_05": {
       "attenuation_id": 2075529366,
@@ -213,10 +226,11 @@
       "loop": false,
       "media_id": 3626322626,
       "pcm_sha256": "421b9c9c1ecd0f948698f1ee4912b16dc8e227378814109d493974d3e7b13817",
+      "playback_pcm_sha256": "1bc8cfb2e60111889f0bc9ef3ee6696f2350522fde0bbb8c10c9127ae1c10bbc",
       "sound_id": 1928733985,
       "source_sha256": "441b4e819d6095dd98451d3906be193c80beadbd772d79595b520f73a20b4279",
       "wem_bytes": 203602,
-      "wem_sha256": "f3dfff5f1b461690006cfe53e9ee1e64dddc413dc3c49f19f67a85b4f9b63d0e"
+      "wem_sha256": "3a3f0717b6502f90be27041240a14ae8313bd4be9da1342bd29408e285da2083"
     },
     "voice_death_01": {
       "attenuation_id": 2075529366,
@@ -225,10 +239,11 @@
       "loop": false,
       "media_id": 1894769579,
       "pcm_sha256": "4fb63f85356db60aa31bd1c20e362a68ae4e33de6abdb380079c0e174affc671",
+      "playback_pcm_sha256": "48f196031ec23ca4b9f13483e762aa145a4591c3b453f0d12c8a887944c5d912",
       "sound_id": 3882266360,
       "source_sha256": "22724110ea478ec2f7af6cf1fe1a4d21a7bb57a6c1ae9fc86cf3131c88f5ebb7",
       "wem_bytes": 228196,
-      "wem_sha256": "cb783bfdea42f0c2b0d23f011d07cec6011b2d56b520e3444d638f1da848cb00"
+      "wem_sha256": "62aff9bf52b3d15bcc2b9487bc3262e011b0a22ed0eaec1e5895907d1ca2a52b"
     },
     "voice_death_02": {
       "attenuation_id": 2075529366,
@@ -237,10 +252,11 @@
       "loop": false,
       "media_id": 1894769576,
       "pcm_sha256": "e05958868104b31ded1ee8e85ccfa9065023543d49938cc518a22b1d467b30fb",
+      "playback_pcm_sha256": "3130cc5c40350d87f4fac1292fdcf657bbd61d03a24a2ed409a565385957b706",
       "sound_id": 3882266363,
       "source_sha256": "312ae63d60942c090e5590f006893456c81736d6338b6fa122f0b538cf527fbf",
       "wem_bytes": 122188,
-      "wem_sha256": "5afd360817dc95aed6ec5f947d923f7025b759f0ca79d71c5fecd420d9bf2a6d"
+      "wem_sha256": "ea32a30cff121530aa423fd369497526020813216b082ec9ff16f2d5ee51a17e"
     },
     "voice_laugh_01": {
       "attenuation_id": 2075529366,
@@ -249,10 +265,11 @@
       "loop": false,
       "media_id": 2888861472,
       "pcm_sha256": "398abce5aeba93107b7e48dddb6192dfd908bf7330e06392cd3e60ca1c596e7f",
+      "playback_pcm_sha256": "dfaa04508ed7a01420e987df3bb5ec48f5f6426406dc4d249cdd568a982b80ca",
       "sound_id": 1430291371,
       "source_sha256": "965de6b579d01afc1cd6c25755ed42168b371c4869bf901155d186a2b9163c53",
       "wem_bytes": 325726,
-      "wem_sha256": "4370e70fbce2a2db07fa42f1298b3f801a8e7fa7353f0bd79974acf3d7f6767e"
+      "wem_sha256": "8dbfc2978c764bcc339c1a33a567ba314a7e40b959fd83f451ddca3ce89d7b21"
     }
   },
   "object_ids": {

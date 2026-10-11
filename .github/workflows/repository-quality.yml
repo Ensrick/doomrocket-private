@@ -51,6 +51,9 @@ jobs:
       - name: Run ballistic aiming contracts
         run: python tools/tests/test_doomrocket_ballistic_aim.py
 
+      - name: Run finite hull and quantized clearance regressions
+        run: python tools/tests/test_doomrocket_hull_clearance.py
+
       - name: Run executable reposition lifecycle tests
         run: python tools/tests/test_doomrocket_reposition_lifecycle.py
 
@@ -83,6 +86,15 @@ jobs:
 
       - name: Run sound contracts
         run: python tools/tests/test_doomrocket_sound_contract.py
+
+      - name: Run executable audio teardown regressions
+        run: python tools/tests/test_doomrocket_audio_lifecycle.py
+
+      - name: Run weapon pose diagnostics regressions
+        run: python tools/tests/test_doomrocket_weapon_pose_probe.py
+
+      - name: Run upper-body grip alignment regressions
+        run: python tools/tests/test_doomrocket_grip_alignment.py
 
       - name: Run retargeting math tests
         run: python tools/tests/test_warlock_retarget_math.py

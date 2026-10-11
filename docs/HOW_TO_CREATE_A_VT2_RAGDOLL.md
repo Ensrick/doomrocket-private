@@ -1,5 +1,11 @@
 # How to create a Vermintide 2 ragdoll for a custom enemy
 
+Current acceptance follows the user's solo-testing ruling: a written
+observation and matching console log are sufficient. No recording, second
+player, or arranged multiplayer session is required. Historical version rows
+retain their original evidence and untested scope; use the current issue for
+remaining acceptance work.
+
 This is the practical procedure derived from the Warlock Bombardier work. It
 covers both a conventional Stingray ragdoll and the carrier/visual architecture
 used by Doomrocket v0.1.50. Read the failure table before choosing a design;
@@ -384,7 +390,7 @@ powershell -NoProfile -File tools/Test-WarlockPipeline.ps1
 Analyze a runtime log:
 
 ```powershell
-py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.58-dev
+py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version <loaded-version>
 ```
 
 Supply the exact tested version for every acceptance capture. The option is
@@ -396,11 +402,17 @@ The complete scenario matrix and thresholds are in
 
 ## 6. Acceptance checklist
 
-A ragdoll is accepted only when all applicable lanes pass:
+The current user-directed acceptance process uses a solo written observation
+and a matching log. No video, second player, or arranged multiplayer session
+is required. Historical tables below record the scope and gaps of the original
+evidence; they do not reinstate older test requirements. Apply the following
+technical checks to the changed behavior and current issue's requested lane:
 
 - correct build banner and Workshop manifest;
 - recognizable custom corpse; no visible carrier;
-- host `source=unit` and remote-client `source=husk` deaths;
+- the reported session's death trace (`source=unit` in solo play);
+  `source=husk` evidence is useful if a client problem occurs naturally, but
+  arranging a client session is not an acceptance prerequisite;
 - single deaths, five rapid deaths, and stairs/slopes;
 - no disappearance, stick figure, stretch, roof launch, or unrelated physics
   corruption;
@@ -444,8 +456,9 @@ that build. In the tested v0.1.50 code, `monitor_complete` also ended pose
 driving and `wall_gap_ms` was the sampled preceding gap, not the hardened
 interval maximum. The log therefore does **not** validate the later persistent
 sleep/wake driver, pause-safe game-time monitor, worst-gap accumulator,
-calibration preflight, or fail-closed visibility hooks. Those changes require
-a uniquely versioned host/client runtime pass. The result also does not replace
+calibration preflight, or fail-closed visibility hooks. Claims about those
+changes need a matching-version runtime observation in the lane actually
+tested. A separate client session is not a standing gate. The result also does not replace
 visual inspection and contains no `source=husk` client coverage.
 
 ### v0.1.51 sleep-gate regression and the v0.1.52/v0.1.53 fix

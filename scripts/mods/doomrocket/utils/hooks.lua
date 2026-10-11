@@ -320,6 +320,7 @@ mod:hook(Unit, "animation_event", function(func, unit, event, ...)
 				func(outfit, event, ...)
 			end
 			mod._note_warlock_weapon_pose_event(unit, event, mirrored)
+			mod._note_warlock_grip_alignment_event(unit, event, mirrored)
 		else
 			mod._warlock_outfits[unit] = nil
 		end
@@ -795,6 +796,7 @@ end
 -- This vararg tail preserves every native return value, including nil slots.
 local function finish_warlock_animation_update(world, dt, ...)
 	mod:pcall(queue_warlock_death_drivers_for_world, world)
+	mod:pcall(mod._queue_warlock_grip_alignment, world, dt)
 	mod:pcall(mod._queue_warlock_hose, world, dt)
 	mod:pcall(mod._queue_warlock_weapon_pose_probe, world, dt)
 	return ...
@@ -823,6 +825,7 @@ mod._reset_warlock_death_drivers = function()
 end
 
 mod._prepare_warlock_death = function(owner_unit, source)
+	mod._stop_warlock_grip_alignment(owner_unit)
 	mod._stop_warlock_locomotion_animation(owner_unit)
 	mod._stop_warlock_hose(owner_unit, "death_" .. tostring(source))
 	mod._stop_warlock_weapon_pose_probe(owner_unit)
@@ -831,7 +834,7 @@ mod._prepare_warlock_death = function(owner_unit, source)
 	mod._stop_warlock_crystal_flame(owner_unit, "death_" .. tostring(source))
 	-- Stop while the visible outfit and its backpack source are still alive. Later death
 	-- callbacks hand animation ownership to the corpse and may delete either unit.
-	mod._stop_warlock_backpack_sound(owner_unit, "death_" .. tostring(source))
+	mod._stop_warlock_living_sounds(owner_unit, "death_" .. tostring(source))
 
 	mod._warlock_death_sequence = mod._warlock_death_sequence + 1
 	local id = string.format("%s-%04d", source, mod._warlock_death_sequence)
@@ -1130,6 +1133,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				end
 				mod._warlock_outfits[unit] = outfit_unit
 				mod._start_warlock_locomotion_animation(unit, outfit_unit)
+				mod:pcall(mod._start_warlock_grip_alignment, unit, outfit_unit, self)
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 				-- This runs on the authoritative unit and every husk, including hot-joins, so
@@ -1173,6 +1177,8 @@ end)
 
 -- Stop before native inventory teardown unlinks/deletes the parent outfit.
 mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
+	mod._stop_warlock_grip_alignment(self.unit)
+	mod._stop_warlock_living_sounds(self.unit, "inventory_destroy")
 	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_destroy")
 	mod._stop_warlock_weapon_pose_probe(self.unit)
@@ -1182,6 +1188,8 @@ mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
 end)
 
 mod:hook(AIInventoryExtension, "freeze", function(func, self, ...)
+	mod._stop_warlock_grip_alignment(self.unit)
+	mod._stop_warlock_living_sounds(self.unit, "inventory_freeze")
 	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_freeze")
 	mod._stop_warlock_weapon_pose_probe(self.unit)
@@ -1217,6 +1225,8 @@ end)
 -- Forget IDs before the engine releases the world. The engine owns destruction
 -- here; a later reset must never operate on a recycled particle/world handle.
 mod:hook(Application, "release_world", function(func, world, ...)
+	mod._release_warlock_grip_alignment_world(world)
+	mod._release_warlock_audio_world(world)
 	mod._release_warlock_locomotion_world(world)
 	mod._release_warlock_hose(world)
 	mod._release_warlock_weapon_pose_probe_world(world)

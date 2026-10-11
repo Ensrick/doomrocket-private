@@ -3,7 +3,11 @@
 This protocol is the acceptance gate for the native-ratling-physics/custom-
 Warlock-visual handoff. A stable ratling corpse is a failure, not a fallback.
 Static tests prove only that known-dangerous mechanisms are absent; accept the
-tester's written observation of the visible model identity. No recording is required.
+tester's written observation of the visible model identity. No recording,
+second player, or arranged multiplayer session is required. Test only the
+remaining question in the current issue on its verified published build.
+Public issue #2 covers corpse sleep/wake and cleanup on v0.1.59-alpha; it does
+not request a repeat of the already accepted host ragdoll matrix.
 
 Recorded status: uploaded v0.1.50 passed an 11-corpse, five-second host
 telemetry baseline on 2026-08-12. Uploaded v0.1.51 failed its first host death:
@@ -20,11 +24,13 @@ drop hierarchy; its launcher art was nevertheless misplaced. v0.1.55 corrected
 the rigid launcher's internal mesh placement and excluded the unrigged long
 tether. The user confirmed the visible Warlock corpse, weapon appearance,
 hand/back placement, firing/reload behavior, and loaded death drop in game.
-The latest capture contains 20 complete host traces; the first six ordinary
+That historical capture contains 20 complete host traces; the first six ordinary
 traces pass every strict threshold, while a separate fourteen-corpse overlap
 stress batch has transient extremity-anchor excursions and settles by one
-second. Remote-client `source=husk`, explicit post-monitor wake, pause, and
-long-lived cleanup coverage remain required.
+second. That evidence does not establish remote-client, post-monitor wake,
+pause or long-lived cleanup behavior. These are limits on what that historical
+log proves, not a requirement to arrange a second player. The current open
+issue determines which solo observation remains.
 
 ## Before launching
 
@@ -33,15 +39,19 @@ long-lived cleanup coverage remain required.
        powershell -NoProfile -File tools/tests/Test-WarlockRagdollRegressions.ps1
        powershell -NoProfile -File tools/Test-WarlockPipeline.ps1
 
-2. Build, splice, validate, deploy, and upload in that order. Never use
-   `vmblauncher all`; it can publish the unspliced material bundle.
-3. Restart Steam and Vermintide 2 after the Workshop item finishes syncing.
+2. Maintainers use the canonical process in `docs/RELEASE_CHANNELS.md`;
+   testers use its verified Workshop result, not a source-only candidate.
+3. Refresh the relevant Workshop subscription and restart Vermintide 2 after
+   the update finishes syncing. A routine Steam restart is not a test step.
 4. Disable **Less Corpses** and any other corpse/physics replacement mod. Use a
    corpse limit of at least 70 for the test.
 5. Confirm the console contains the exact tested-build banner and record
    its Workshop manifest ID:
 
-       [doomrocket:LOAD] v0.1.65-dev
+       [doomrocket:LOAD] v0.1.59-alpha
+
+   This is the current public issue #2 banner. For a TEST issue, use the exact
+   published TEST version named in its latest instructions. Enable one channel.
 
    `[doomrocket:LOAD] v0.1.50-dev` identifies the original baseline.
    `[doomrocket:LOAD] v0.1.51-dev` identifies the known pre-monitor
@@ -51,18 +61,19 @@ long-lived cleanup coverage remain required.
    the floating-warhead defect. `[doomrocket:LOAD] v0.1.54-dev` identifies the
    three-corpse host pass with corrected warhead-drop physics but displaced
    launcher art. `[doomrocket:LOAD] v0.1.55-dev` identifies the accepted public
-   host MVP before the survivability/shove change. None is a valid v0.1.58 test
-   run.
-6. For a public multiplayer test, every participant must subscribe to and
-   enable the same Workshop item/version. The host controls spawning. Preserve
-   the host log and at least one remote-client log so `source=unit` and
-   `source=husk` can be verified independently.
+   host MVP before the survivability/shove change. These historical banners
+   are not evidence for a newer build.
+6. Solo observations are sufficient. If a problem appears naturally while
+   playing with friends, report it normally with the exact build. No separate
+   remote-client log is a standing acceptance requirement.
 
 ## Capture matrix
 
 Use non-gibbing attacks. Do not use the Doomrocket backpack/`aux` explosion as
-the killing blow. Record the corpse continuously for at least 10 seconds, with
-the full body in frame.
+the killing blow. Observe the corpse for at least ten seconds and describe
+what its body and weapon did; no recording or fixed-camera frames are needed.
+The matrix is a maintainer regression reference. A tester follows only the
+applicable steps requested by the current open issue.
 
 | Lane | Scenario | Minimum observations |
 |---|---|---|
@@ -73,18 +84,16 @@ the full body in frame.
 | Host | Pause | Pause before 2 s, wait at least 5 wall-clock seconds, resume; game-time checkpoints must continue rather than jump to completion |
 | Host | Post-monitor wake | Let one non-gibbed corpse settle past 5 s, then wake/move it with an ordinary physics interaction; the Warlock visual must resume with the carrier |
 | Host | Cleanup/reload | Observe normal corpse deletion, then leave and re-enter `StateIngame`; no stale callback or reload error |
-| Remote client | Repeat melee and ranged cases | Client log must report `source=husk` |
-| Remote client | Post-monitor wake and cleanup | Visual stays attached after wake; no stale husk driver after deletion or level exit |
-
-For each single-corpse case, retain fixed-camera frames at approximately
-0.5 s, 2 s, 5 s, and after the post-monitor wake. Do not count an accidental
-spawn or a unit killed before it finishes spawning.
+Do not count an accidental spawn or a unit killed before it finishes spawning.
+A written visual observation and matching log are sufficient. Remote-client
+results, if encountered during ordinary play, can extend the evidence without
+becoming a prerequisite for solo acceptance.
 
 Run the pause lane in a separate console capture. Its intentional wall-clock
 gap is expected to exceed the 250 ms performance limit even though game-time
 checkpoints correctly do not advance; do not include that trace in the main
-analyzer acceptance log. The non-paused host/client captures must independently
-pass the wall-gap threshold.
+the analyzer acceptance log. Non-paused traces must pass the wall-gap
+threshold for the session being analyzed.
 
 Run a deliberately overlapping mass-kill stress lane in another separate
 capture. Ordinary release acceptance remains strict and must print
@@ -152,7 +161,7 @@ tester's observation remains the authoritative carrier-identity check.
 
 Analyze a captured console log with:
 
-    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version 0.1.58-dev
+    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\console.log" --expected-version <loaded-version>
 
 The analyzer must print `[ragdoll-log] OK`. `--expected-version` is mandatory
 for acceptance; omitting it is supported only for historical-log triage.
@@ -162,10 +171,10 @@ evidence must remain auditable.
 
 For the separate dense-overlap stress capture only, use:
 
-    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\stress-console.log" --expected-version 0.1.58-dev --dense-stress
+    py -3 tools/analyze_warlock_ragdoll_log.py "C:\path\to\stress-console.log" --expected-version <loaded-version> --dense-stress
 
-This is additive stress evidence. It never replaces the ordinary strict host
-log, remote-client log, or the tester's visual observation.
+This is additive stress evidence. It never replaces the ordinary strict
+trace or the tester's written visual observation; it adds no second-player gate.
 
 ## Failure triage
 
@@ -179,8 +188,9 @@ log, remote-client log, or the tester's visual observation.
   `monitor_complete`.
 - Bounded telemetry but no visible Warlock: run a separate culling-only A/B
   build. Do not change physics, pose transfer, materials, and culling together.
-- Host passes but client/husk fails: treat it as a lifecycle/network-lane bug;
-  a host-only result is not acceptance.
+- If a naturally encountered client/husk report fails after a host pass,
+  investigate that reported lifecycle/network bug. A host acceptance remains
+  evidence for its tested lane; do not claim untested network behavior.
 - The Warlock detaches only after 5 s or after the wake interaction: reject the
   persistent-driver/sleep-wake lane even if the analyzer reports OK. The compact
   five-second schema cannot prove behavior after `monitor_complete`.
