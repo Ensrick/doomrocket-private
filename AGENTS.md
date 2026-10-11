@@ -39,6 +39,17 @@ item are public. The word `private` identifies the development remote only.
 The `origin` remote is dalo_kraff's historical upstream and is fetch-only for
 this maintenance line. Push development work only to `private`.
 
+## Asset authorship boundary
+
+New art, 3D models, animation clips, audio masters, and other new source assets
+belong to Arnaud. Do not invent or author replacement assets to unblock an issue.
+
+Engineering may fix code, adjust packaging of already-approved assets, and
+reuse or modify effects already present in the game. Preserve the approved
+artist masters when adjusting their packaging. When a fix needs a new source
+asset, name that missing asset in the issue and keep it blocked until Arnaud
+supplies it.
+
 ## Start every session
 
 1. Read `PROJECT_STATUS.md` and the relevant GitHub issue.
