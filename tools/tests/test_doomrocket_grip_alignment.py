@@ -1,0 +1,231 @@
+"""Execute the living upper-body transfer with an independent scene graph.
+
+Uses the real 100x ancestor and reversed Stingray row products. Native world
+poses are reconstructed from final local writes, rather than accepting a
+matching matrix formula as proof. This does not establish rendered acceptance.
+"""
+from pathlib import Path
+import unittest
+
+from lupa.lua51 import LuaRuntime
+import test_doomrocket_hose_lifecycle as lifetime
+
+ROOT = Path(__file__).resolve().parents[2]
+MODULE = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_grip_alignment.lua"
+
+HARNESS = lifetime.HARNESS.split("Quaternion={")[0] + r'''
+function keep(p) local q=Matrix4x4.copy(p);q.epoch=nil;return q end
+function rotation(p)
+ local q=Matrix4x4.copy(p)
+ for _,axis in ipairs({'x','y','z'}) do
+  local v=Matrix4x4[axis](q);local n=Vector3.length(v)
+  Matrix4x4['set_'..axis](q,Vector3(v.x/n,v.y/n,v.z/n))
+ end
+ Matrix4x4.set_translation(q,Vector3(0,0,0));return q
+end
+Matrix4x4.rotation=rotation
+Matrix4x4.from_quaternion_position=function(q,v)
+ local p=Matrix4x4.copy(q);Matrix4x4.set_translation(p,v);return p
+end
+Vector3.is_valid=function(v) return v.x==v.x and v.y==v.y and v.z==v.z
+ and math.abs(v.x)<math.huge and math.abs(v.y)<math.huge and math.abs(v.z)<math.huge end
+world={};other_world={};callbacks={};calls={writes=0,flushes=0}
+function make_unit(name)
+ return {alive=true,world=world,name=name,nodes={},parents={},locals={[0]=keep(Matrix4x4.identity())},cache={}}
+end
+owner=make_unit('carrier');outfit=make_unit('units/warlock_bombardier/warlock_bombardier_3p')
+weapon=make_unit('units/rocket/pRocketLauncher')
+local function check(u) assert(u and u.alive,'dead native handle');assert(u.world~=released,'released handle') end
+function composed(u,node,poses)
+ if poses[node] then return poses[node] end
+ local pose=Matrix4x4.copy(u.locals[node])
+ if node~=0 then pose=Matrix4x4.multiply(pose,composed(u,u.parents[node],poses)) end
+ poses[node]=pose;return pose
+end
+World={update_unit=function(w,u)
+ check(u);assert(u.world==w);u.cache={};calls.flushes=calls.flushes+1
+ local poses={};for node in pairs(u.locals) do u.cache[node]=keep(composed(u,node,poses)) end
+end}
+Unit={
+ alive=function(u) return u and u.alive end,
+ world=function(u) check(u);return u.world end,
+ get_data=function(u,key) check(u);assert(key=='unit_name');return u.name end,
+ has_node=function(u,name) check(u);return u.nodes[name]~=nil end,
+ node=function(u,name) check(u);return assert(u.nodes[name],'missing node') end,
+ scene_graph_parent=function(u,node) check(u);return u.parents[node] end,
+ world_pose=function(u,node) check(u);return Matrix4x4.copy(assert(u.cache[node])) end,
+ world_position=function(u,node) return Matrix4x4.translation(Unit.world_pose(u,node)) end,
+ world_rotation=function(u,node) return rotation(Unit.world_pose(u,node)) end,
+ local_pose=function(u,node) check(u);return Matrix4x4.copy(u.locals[node]) end,
+ local_scale=function(u,node)
+  local p=Unit.local_pose(u,node);return Vector3(Vector3.length(Matrix4x4.x(p)),Vector3.length(Matrix4x4.y(p)),Vector3.length(Matrix4x4.z(p)))
+ end,
+ set_local_rotation=function(u,node,q)
+  check(u);assert(u==outfit and node>2,'wrote carrier/root/lower-body')
+  local p=Unit.local_pose(u,node);local s=Unit.local_scale(u,node)
+  for i,axis in ipairs({'x','y','z'}) do
+   local v=Matrix4x4[axis](q);local n=Vector3.length(v)
+   Matrix4x4['set_'..axis](p,Vector3(v.x/n*s[i],v.y/n*s[i],v.z/n*s[i]))
+  end
+  u.locals[node]=keep(p);calls.writes=calls.writes+1
+ end,
+ set_local_position=function(u,node,v)
+  check(u);assert(u==outfit and node>2,'wrote carrier/root/lower-body')
+  local p=Unit.local_pose(u,node);Matrix4x4.set_translation(p,v);u.locals[node]=keep(p);calls.writes=calls.writes+1
+ end,
+ set_local_scale=function() error('copied scale') end,
+ set_local_pose=function() error('copied raw local pose') end,
+ set_animation_state_machine=function() error('foreign ASM') end,
+}
+outfit.nodes.j_hips=2;outfit.parents[1]=0;outfit.parents[2]=1
+outfit.locals[1]=keep(Matrix4x4.identity(100));outfit.locals[2]=keep(Matrix4x4.identity(1,0,0,.008))
+local names={'j_spine','j_spine1','j_leftshoulder','j_rightshoulder','j_leftarm','j_rightarm',
+ 'j_leftforearm','j_rightforearm','j_lefthand','j_righthand','j_leftforearmroll','j_rightforearmroll'}
+for i,name in ipairs(names) do
+ local node=i+2;outfit.nodes[name]=node;outfit.parents[node]=i==1 and 2 or 3
+ outfit.locals[node]=keep(Matrix4x4.identity(1,(i%2==0 and -.001 or .001)*i,0,.001))
+ owner.nodes[name]=node+50;owner.parents[node+50]=0
+end
+World.update_unit(world,outfit)
+for _,name in ipairs(names) do
+ local p=Unit.world_pose(outfit,outfit.nodes[name]);local q=rotation(p)
+ Matrix4x4.set_translation(q,Matrix4x4.translation(p));owner.locals[owner.nodes[name]]=keep(q)
+end
+World.update_unit(world,owner);World.update_unit(world,weapon)
+mod={_warlock_outfits={[owner]=outfit}}
+function mod:pcall(fn,...)
+ local ok,result=pcall(fn,...);if not ok then self.last_error=result end;return ok,result
+end
+function get_mod(name) assert(name=='doomrocket');return mod end
+HEALTH_ALIVE={[owner]=true}
+inventory={unit=owner,inventory_item_units={outfit,weapon}}
+animation={add_safe_animation_callback=function(self,fn) callbacks[#callbacks+1]=fn end}
+Managers={state={entity={system=function(self,name) assert(name=='animation_system');return animation end}}}
+function drain()
+ local todo=callbacks;callbacks={};for _,fn in ipairs(todo) do fn() end
+ epoch=epoch+1
+end
+function tick()
+ mod._queue_warlock_grip_alignment(world,1/60);drain()
+end
+function max_gap()
+ local worst=0
+ for _,name in ipairs(names) do
+  local a=Unit.world_pose(owner,owner.nodes[name]);local b=Unit.world_pose(outfit,outfit.nodes[name])
+  worst=math.max(worst,Vector3.distance(Matrix4x4.translation(a),Matrix4x4.translation(b)))
+  local ar,br=rotation(a),rotation(b)
+  for r=1,3 do for c=1,3 do worst=math.max(worst,math.abs(ar[r][c]-br[r][c])) end end
+ end
+ return worst
+end
+function move_source(name,x,y,z,angle)
+ local p=Matrix4x4.identity();angle=angle or 0
+ p[1][1]=math.cos(angle);p[1][2]=-math.sin(angle);p[2][1]=math.sin(angle);p[2][2]=math.cos(angle)
+ Matrix4x4.set_translation(p,Vector3(x,y,z));owner.locals[owner.nodes[name]]=keep(p)
+end
+'''
+
+
+def runtime():
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(HARNESS)
+    lua.execute(MODULE.read_text(encoding="utf-8"))
+    lua.execute("assert(mod._start_warlock_grip_alignment(owner,outfit,inventory))")
+    return lua
+
+
+class GripAlignmentTests(unittest.TestCase):
+    def test_phase_and_aim_deltas_use_composed_current_frame_pose(self):
+        lua = runtime()
+        lua.execute("""
+          move_source('j_lefthand',.4,.2,.9,0.6)
+          move_source('j_righthand',-.4,.2,.9,-0.3)
+          mod._note_warlock_grip_alignment_event(owner,'attack_shoot_align',true)
+          tick();assert(not mod.last_error,mod.last_error)
+          assert(mod._warlock_grip_alignment_status(owner)=='active')
+          assert(calls.writes==24 and max_gap()<1e-8)
+          assert(calls.flushes>=4)
+          assert(Unit.local_scale(outfit,outfit.nodes.j_lefthand).x==1)
+        """)
+
+    def test_rotated_translated_scale100_parent_preserves_world_alignment(self):
+        lua = runtime()
+        lua.execute("""
+          local p=Matrix4x4.identity(100,2,-1,0)
+          p[1][1]=0;p[1][2]=-100;p[2][1]=100;p[2][2]=0
+          outfit.locals[1]=keep(p)
+          -- Reposition only the pelvis so the torso stays in the supported range.
+          local hip=Matrix4x4.identity(1,.01,.02,.008);outfit.locals[2]=keep(hip)
+          move_source('j_lefthand',.2,.3,.9,.5)
+          tick();assert(not mod.last_error,mod.last_error);assert(max_gap()<1e-8)
+          assert(outfit.locals[1][1][2]==-100 and outfit.locals[2][1][4]==.01)
+        """)
+
+    def test_native_scale_is_not_copied_and_locomotion_pose_is_untouched(self):
+        lua = runtime()
+        lua.execute("""
+          local hip=keep(outfit.locals[2]);local node=owner.nodes.j_lefthand
+          local p=Matrix4x4.copy(owner.locals[node]);p[1][1]=2;p[2][2]=3;p[3][3]=4
+          owner.locals[node]=keep(p);tick();assert(not mod.last_error,mod.last_error)
+          assert(max_gap()<1e-8)
+          for r=1,4 do for c=1,4 do assert(hip[r][c]==outfit.locals[2][r][c]) end end
+          assert(Unit.local_scale(outfit,outfit.nodes.j_lefthand).x==1)
+        """)
+
+    def test_unsupported_jump_is_flushed_but_never_pulls_torso_off_pelvis(self):
+        lua = runtime()
+        lua.execute("""
+          mod._note_warlock_grip_alignment_event(owner,'jump_up_5m',false)
+          move_source('j_spine',0,0,2.5,1);tick()
+          assert(calls.writes==0 and calls.flushes>=3)
+          assert(mod._warlock_grip_alignment_status(owner)=='unsupported_event')
+          move_source('j_spine',.001,0,.9,0)
+          mod._note_warlock_grip_alignment_event(owner,'idle',true);tick()
+          assert(calls.writes==24 and max_gap()<1e-8)
+        """)
+
+    def test_nan_shear_and_spawn_transient_leave_entire_candidate_unwritten(self):
+        for mutation in (
+            "owner.locals[owner.nodes.j_righthand][1][4]=0/0",
+            "outfit.locals[1][1][2]=50",
+            "move_source('j_spine',0,0,20,0)",
+        ):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute(mutation + ";tick();assert(calls.writes==0)")
+
+    def test_death_teardown_reset_and_world_release_cancel_pending_writes(self):
+        for cleanup in (
+            "mod._stop_warlock_grip_alignment(owner)",
+            "mod._reset_warlock_grip_alignment()",
+            "mod._release_warlock_grip_alignment_world(world)",
+            "HEALTH_ALIVE[owner]=nil",
+            "mod._warlock_outfits[owner]=nil",
+        ):
+            with self.subTest(cleanup=cleanup):
+                lua = runtime()
+                lua.execute("mod._queue_warlock_grip_alignment(world,1/60)")
+                lua.execute(cleanup)
+                lua.execute("owner.alive=false;outfit.alive=false;weapon.alive=false;drain();assert(calls.writes==0)")
+
+    def test_missing_node_and_wrong_skeleton_fail_before_unsafe_lookup(self):
+        lua = runtime()
+        lua.execute("""
+          mod._stop_warlock_grip_alignment(owner);owner.nodes.j_lefthand=nil
+          assert(not mod._start_warlock_grip_alignment(owner,outfit,inventory))
+          assert(not mod._start_warlock_grip_alignment(nil,outfit,inventory))
+        """)
+
+    def test_queued_callback_is_unique_and_isolated_by_world(self):
+        lua = runtime()
+        lua.execute("""
+          mod._queue_warlock_grip_alignment(world,1/60)
+          mod._queue_warlock_grip_alignment(world,1/60)
+          assert(#callbacks==1);drain();assert(calls.writes==24)
+          mod._queue_warlock_grip_alignment(other_world,1/60);drain()
+          assert(calls.writes==24)
+        """)
+
+
+if __name__ == "__main__":
+    unittest.main()

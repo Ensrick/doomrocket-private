@@ -61,18 +61,20 @@ splice, full pipeline, and post-upload verification in
 Labels describe separate dimensions and may be combined deliberately:
 
 - kind: `bug`, `enhancement`, `documentation`, or `question`;
-- channel: `dev-test` here and `public-alpha` in the player repository;
+- channel: `dev-test` or `public-alpha` for the build actually reported, even
+  when an alpha report arrives in this repository;
 - evidence/workflow: `needs-triage`, `needs-info`, `confirmed`, `blocked`,
   `ready-for-testing`, and `testing`;
 - impact/priority: `crash` and `release-blocker`.
 
 New issue forms add `needs-triage`. Remove it as soon as the report is reviewed;
 add `confirmed` when the tester's observation or other evidence establishes the
-problem. Use `blocked` when implementation or a decision is needed before
-another useful test. Use both `ready-for-testing` and `testing` when the current
-published build has a concrete playtest question. These two states are mutually
-exclusive; remove all three status labels when closing an issue. `confirmed`
-can coexist with either open state because it describes evidence, not work
+problem. Use `blocked` when implementation, source assets, a decision, or missing
+diagnostic evidence prevents another useful test. Use both `ready-for-testing`
+and `testing` when the current published build has a concrete playtest question.
+This pair is mutually exclusive with `blocked`; remove all three status labels
+when closing an issue. `confirmed` can coexist with either open state because it
+describes evidence, not work
 phase. Reserve `crash` for an application crash or assertion and
 `release-blocker` for work that must pass before the TEST line can be promoted.
 Do not create a standing two-player test gate; a tester can report multiplayer

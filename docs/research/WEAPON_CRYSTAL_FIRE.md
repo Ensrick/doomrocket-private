@@ -1,8 +1,10 @@
 # Under-barrel crystal flame: issue #15
 
-Investigation 2026-09-12. A candidate flame is enabled from v0.1.83-dev (see
-[Candidate implementation](#candidate-implementation-2026-10-07)); it still needs
-Crunch's visual verdict.
+Updated 2026-10-10. Crunch confirms the v0.1.84 green fire is visible, but its
+size command makes no visible difference. The next TEST candidate uses the
+native scaled particle attachment pattern and follows the crystal. Its appearance
+and live size response still need an in-game verdict after publication. The
+measurements and earlier candidates below retain their original evidence.
 
 The actual crystal is present in the accepted launcher. Read-only Blender
 inspection of Crunch's SHA-pinned scene identifies the faceted, 75-vertex
@@ -18,11 +20,10 @@ coordinates, exact connected component and frame. Generated highlighted views
 are in ignored `.build/issue15_crystal/{side,underside}.png`.
 
 The frame is in engine root metres, **not native node-local coordinates**.
-The accepted compiled `pRocketLauncher` node (index 7) has scale 100. A future
-effect must convert through its verified inverse rest world transform, then
-link to that live mesh node; do not apply a posed hand-bone inverse or normalize
-away scale compensation. The linked unit must be the exact current inventory
-launcher, not a dropped replacement.
+The accepted compiled `pRocketLauncher` node (index 7) has scale 100. The effect
+must convert through its verified inverse rest world transform, then follow that
+live mesh node; do not apply a posed hand-bone inverse or normalize away scale
+compensation. Use the exact current inventory launcher, not a dropped replacement.
 
 ## Effect selection remains unresolved
 
@@ -41,12 +42,11 @@ but the current particle reader encounters unsupported initializer data.
 that breed package. Neither effect's name proves correct size or appearance.
 No native bytes were copied into the mod and no guessed effect was enabled.
 
-Next: inspect candidate effects in an isolated in-game visual test, select the
-small green flame appropriate to the reference, then give it independent linked
-particle ownership following the tested smoke lifecycle: one effect per live
-owner/current launcher on each peer, no re-creation per frame, stop before
-death/drop/inventory teardown, and forget before world release. Keep #15 open
-until visible placement, persistence and host/client cleanup are accepted.
+The acceptance target is a small green flame appropriate to the reference, with
+one effect per live owner/current launcher on each peer, no recreation per frame,
+stop before death/drop/inventory teardown, and forget before world release.
+Keep #15 open until Crunch accepts its placement, appearance, and persistence.
+A solo written verdict is sufficient; there is no separate multiplayer gate.
 
 ## Candidate implementation (2026-10-07)
 
@@ -86,3 +86,73 @@ damage blob starts at 0.6, 1.2). The pose permutes the anchor to (y, z, x) so
 the effect's rising +Z runs along the crystal. Default size 0.06 x 0.2 m; the
 TEST command `/warlock_crystal_flame <radius> <height>` resizes live flames for
 tuning.
+
+## Size failure and corrected engine scaling (2026-10-10)
+
+[Crunch's v0.1.84 report](https://github.com/Ensrick/doomrocket-private/issues/15#issuecomment-6054610629)
+accepts visibility, rejects sizing, and suggests the torch fire. The matching log
+shows the command running with values from 0.01 to 2.0, including new emitters
+created at those values. This is an implementation failure, not missing tester
+steps. His screenshot shows a broad green fire obscuring the launcher.
+
+The inspected native ground fire payload has SHA-256
+`794d8e51dc396b8a086afddd5c4b09191aa8e5349951d124e7691d4d677e8262`
+and four clouds. Its flame spawn cylinder uses a fixed
+0.6 m radius, its initial billboard size is about 0.89–1.51 m, and its cylinder
+initializers do not bind a particle variable. The native size variable exists,
+but changing it does not scale every cloud. It cannot serve as the controller's
+whole-effect size contract.
+
+The controller now follows VT2's native `VortexExtension` and
+`VortexHuskExtension` pattern: `Matrix4x4.set_scale` on the local attachment pose,
+then `World.link_particles` with that scaled pose. The
+[Stingray World reference](https://help.autodesk.com/cloudhelp/2019/ENU/Max-Interactive-Help/lua_ref/obj_stingray_World.html)
+defines the link pose as the effect's new local coordinates relative to the
+parent scene node. The reference radius is 0.6 m and reference height is vanilla's
+mature 1.2 m fire target; default 0.06/0.2 inputs produce visual scale
+(0.1, 0.1, 1/6). These are approximate visual targets, not guaranteed rendered
+bounding-box measurements.
+
+The generated frame's 0.01 inverse-node scale remains intact and cancels the
+compiled scale-100 wrapper. Its axes are multiplied by the visual scale; the
+default local link scales are therefore approximately (0.001, 0.001, 1/600),
+while its tip translation remains unchanged. The engine's native attachment
+follows the current launcher mesh scene pose automatically. It is never
+recreated or manually moved every frame. This avoids relying on the unlinked
+`move_particles` API, which affects only newly emitted particles, and avoids a
+second world-transform composition convention in the controller.
+
+The tuning command destroys and recreates only the live emitters on this peer,
+so old particles cannot obscure an immediate size comparison. It reports how
+many live flames it resized and logs both scale axes. New Engineers inherit the
+same setting. Invalid/non-finite inputs are rejected and numeric inputs remain
+bounded. Death, item removal, reload, and world teardown retain explicit cleanup.
+The native `destroy` link policy destroys the effect when its launcher is deleted;
+the controller then forgets its ID without querying a potentially recycled
+handle. The pre-world-release hook forgets the handle before engine teardown.
+
+`tools/tests/test_doomrocket_crystal_flame.py` executes the production controller
+with strict particle, package, and world lifetime doubles. It checks actual scale
+in the actual link pose, world-anchor compensation on a rotated/translated
+scale-100 launcher, native following without respawning, immediate
+resize, deletion cleanup, and zero particle access after world release. These
+checks establish the API/lifetime contract, not the flame's visual acceptance.
+
+### Torch reuse investigation
+
+The existing native `fx/skaven_torch_warpfire_01` is a persistent three-cloud
+effect (4,000 bytes, SHA-256
+`b19c5d4659638d6a6b8e5a456b7f474e6fc2c8867b470c5e97665200e91216b3`).
+It has no particle variables; its flame cloud has 1–2 m initial billboard sizes,
+so it also needs explicit scaling for this crystal. A local extracted donor was
+inspected read-only; no native art payload was added to the repository.
+
+It is present in level packages, including Skittergate, but absent from
+`resource_packages/breeds/skaven_warpfire_thrower`. Its three material IDs
+(`E379EEEC28C7D5DD`, `AC14E04B4F4F5C4D`, `0B3A1E26F36391AB`) are absent from that
+breed package too. A string swap would therefore depend on the map's resource
+residency. Loading an entire unrelated level solely for this effect is unsuitable.
+Consistent torch reuse would require a separately verified native effect/material
+dependency packaging change. This candidate keeps the already visible,
+breed-resident green fire and corrects its known sizing failure without changing
+the established build/upload pipeline or creating art.

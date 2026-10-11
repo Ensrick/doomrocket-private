@@ -234,6 +234,16 @@ mod._reset_warlock_weapon_pose_probe=function() end
 mod._release_warlock_weapon_pose_probe_world=function() end
 mod._queue_warlock_weapon_pose_probe=function() end
 mod._note_warlock_weapon_pose_event=function() end
+-- Living grip transfer has its own strict hierarchy/lifetime suite.
+mod._start_warlock_grip_alignment=function() end
+mod._stop_warlock_grip_alignment=function() end
+mod._reset_warlock_grip_alignment=function() end
+mod._release_warlock_grip_alignment_world=function() end
+mod._note_warlock_grip_alignment_event=function() end
+mod._queue_warlock_grip_alignment=function() end
+-- Audio ownership/teardown is exercised by the dedicated audio lifecycle suite.
+mod._stop_warlock_living_sounds=function() end
+mod._release_warlock_audio_world=function() end
 -- The crystal flame has its own executable lifecycle suite.
 mod._start_warlock_crystal_flame=function() end
 mod._stop_warlock_crystal_flame=function() end

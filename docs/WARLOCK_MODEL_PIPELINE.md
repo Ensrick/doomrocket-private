@@ -1,5 +1,11 @@
 # Warlock Bombardier model pipeline
 
+Current acceptance follows the user's solo-testing ruling: a written
+observation and matching console log are sufficient. No recording, second
+player, or arranged multiplayer session is required. Historical version rows
+retain their original evidence and untested scope; use the current issue for
+remaining acceptance work.
+
 How Crunch's Warlock Engineer model ships as the doomrocket enemy, what broke
 along the way, and the invariants that keep it working. Companion tooling:
 `tools/splice_warlock_materials.ps1`, `tools/Test-WarlockPipeline.ps1`.
@@ -118,7 +124,7 @@ commands and publication checks are authoritative in
 - `Unit.node()` on a missing node (why the old bridge pruned via
   `Unit.has_node`).
 
-## Current native-carrier visual handoff (v0.1.55 host MVP accepted; client pending)
+## Current native-carrier visual handoff (host accepted; network scope untested)
 
 The hidden native ratling unit owns the ragdoll, and the custom Warlock unit
 owns no physics. The core carrier-to-visual transfer has a v0.1.50 host
@@ -135,9 +141,11 @@ five-second monitor. The first six ordinary traces meet all strict analyzer
 thresholds. The following fourteen-corpses-at-once overlap stress batch has
 transient anchor excursions at 250/500 ms, so the combined log is stress
 evidence rather than a clean whole-file analyzer pass; every trace is back
-within the anchor gate by one second. Remote-client and explicit post-monitor
-wake/cleanup coverage remain pending. Offline parsing of the compiled resources
-found:
+within the anchor gate by one second. That historical evidence does not
+establish remote-client or explicit post-monitor wake/cleanup behavior. The
+current public issue #2 asks for the remaining wake/cleanup observation; a solo
+written verdict and matching log are sufficient. Offline parsing of the
+compiled resources found:
 
 - custom: 142 scene nodes, 138 state-machine bones, 1 skin, 0 actors and no
   physics scene;
@@ -171,9 +179,11 @@ only when either unit dies or on explicit state/mod teardown. Checkpoints use
 game time, while wall-clock callback gaps are accumulated as the worst gap
 between samples. Mesh reveal attempts are changed to `false`; whole-unit reveal
 attempts are followed by a complete carrier-mesh re-hide. v0.1.55 has passed the
-observed host visual/MVP lane; explicit post-monitor wake/cleanup, pause, and
-remote-client `source=husk` coverage remain required before claiming those
-broader lanes. See `docs/HOW_TO_CREATE_A_VT2_RAGDOLL.md` for the practical
+observed host visual/MVP lane. Do not claim post-monitor wake/cleanup, pause
+or remote-client behavior from those five-second host traces alone. These
+evidence limits do not impose a recording or second-player acceptance gate;
+follow the current issue's remaining solo check. See
+`docs/HOW_TO_CREATE_A_VT2_RAGDOLL.md` for the practical
 procedure and `docs/research/RAGDOLL_VISUAL_HANDOFF.md` for the forensic
 derivation.
 

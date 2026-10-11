@@ -705,8 +705,9 @@ class BallisticAimLaunchParityTests(unittest.TestCase):
         self.assertEqual(numeric_constant(self.launch, "PROJECTILE_TARGET_HEIGHT"), 0.25)
         self.assertRegex(
             target_method,
-            r"Unit\.local_position\s*\(\s*data\.target_unit\s*,\s*0\s*\)\s*\+\s*"
-            r"Vector3\s*\(\s*0\s*,\s*0\s*,\s*PROJECTILE_TARGET_HEIGHT\s*\)",
+            r"clear_target_position\s*\(\s*fire_position\s*,\s*"
+            r"Unit\.local_position\s*\(\s*data\.target_unit\s*,\s*0\s*\)\s*,\s*"
+            r"PROJECTILE_TARGET_HEIGHT\s*\)",
         )
 
         for lane, body in (("visual aim", self.aim_method), ("shoot", self.shoot_method)):
@@ -718,13 +719,14 @@ class BallisticAimLaunchParityTests(unittest.TestCase):
                 )
                 target_assignment = re.search(
                     r"local\s+(\w+)\s*=\s*"
-                    r"self:_projectile_target_position\s*\(\s*data\s*\)",
+                    r"self:_projectile_target_position\s*\(\s*data\s*,\s*(\w+)\s*\)",
                     body,
                 )
                 self.assertIsNotNone(fire_assignment)
                 self.assertIsNotNone(target_assignment)
                 fire_variable = fire_assignment.group(1)
                 target_variable = target_assignment.group(1)
+                self.assertEqual(target_assignment.group(2), fire_variable)
                 self.assertRegex(
                     body,
                     rf"solve_launch_velocity\s*\(\s*{re.escape(fire_variable)}\s*,\s*"
@@ -960,6 +962,11 @@ class BallisticCompiledBundleTests(unittest.TestCase):
         expectations = {
             BALLISTICS_RESOURCE: (
                 b"solve_launch_velocity",
+                b"clear_target_position",
+                b"lower_hull_extent",
+                b"ROCKET_FORWARD_EXTENT",
+                b"ROCKET_REAR_EXTENT",
+                b"ROCKET_RADIUS",
                 b"SECONDS_PER_METRE",
                 b"MIN_FLIGHT_TIME",
                 b"MAX_FLIGHT_TIME",
@@ -968,6 +975,9 @@ class BallisticCompiledBundleTests(unittest.TestCase):
             ),
             LAUNCH_RESOURCE: (
                 b"solve_launch_velocity",
+                b"clear_target_position",
+                b"hull_clearance_m",
+                b"spawn_clearance_m",
                 b"ballistic_aim_direction_box",
                 b"BALLISTIC_AIM_HOLD_TIME",
                 b"doomrocket_ballistic_aim_hold_direction_box",

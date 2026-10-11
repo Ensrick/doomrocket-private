@@ -79,3 +79,48 @@ launcher follows hidden-carrier attachment nodes while the visible hands follow
 a separate outfit animation. The cause of their animated relative motion needs
 same-frame diagnosis before changing either transform. A static weapon rotation
 is not established as the fix. No scheduled multiplayer test is required.
+
+## October 10 follow-up: v0.1.85-dev candidate
+
+Crunch's matching v0.1.84-dev log attached to [issue #33](https://github.com/Ensrick/doomrocket-private/issues/33)
+contains five probe arming records and 600 hand/launcher samples. Excluding the
+first 0.5 seconds, the measured left-hand gap is a median 10.1 cm while walking,
+12.9 cm while running, and 32.3 cm during `attack_shoot_align`; idle is 0.51 cm
+and wind-up start 0.86 cm. The launcher handle, root and barrel follow their
+native attachment nodes exactly. Unmirrored `jump_down`, `jump_down_land`,
+`jump_up_5m` and `jump_down_1m` events account for larger gaps, up to 1.81 m.
+This supports the independently advancing visible-controller diagnosis, rather
+than an arbitrary mesh rotation. The old probe ran before scene composition,
+however, so its cached world transforms are not by themselves proof of the
+final rendered displacement. The written visual failure remains accepted.
+
+The candidate adds a bounded **twelve-joint upper-body pose transfer**: spine,
+shoulders, arms, forearms, hands and forearm rolls. After the native world's
+animation evaluation, its safe callback first composes the carrier, outfit and
+weapon with `World.update_unit`. It reads native rigid world positions and
+rotations, preserves the custom uniform world scale, and converts each result
+through the current custom parent hierarchy. All candidate matrices, parent
+inverses, orthogonality and existing local scales are validated before any
+rotation or position write. The outfit is composed again afterward. Matched
+compiled clips establish the shared deform-bone world bases and the custom
+100x ancestor; native local positions and animated scale are never copied.
+
+The accepted rigid weapon export, root-only inventory links, lower-body gait,
+own animation state machine and death transfer remain in place. The driver
+stops before death, inventory freeze/destruction or world release. The probe
+independently composes all three units before measurement and now reports
+`stage=post_unit_update` plus `alignment=active` or a concrete skipped-state
+reason. This separates the current-frame final hand gap from the old cache
+boundary. Eight executable regressions reconstruct world poses after the
+actual Lua writes, including a rotated/translated 100x parent, phase/aim
+differences, native scale rejection, invalid matrices and teardown. They do
+not establish visual acceptance.
+
+The candidate **does not solve unsupported jump animation**. The custom
+controller has no corresponding authored jump clips. It skips the transfer
+when an event cannot be mirrored, rather than dragging only the upper torso
+onto a jumping native pelvis. Those event/clip bindings need Arnaud's asset
+work; no new art, model or animation assets were authored in this pass.
+Ordinary idle, walk/run, turn, aim, fire and reload grip behavior is ready for
+a written solo verdict after publication. Issue #28 remains open until that
+verdict, and retains this explicit jump limitation.

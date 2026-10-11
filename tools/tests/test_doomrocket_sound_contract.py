@@ -731,7 +731,8 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
         )
 
         self.assertIn("mod._start_warlock_backpack_sound(", self.runtime)
-        self.assertIn("mod._stop_warlock_backpack_sound(", self.runtime)
+        self.assertIn("mod._stop_warlock_living_sounds(", self.runtime)
+        self.assertIn("stop_backpack_entry(owner, reason)", self.audio)
         self.assertIn("mod._update_warlock_backpack_sounds(", self.bootstrap)
         self.assertEqual(
             self.hooks.count("mod._start_warlock_backpack_sound("),
@@ -739,9 +740,9 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
             "visible outfit setup must own exactly one backpack-loop start call",
         )
         self.assertEqual(
-            self.hooks.count("mod._stop_warlock_backpack_sound("),
+            self.hooks.count('mod._stop_warlock_living_sounds(owner_unit, "death_'),
             1,
-            "the shared owner/husk death preparation must own one explicit stop call",
+            "the shared owner/husk death preparation must stop every living-owned sound",
         )
 
         # One shared reset must own both the custom-audio shutdown and the
@@ -793,7 +794,7 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
         self.assertNotIn(
             "WwiseWorld.",
             self.projectile[destroy_start:],
-            "a one-shot launch owns no playing ID and needs no destroy-time stop event",
+            "projectile destruction must not stop shooter-owned audio or independent impact playback",
         )
 
     def test_combat_voice_variant_replicates_with_the_projectile(self) -> None:
@@ -810,7 +811,7 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
         self.assertGreaterEqual(death_start, 0)
         self.assertGreater(death_end, death_start)
         death_body = self.audio[death_start:death_end]
-        stop_call = death_body.find('stop_combat_voice_entry(owner_unit, "death")')
+        stop_call = death_body.find('mod._stop_warlock_living_sounds(owner_unit, "death")')
         death_play = death_body.find('play_voice_event(owner_unit, event_name, "death_voice"')
         self.assertGreaterEqual(stop_call, 0)
         self.assertGreater(
@@ -902,14 +903,14 @@ class DoomrocketRuntimeSoundContractTests(unittest.TestCase):
         )
 
     def test_audio_contract_emits_auditable_runtime_telemetry(self) -> None:
-        for phase in ("bank", "backpack_start", "backpack_stop", "launch", "impact"):
+        for phase in ("bank", "backpack_start", "launch", "impact"):
             with self.subTest(phase=phase):
                 self.assertIn(
                     f"phase={phase}",
                     self.audio,
                     f"missing [doomrocket:SOUND] telemetry for {phase}",
                 )
-        for phase in ("combat_voice", "death_voice"):
+        for phase in ("combat_voice", "death_voice", "backpack_stop", "combat_voice_stop", "launch_stop"):
             with self.subTest(dynamic_phase=phase):
                 self.assertIn(
                     f'"{phase}"',

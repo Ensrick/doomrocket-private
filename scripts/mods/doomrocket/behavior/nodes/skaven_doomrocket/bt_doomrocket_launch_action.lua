@@ -658,7 +658,7 @@ BTDoomrocketLaunchAction._aim_at_target = function (self, unit, blackboard, t, d
 	-- but drive the visible launcher through a separate direction solved from the exact
 	-- legacy spawn point and endpoint used by _shoot.
 	local fire_position = self:_fire_from_position_direction(blackboard, data)
-	local projectile_target_position = self:_projectile_target_position(data)
+	local projectile_target_position = self:_projectile_target_position(data, fire_position)
 	local wanted_launch_velocity = BALLISTICS.solve_launch_velocity(fire_position, projectile_target_position)
 
 	if not wanted_launch_velocity then
@@ -701,8 +701,9 @@ BTDoomrocketLaunchAction._aim_at_target = function (self, unit, blackboard, t, d
 	return realign
 end
 
-BTDoomrocketLaunchAction._projectile_target_position = function (self, data)
-	return Unit.local_position(data.target_unit, 0) + Vector3(0, 0, PROJECTILE_TARGET_HEIGHT)
+BTDoomrocketLaunchAction._projectile_target_position = function (self, data, fire_position)
+	return BALLISTICS.clear_target_position(fire_position,
+		Unit.local_position(data.target_unit, 0), PROJECTILE_TARGET_HEIGHT)
 end
 
 BTDoomrocketLaunchAction._remaining_angle = function (self, from, to)
@@ -741,6 +742,10 @@ BTDoomrocketLaunchAction._fire_from_position_direction = function (self, blackbo
 	end
 
 	local fire_position = position - Vector3.normalize(direction) * BALLISTICS.MUZZLE_BACKSTEP
+	-- Native projectile locomotion teleports the actor to the decoded position.
+	-- Solve both pose and physics from that exact point, including close shots.
+	local network_fire_position = AiAnimUtils.position_network_scale(fire_position, true)
+	fire_position = AiAnimUtils.position_network_scale(network_fire_position)
 
 	return fire_position, direction
 end
@@ -772,22 +777,24 @@ BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
 	local projectile_system = Managers.state.entity:system("projectile_system")
 	local peer_id = data.peer_id
 	local skip_rpc = CLIENT_CONTROLLED_RATLING_GUN
-	local target_vector = self:_projectile_target_position(data)
+	local target_vector = self:_projectile_target_position(data, from_position)
 	local impulse_vector, flight_time = BALLISTICS.solve_launch_velocity(from_position, target_vector)
 
 	if not impulse_vector then
 		return
 	end
 
-	local rotation = Unit.local_rotation(unit, 0)
+	local network_velocity = AiAnimUtils.velocity_network_scale(impulse_vector, true)
+	local replicated_velocity = AiAnimUtils.velocity_network_scale(network_velocity)
+	-- The physics extension creates the convex throw actor using network_rotation.
+	-- Start along its actual quantized tangent, rather than the Engineer's flat yaw.
+	local rotation = Quaternion.look(replicated_velocity, Vector3.up())
 	-- local rocket_launcher_id = Managers.state.unit_storage:go_id(data.ratling_gun_unit)
 	local attacker_unit_id = Managers.state.unit_storage:go_id(unit)
 
 	local network_position = AiAnimUtils.position_network_scale(from_position, true)
 	local network_rotation = AiAnimUtils.rotation_network_scale(rotation, true)
-	local network_velocity = AiAnimUtils.velocity_network_scale(impulse_vector, true)
 	local network_target_vector =  AiAnimUtils.velocity_network_scale(target_vector, true)
-	local replicated_velocity = AiAnimUtils.velocity_network_scale(network_velocity)
 	local visual_direction_box = data.ballistic_aim_direction_box or data.shoot_direction_box
 	local visual_direction = visual_direction_box and visual_direction_box:unbox() or direction
 	local fire_node = Unit.node(data.ratling_gun_unit, "p_fx")
@@ -797,16 +804,26 @@ BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
 	local target_displacement = target_vector - from_position
 	local range = Vector3.length(target_displacement)
 	local flat_range = Vector3.length(Vector3.flat(target_displacement))
+	local target_ground = Unit.local_position(data.target_unit, 0)
+	local incoming_velocity = replicated_velocity - Vector3(0, 0, BALLISTICS.GRAVITY * flight_time)
+	local target_height = target_vector.z - target_ground.z
+	local decoded_endpoint_z = from_position.z + replicated_velocity.z * flight_time
+		- 0.5 * BALLISTICS.GRAVITY * flight_time * flight_time
+	local hull_clearance = decoded_endpoint_z - target_ground.z - BALLISTICS.lower_hull_extent(incoming_velocity)
+	local spawn_clearance = from_position.z - Unit.local_position(unit, 0).z
+		- BALLISTICS.lower_hull_extent(replicated_velocity)
 
 	printf(
-		"[doomrocket:AIM] source=unit go_id=%s range=%.3f flat_range=%.3f flight_time=%.3f desired_pitch_deg=%.3f pose_error_deg=%.3f muzzle_error_deg=%.3f",
+		"[doomrocket:AIM] source=unit go_id=%s range=%.3f flat_range=%.3f flight_time=%.3f desired_pitch_deg=%.3f pose_error_deg=%.3f muzzle_error_deg=%.3f target_height_m=%.3f hull_clearance_m=%.3f spawn_clearance_m=%.3f spawn_z=%.3f target_z=%.3f velocity=%.3f,%.3f,%.3f",
 		tostring(attacker_unit_id),
 		range,
 		flat_range,
 		flight_time,
 		desired_pitch_degrees,
 		direction_error_degrees(visual_direction, replicated_velocity),
-		direction_error_degrees(muzzle_direction, replicated_velocity)
+		direction_error_degrees(muzzle_direction, replicated_velocity),
+		target_height, hull_clearance, spawn_clearance, from_position.z, target_vector.z,
+		replicated_velocity.x, replicated_velocity.y, replicated_velocity.z
 	)
 
 	local unit_name = "units/rocket/SM_Rocket"
@@ -816,7 +833,9 @@ BTDoomrocketLaunchAction._shoot = function (self, unit, blackboard, data)
 			network_position = network_position,
 			network_rotation = network_rotation,
 			network_velocity = network_velocity,
-			network_angular_velocity = {network_velocity[1], network_velocity[2], 0}
+			-- The rocket follows its tangent; a spinning globe's angular launch
+			-- velocity sweeps the metre-long hull into nearby floor between updates.
+			network_angular_velocity = {0, 0, 0}
 		},
 		pickup_system = {
 			pickup_name = "doom_rocket",

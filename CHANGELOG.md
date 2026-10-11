@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.1.85-dev - grip, audio, rocket clearance and crystal scaling candidates
+
+- **Lingering audio (#44):** stop the exact owned backpack, combat voice and
+  launch playing IDs on death, inventory teardown and world release. Retain and
+  retry pending stops until Wwise reports silence; detect dead retained corpses
+  through their health extension and reject late playback callbacks. Diagnostics
+  distinguish a stop request from verified silence and identify each owner.
+- **Loudness (#5):** package all twelve approved recordings about 3 dB quieter,
+  with every source WAV unchanged. The full sound pass remains blocked on
+  Arnaud's wind-up, flight-loop and reload insertion/latch masters.
+- **Near-range rockets (#6):** account for the shipped rocket's measured convex
+  bounds when choosing target height. Spawn and initialize along the replicated
+  launch tangent without the inherited Globadier spin. Aim and launch retain
+  one ballistic solution and the existing flight-time curve; add target-floor
+  clearance telemetry. These measured defects are corrected, but the reported
+  ground shot still needs a solo visual verdict on the candidate.
+- **Crystal flame (#15):** keep the resident native green fire and apply actual
+  particle scale to every cloud. The tuning command recreates live emitters for
+  an immediate comparison; the scaled attachment follows the crystal's current
+  pose and is reclaimed on death/drop/teardown. No new art is authored.
+- **Grip (#28):** transfer twelve upper-body joints from the native carrier's
+  evaluated pose through the custom hierarchy while preserving its scales,
+  lower-body gait and weapon links. Validate all transforms before writing.
+  The probe now flushes current scene poses before measuring. Missing jump
+  clips remain an Arnaud asset gap; unsupported events skip the transfer.
+- **Issue process:** retain Crunch's accepted v0.1.84 balance and impact results;
+  remove obsolete recordings, required extra players and old build banners from
+  active protocols. Public alpha remains v0.1.59-alpha.
+
+Source and executable checks are not in-game acceptance. This TEST candidate
+needs the issue-specific written visual/audio verdicts after verified publication.
+
 ## v0.1.84-dev - tester follow-ups for #33 and #15
 
 Crunch's v0.1.81-v0.1.83 test: aim time, breakpoints, friendly fire and the
