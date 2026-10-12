@@ -757,7 +757,12 @@ def stage_integration(config_path: Path, source_root: Path, output: Path, enable
         if staged.exists():
             require(staged.resolve().parent == build_root.resolve()
                     and staged.name.startswith(".stage-animation-integration-"), "Unsafe temporary cleanup target")
-            shutil.rmtree(staged)
+            # Project rule: no recursive deletes. Keep the failed staging tree
+            # under a .failed name in the ignored build directory for review.
+            failed = staged.with_name(".failed-animation-integration-"
+                                      + staged.name[len(".stage-animation-integration-"):])
+            os.rename(staged, failed)
+            print("WARLOCK_STAGING_FAILED_KEPT", failed)
 
 
 def create_plan(plan_path: Path, source_root: Path, rest_manifest: Path, clip: Path | None = None,

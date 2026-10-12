@@ -735,7 +735,7 @@ local function apply_warlock_death_pose(driver)
 
 	if not carrier_sleeping then
 		World.update_unit(Unit.world(outfit_unit), outfit_unit)
-		mod._apply_warlock_outfit_correction(driver.owner, outfit_unit, true)
+		mod:pcall(mod._apply_warlock_outfit_correction, driver.owner, outfit_unit, true)
 		driver.pose_write_callbacks = driver.pose_write_callbacks + 1
 	end
 
@@ -1206,6 +1206,7 @@ mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
 	mod._stop_warlock_animation_ownership(self.unit)
 	mod._stop_warlock_outfit_correction(self.unit)
 	mod._stop_warlock_living_sounds(self.unit, "inventory_destroy")
+	mod._forget_warlock_audio_owner(self.unit)
 	mod._stop_warlock_locomotion_animation(self.unit)
 	mod._stop_warlock_hose(self.unit, "inventory_destroy")
 	mod._stop_warlock_weapon_pose_probe(self.unit)

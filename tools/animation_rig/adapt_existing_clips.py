@@ -439,7 +439,7 @@ def _adapt_clip_impl(path, output, offsets, names, tolerance, native=None):
         generated_scene, generated_objects, baked = bridge.bake_copy(
             game, chain, samples, bake_names, "WARLOCK_RESERVED_CLIP_EXPORT", scene,
             tracked_scenes=temporary_scenes)
-        with tempfile.TemporaryDirectory(prefix="adapt-", dir=output.parent) as tmp:
+        with bridge.scratch_directory("adapt-", output.parent) as tmp:
             donor_path = Path(tmp) / "donor.fbx"
             bridge.select_scene(generated_scene)
             for obj in generated_scene.objects:

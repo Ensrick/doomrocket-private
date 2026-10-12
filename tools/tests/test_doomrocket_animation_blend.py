@@ -328,6 +328,23 @@ class AnimationBlendTests(unittest.TestCase):
                 lua.execute("begin();change('authored');" + mutation)
                 lua.execute("assert(not frame(.1));assert(active() and calls.visible==0)")
 
+    def test_clock_failure_rearms_on_next_valid_edge_but_structural_failure_stays_latched(self):
+        lua = runtime()
+        lua.execute("""
+          begin();change('authored');frozen_helper=true
+          assert(not frame(.1));assert(active())
+          local reason=status();assert(reason=='stale_sampler_clock' or reason=='invalid_sampler_clock',reason)
+          frozen_helper=false;change('idle')
+          assert(frame(.1) and active() and status()=='blending')
+          frame(.25);assert(not active() and status()=='native')
+        """)
+        lua = runtime()
+        lua.execute("""
+          begin();change('authored');helper.alive=false
+          assert(not frame(.1));assert(active() and status()=='missing_sampler')
+          assert(not mod._note_warlock_animation_blend_event(owner,'idle','authored','idle',.25))
+        """)
+
     def test_terminal_nonloop_clock_is_allowed_to_stop(self):
         lua = runtime()
         lua.execute("begin();change('authored');frame(.25);change('authored2');helper.length=.1;frame(.1);frame(.1);assert(not active() and status()=='native')")
@@ -413,7 +430,7 @@ class AnimationBlendTests(unittest.TestCase):
         lua = runtime()
         lua.execute('''
           begin();owner.aim={matrix=true,axes={vec(1,0,0),vec(0,1,0),vec(0,0,1)},translation=vec(8,9,10)}
-          frame(.1);assert(helper.aim_matrix and helper.aim.x==8 and helper.aim.y==9 and calls.warnings==0)
+          frame(.1);assert(not helper.aim_matrix and helper.aim.x==8 and helper.aim.y==9 and calls.warnings==0)
         ''')
         for mutation in ("owner.aim.x=0/0", "owner.aim.x=math.huge",
                          "owner.aim={matrix=true,axes={vec(1,0,0),vec(0,0/0,0),vec(0,0,1)},translation=vec(8,9,10)}",

@@ -72,6 +72,14 @@ local function usable(owner, entry)
 	return true
 end
 
+-- A clock failure describes one bridge, not the Engineer's lifetime. The
+-- next valid edge restarts from the native displayed pose; structural
+-- failures (missing sampler, invalid profile or transition) stay latched.
+local RECOVERABLE_CLOCK_FAILURES = {
+	invalid_sampler_clock = true, stale_sampler_clock = true,
+	invalid_visible_clock = true, mismatched_target_clock = true,
+}
+
 local function fail(entry, reason)
 	entry.blocked, entry.status = true, reason
 	diagnostic(entry, reason)
@@ -93,15 +101,15 @@ local function quaternion(value)
 end
 
 local function aim(value)
-	-- Native builds return a target matrix; the constraint setter also accepts
-	-- vectors. Check every matrix axis/translation before passing the temporary
-	-- directly to the setter, and never retain a native value across frames.
+	-- The getter may return a target matrix. Every VT2 script passes the setter
+	-- a position, so validate the whole matrix but pass only its translation.
+	-- Never retain a native temporary across frames.
 	local ok, position = pcall(vector, value)
 	if ok and position then return Vector3(unpack(position)) end
 	if not Matrix4x4 or not Matrix4x4.is_valid(value) then return end
 	if not vector(Matrix4x4.x(value)) or not vector(Matrix4x4.y(value))
 		or not vector(Matrix4x4.z(value)) or not vector(Matrix4x4.translation(value)) then return end
-	return value
+	return Matrix4x4.translation(value)
 end
 
 local function skeleton(entry)
@@ -280,7 +288,11 @@ local function note_event(owner, event, from, to, blend_time)
 	if not entry then return false end
 	if not binding(owner, entry) then remove(owner, entry); return false end
 	local ready = healthy(owner, entry)
-	if entries[owner] ~= entry or entry.blocked then return false end
+	if entries[owner] ~= entry then return false end
+	if entry.blocked then
+		if not RECOVERABLE_CLOCK_FAILURES[entry.status] then return false end
+		entry.blocked, entry.active, entry.source, entry.displayed = false, false, nil, nil
+	end
 	if not live(entry.helper, entry.world) then return fail(entry, "missing_sampler") end
 	local profile = entry.profile
 	local source, target = profile.states[from], profile.states[to]

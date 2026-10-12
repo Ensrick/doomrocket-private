@@ -569,6 +569,8 @@ def diagnostic(output,render):
     bpy.context.view_layer.objects.active=CTRL
     bpy.ops.object.mode_set(mode='POSE')
     path=output.parent/'WarlockEngineer_Rig_Diagnostic.blend'
+    if bpy.data.filepath and path.resolve()==Path(bpy.data.filepath).resolve():
+        raise ValueError('Diagnostic output cannot overwrite the input')
     bpy.ops.wm.save_as_mainfile(filepath=str(path),compress=True,check_existing=False)
     (output/'diagnostic_samples.json').write_text(json.dumps(record,indent=2)+'\n',encoding='utf-8')
     REPORT['diagnostic']={'file':str(path),'action':action.name,'frame_start':1,'frame_end':97,

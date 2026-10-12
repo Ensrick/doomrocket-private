@@ -139,6 +139,20 @@ class AudioLifecycleTests(unittest.TestCase):
         assert(mod._choose_warlock_combat_voice(owner)==0)
         ''')
 
+    def test_destroyed_handle_is_forgotten_after_its_audio_stops(self):
+        runtime().execute('''
+        start_all(); assert(mod._play_warlock_death_voice(owner))
+        mod._stop_warlock_living_sounds(owner,'inventory_destroy')
+        mod._forget_warlock_audio_owner(owner); advance(5)
+        assert(count_playing()==1, 'only the death voice may remain')
+        -- The engine reuses the same handle for a new, living Engineer.
+        assert(mod._start_warlock_backpack_sound(owner,outfit))
+        assert(mod._play_warlock_combat_voice(owner,1))
+        assert(mod._play_doomrocket_launch_sound(launcher,owner))
+        assert(mod._play_warlock_death_voice(owner))
+        mod._forget_warlock_audio_owner(nil)
+        ''')
+
     def test_death_voice_survives_living_audio_cleanup(self):
         runtime().execute('''
         start_all(); assert(mod._play_warlock_death_voice(owner))
@@ -197,6 +211,12 @@ class AudioLifecycleTests(unittest.TestCase):
         for phase in ("destroy", "freeze"):
             block = source.split(f'mod:hook(AIInventoryExtension, "{phase}"', 1)[1].split("end)", 1)[0]
             self.assertLess(block.index("mod._stop_warlock_living_sounds"), block.index("return func"))
+            if phase == "destroy":
+                self.assertLess(block.index("mod._stop_warlock_living_sounds"),
+                                block.index("mod._forget_warlock_audio_owner"))
+                self.assertLess(block.index("mod._forget_warlock_audio_owner"), block.index("return func"))
+            else:
+                self.assertNotIn("mod._forget_warlock_audio_owner", block)
         block = source.split('mod:hook(Application, "release_world"', 1)[1].split("end)", 1)[0]
         self.assertLess(block.index("mod._release_warlock_audio_world"), block.index("func(world"))
 

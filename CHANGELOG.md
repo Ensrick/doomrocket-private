@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.1.88-dev - review fixes for animation ownership, rig tools and audio
+
+The default Workshop build ships no authored clips or localized profile, so the
+animation fixes below change nothing visible until Arnaud's clips are staged.
+
+- **Launcher links:** when the Engineer is alive, a reset (mod disabled or
+  leaving the level), an apply error, an invalid binding or unsupported
+  ownership now returns an authored-following launcher to its native carrier
+  links instead of leaving it unlinked. Death keeps the plain unlink that
+  preserves placement for native drops.
+- **Transition sampler:** a clock failure (stale or invalid sampler clock,
+  invalid or mismatched visible clock) re-arms on the next valid animation edge
+  from the native displayed pose, instead of holding authored ownership until
+  death. Missing samplers, invalid profiles and invalid transitions stay latched.
+- **VT2 API safety:** neither `Matrix4x4.copy` nor `Quaternion.normalize`
+  appears in VT2's own scripts. Outfit correction now copies through
+  `Matrix4x4.multiply` with the identity, and the authored launcher follow falls
+  back to `Quaternion.to_elements`/`from_elements`. The corpse outfit correction
+  runs under `mod:pcall`, because vanilla runs safe animation callbacks without
+  an error trap. The sampler aim passes the target position to
+  `animation_set_constraint_target`, the form every VT2 caller uses.
+- **Audio:** inventory destruction forgets the Engineer's per-unit audio records
+  (retired flag, owner ID, death-voice and cooldown state) once its playing IDs
+  are stopped, so they neither accumulate nor carry over to a reused unit handle.
+- **Rig tools:** no recursive deletes. Scratch folders lose their files by
+  explicit path, and a failed integration staging tree is renamed
+  `.failed-animation-integration-*` for review. A rebuild keeps the previous rig
+  blend and manifest as `.bak.<UTC time>`. The diagnostic test refuses to
+  overwrite its input blend. Command-line exports no longer report unsaved
+  changes for a freshly opened rig. The guide no longer hard-codes a personal
+  repository path.
+
 ## v0.1.87-dev - smooth authored and legacy animation transitions
 
 - **Mixed transitions:** preserve all 154 original visible transition durations.

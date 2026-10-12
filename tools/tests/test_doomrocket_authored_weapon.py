@@ -387,7 +387,7 @@ class AuthoredWeaponTests(unittest.TestCase):
 
     def test_death_reset_release_cancel_queued_follow_and_restore_graph(self):
         for expression in ("mod._stop_warlock_grip_alignment(owner)",
-                           "mod._reset_warlock_grip_alignment()",
+                           "HEALTH_ALIVE[owner]=nil;mod._reset_warlock_grip_alignment()",
                            "mod._release_warlock_grip_alignment_world(world)"):
             with self.subTest(expression=expression):
                 lua = runtime()
@@ -396,6 +396,43 @@ class AuthoredWeaponTests(unittest.TestCase):
                   assert(next(weapon.external)==nil)
                   local n=calls.links;drain();assert(calls.links==n)
                 """)
+
+    def test_reset_while_alive_returns_launcher_to_native_links(self):
+        lua = runtime()
+        lua.execute("""
+          tick();assert(next(weapon.external)~=nil)
+          mod._queue_warlock_grip_alignment(world,1/60);mod._reset_warlock_grip_alignment()
+          for _,link in ipairs(semantic_links) do
+           local node=type(link.target)=='string' and Unit.node(weapon,link.target) or link.target
+           assert(weapon.external[node].unit==owner and weapon.external[node].node==Unit.node(owner,link.source))
+          end
+          local n=calls.links;drain();assert(calls.links==n)
+        """)
+
+    def test_unsupported_mode_and_apply_error_return_launcher_to_native_links(self):
+        for expression in ("mode='unsupported'",
+                           "mod._apply_warlock_animation_blend=function() error('blend failure') end"):
+            with self.subTest(expression=expression):
+                lua = runtime()
+                lua.execute(f"""
+                  tick();assert(not mod.last_error,mod.last_error)
+                  {expression};tick()
+          for _,link in ipairs(semantic_links) do
+           local node=type(link.target)=='string' and Unit.node(weapon,link.target) or link.target
+           assert(weapon.external[node].unit==owner and weapon.external[node].node==Unit.node(owner,link.source))
+          end
+                """)
+
+    def test_missing_quaternion_normalize_uses_element_fallback(self):
+        lua = runtime()
+        lua.execute("""
+          local normalize=Quaternion.normalize;calls.fallbacks=0
+          Quaternion.to_elements=function(q) return q.x,q.y,q.z,q.w end
+          Quaternion.from_elements=function(x,y,z,w) calls.fallbacks=calls.fallbacks+1;return {x=x,y=y,z=z,w=w} end
+          Quaternion.normalize=nil;tick();Quaternion.normalize=normalize
+          assert(not mod.last_error,mod.last_error);assert(calls.fallbacks>=3)
+          assert(weapon_gap()<1e-8)
+        """)
 
 
 if __name__ == "__main__":

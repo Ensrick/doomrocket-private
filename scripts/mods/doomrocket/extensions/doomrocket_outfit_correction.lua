@@ -147,7 +147,7 @@ local function prepare_pose(entry, overrides)
 		return nil, "unsupported_hips_scale"
 	end
 	local unit_scale = a / entry.profile.native_bind_scale
-	local rigid_hip = Matrix4x4.copy(hip)
+	local rigid_hip = Matrix4x4.multiply(hip, Matrix4x4.identity())
 	Matrix4x4.set_x(rigid_hip, times(Matrix4x4.x(hip), 1 / a))
 	Matrix4x4.set_y(rigid_hip, times(Matrix4x4.y(hip), 1 / b))
 	Matrix4x4.set_z(rigid_hip, times(Matrix4x4.z(hip), 1 / c))
@@ -189,7 +189,7 @@ local function prepare_pose(entry, overrides)
 		end
 		-- Quaternion extraction receives a rigid frame. Preserve the positive
 		-- local scale through the setters rather than asking it to decompose scale.
-		local rotation_pose = Matrix4x4.copy(local_pose)
+		local rotation_pose = Matrix4x4.multiply(local_pose, Matrix4x4.identity())
 		Matrix4x4.set_x(rotation_pose, times(Matrix4x4.x(local_pose), 1 / x))
 		Matrix4x4.set_y(rotation_pose, times(Matrix4x4.y(local_pose), 1 / y))
 		Matrix4x4.set_z(rotation_pose, times(Matrix4x4.z(local_pose), 1 / z))

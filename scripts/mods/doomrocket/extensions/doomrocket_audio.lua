@@ -435,6 +435,21 @@ mod._stop_warlock_living_sounds = function(owner, reason)
 	stop_launch_sounds(owner, reason)
 end
 
+-- Unit-keyed records outlive the unit: weak keys do not release engine unit
+-- handles, and a destroyed handle may later name a new Engineer. Once its
+-- playing IDs are stopped at inventory destruction, forget the lifetime so a
+-- reused handle is not treated as a retired corpse or an already-dead voice.
+mod._forget_warlock_audio_owner = function(owner)
+	if not owner then
+		return
+	end
+	audio_state.retired_owners[owner] = nil
+	audio_state.owner_ids[owner] = nil
+	audio_state.death_voice_played[owner] = nil
+	audio_state.combat_voice_next_time[owner] = nil
+	audio_state.combat_voice_last_index[owner] = nil
+end
+
 local function update_pending_stops()
 	local now = Application.time_since_launch()
 	for id, entry in pairs(audio_state.pending_stops) do
