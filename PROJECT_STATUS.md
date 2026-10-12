@@ -1,14 +1,14 @@
 # Project status
 
-Updated 2026-10-11 UTC. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
+Updated 2026-10-12 UTC. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
 is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Warlock Engineer TEST v0.1.87-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-11 09:10:38 UTC (96,255,002 bytes; content handle `7979842450070969807`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.87-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/080278425ea2a90da17ae9febcb37039c884326a). |
+| Published experimental build | [Warlock Engineer TEST v0.1.88-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-12 00:46:21 UTC (96,252,675 bytes; content handle `5232463954926459657`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.88-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d9282f8799b7b53ad99e2cd48fcf164a2fadee29). |
 | Animator handoff | [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11_START_HERE.md), [complete ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip), and [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip.verify.json). Anonymous complete downloads verified 2026-10-11 09:15 UTC. |
-| Next TEST work | Six issues remain ready for solo checks; v0.1.87-dev retains the playable assets from verified v0.1.85-dev: hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range rocket clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), crystal flame resizing [#15](https://github.com/Ensrick/doomrocket-private/issues/15), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44). Full sound cues [#5](https://github.com/Ensrick/doomrocket-private/issues/5) remain blocked on Arnaud's new masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) remains blocked with `needs-info` on crash evidence. |
+| Next TEST work | Six issues remain ready for solo checks; v0.1.88-dev retains the playable assets from verified v0.1.85-dev: hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range rocket clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), crystal flame resizing [#15](https://github.com/Ensrick/doomrocket-private/issues/15), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44). Full sound cues [#5](https://github.com/Ensrick/doomrocket-private/issues/5) remain blocked on Arnaud's new masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) remains blocked with `needs-info` on crash evidence. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
@@ -17,8 +17,12 @@ is the live work queue; this page is a short re-entry map.
 
 The separate [Blender animation authoring guide](docs/ANIMATION_AUTHORING.md)
 covers Arnaud's local control rig, portable exporter, and isolated integration
-staging. Verified TEST v0.1.87-dev publishes the integration runtime and tooling
-reviewed in [PR #49](https://github.com/Ensrick/doomrocket-private/pull/49). The default playable
+staging. Verified TEST v0.1.87-dev published the integration runtime and tooling
+reviewed in [PR #49](https://github.com/Ensrick/doomrocket-private/pull/49).
+Verified TEST v0.1.88-dev ([PR #51](https://github.com/Ensrick/doomrocket-private/pull/51))
+fixes review findings on those paths: launcher relink after reset or error,
+sampler re-arm after a clock failure, VT2-only matrix/quaternion calls,
+audio record cleanup at despawn, and non-recursive rig-tool cleanup. The default playable
 package retains the shipping body, all thirteen original compiled animations,
 and all 138 tracks; no authored or localized profile is active. The localized
 coat/belt body, diagnostic clips, and generated artist handoff remain external
@@ -162,9 +166,10 @@ written observations and the matching console log establish what happened.
 No video, second player, or extra player coordination is required. See the
 [TEST quickstart](docs/TESTER_QUICKSTART.md).
 
-The verified `v0.1.87-dev` release tag remains bound to reviewed source commit
-`080278425ea2a90da17ae9febcb37039c884326a`; this later publication journal does not
-move it. The historical `v0.1.86-dev` tag remains at
+The verified `v0.1.88-dev` release tag is bound to reviewed source commit
+`d9282f8799b7b53ad99e2cd48fcf164a2fadee29`; this later publication journal does not
+move it. The historical `v0.1.87-dev` tag remains at
+`080278425ea2a90da17ae9febcb37039c884326a` and `v0.1.86-dev` at
 `d8bee540f134e7468d23b3582dd1d148cb88a356`.
 Workshop verification confirms delivery, not an in-game pass.
 
