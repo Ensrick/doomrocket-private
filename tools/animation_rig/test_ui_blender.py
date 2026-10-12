@@ -9,6 +9,7 @@ It never saves the supplied blend. Adjacent warlock_rig_ui.py is the only UI
 module loaded. Reports measured errors for all 138 shipping GAME bones.
 """
 import argparse
+from contextlib import contextmanager
 import hashlib
 import importlib.util
 import json
@@ -18,6 +19,19 @@ import tempfile
 
 import bpy
 from mathutils import Matrix
+
+
+@contextmanager
+def flat_scratch(prefix, directory=None):
+    """mkdtemp folder whose flat files are removed by explicit path; never rmtree."""
+    folder = Path(tempfile.mkdtemp(prefix=prefix, dir=directory))
+    try:
+        yield str(folder)
+    finally:
+        for entry in folder.iterdir():
+            if entry.is_file() and not entry.is_symlink():
+                entry.unlink()
+        folder.rmdir()
 
 
 class RigUITests:
@@ -274,7 +288,7 @@ class RigUITests:
         original_file = self.ui.__file__
         original_directory = self.rig.get("warlock_tools_directory")
         try:
-            with tempfile.TemporaryDirectory(prefix="warlock-ui-relocation-") as directory:
+            with flat_scratch("warlock-ui-relocation-") as directory:
                 relocated = Path(directory)
                 exporter = relocated / "export_animation.py"
                 # Path resolution only; this stub is never imported or run.

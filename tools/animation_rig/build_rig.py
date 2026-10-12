@@ -5,6 +5,7 @@ The separate Rigify mechanisms drive the exact imported shipping skeleton.
 """
 from __future__ import annotations
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import math
@@ -420,8 +421,18 @@ def build(options):
         'Roundtrip / SDK checks are separate from an in-game visual verdict.\n')
     bpy.context.preferences.filepaths.save_version=0
     path=out/'WarlockEngineer_AnimationRig.blend'
+    manifest_path=out/'rig_manifest.json'
+    # A rebuild into an existing handoff folder must not erase saved animation
+    # work: keep the previous rig and manifest under a timestamped .bak name.
+    stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    for previous in (path,manifest_path):
+        if previous.exists():
+            backup=previous.with_name(previous.name+'.bak.'+stamp)
+            if backup.exists(): raise FileExistsError(f'Backup already exists: {backup}')
+            previous.rename(backup)
+            print('WARLOCK_RIG_PREVIOUS_KEPT',backup)
     bpy.ops.wm.save_as_mainfile(filepath=str(path),check_existing=False,compress=True)
-    (out/'rig_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+    manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
     print('WARLOCK_RIG_BUILT',path)
 
 if __name__=='__main__':

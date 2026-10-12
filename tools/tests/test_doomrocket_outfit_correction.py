@@ -241,6 +241,14 @@ def helper_runtime():
 
 
 class OutfitCorrectionTests(unittest.TestCase):
+    def test_runtime_avoids_apis_absent_from_vt2_and_traps_corpse_callback_errors(self):
+        # Matrix4x4.copy appears only in Darktide's scripts, never in VT2's.
+        self.assertNotIn("Matrix4x4.copy", MODULE.read_text(encoding="utf-8"))
+        # Vanilla runs safe animation callbacks without an error trap.
+        hooks = (ROOT / "scripts/mods/doomrocket/utils/hooks.lua").read_text(encoding="utf-8")
+        self.assertIn("mod:pcall(mod._apply_warlock_outfit_correction, driver.owner, outfit_unit, true)", hooks)
+        self.assertNotIn("	mod._apply_warlock_outfit_correction(driver.owner", hooks)
+
     def test_pure_helper_accessories_resolve_uncommitted_grip_parent_candidates(self):
         lua = helper_runtime()
         lua.execute("""

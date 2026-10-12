@@ -6,6 +6,7 @@ evidence transparently; it does not claim another 850 million skin evaluations.
 """
 import argparse
 import ast
+from contextlib import contextmanager
 import hashlib
 import json
 from pathlib import Path
@@ -14,6 +15,19 @@ import tempfile
 
 import numpy as np
 import verify_runtime_outfit as r
+
+
+@contextmanager
+def flat_scratch(prefix, directory=None):
+    """mkdtemp folder whose flat files are removed by explicit path; never rmtree."""
+    folder = Path(tempfile.mkdtemp(prefix=prefix, dir=directory))
+    try:
+        yield str(folder)
+    finally:
+        for entry in folder.iterdir():
+            if entry.is_file() and not entry.is_symlink():
+                entry.unlink()
+        folder.rmdir()
 
 v=r.v
 
@@ -105,7 +119,7 @@ def run(args):
     # directory cannot race another worker's path-redirect traversal.
     captured_root=v.validate_probe(v.ROOT,v.ROOT/'.build/animator_rig/legacy_lua_worker_source')
     captured_root.mkdir(parents=True,exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='old_lua_',dir=captured_root) as temp:
+    with flat_scratch('old_lua_',captured_root) as temp:
         temp=Path(temp)
         for name,raw in old_source.items():(temp/name).write_bytes(raw)
         for clip,stem,path,owner_path in input_clips:

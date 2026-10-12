@@ -321,7 +321,7 @@ def _export_body(args, source_dirty_at_start=False):
             obj.select_set(True)
         bpy.context.view_layer.objects.active = rig
         bridge.seal_temporary_scene(scene)
-        with tempfile.TemporaryDirectory(prefix="warlock-body-", dir=output.parent) as temporary:
+        with bridge.scratch_directory("warlock-body-", output.parent) as temporary:
             temporary_fbx = Path(temporary) / output.name
             temporary_manifest = Path(temporary) / output.with_suffix(".body-export.json").name
             manifest["weight_only_operation"] = write_weight_only_candidate(
@@ -380,7 +380,9 @@ def _export_body(args, source_dirty_at_start=False):
 def export_body(args):
     if args.rig:
         bpy.ops.wm.open_mainfile(filepath=str(args.rig.resolve()), use_scripts=False)
-    source_dirty_at_start = bpy.data.is_dirty
+    # Blender marks a file opened headless as dirty before any edit, so a
+    # freshly opened --rig cannot carry unsaved changes.
+    source_dirty_at_start = False if args.rig else bpy.data.is_dirty
     with bridge.preserve_ui_state():
         return _export_body(args, source_dirty_at_start)
 

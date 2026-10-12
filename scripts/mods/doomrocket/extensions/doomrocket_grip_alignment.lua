@@ -150,6 +150,18 @@ local function weapon_links(profile)
 	return true
 end
 
+-- Quaternion.normalize is not used by any VT2 script, so it may be absent
+-- from this engine build; fall back to the element form VT2 does use.
+local function normalized(q)
+	if not Quaternion then return end
+	if Quaternion.normalize then return Quaternion.normalize(q) end
+	if not Quaternion.to_elements or not Quaternion.from_elements then return end
+	local x, y, z, w = Quaternion.to_elements(q)
+	local length = math.sqrt(x * x + y * y + z * z + w * w)
+	if not finite(length) or length < 0.000001 then return end
+	return Quaternion.from_elements(x / length, y / length, z / length, w / length)
+end
+
 local function positive_frame(pose)
 	if not Matrix4x4.is_valid(pose) then return false end
 	local x, y, z = Matrix4x4.x(pose), Matrix4x4.y(pose), Matrix4x4.z(pose)
@@ -191,8 +203,8 @@ local function follow_authored_weapon(owner, entry, channels)
 		local parent = Unit.world_pose(entry.outfit, source)
 		if not positive_frame(parent) then entry.status = "invalid_weapon_frame"; return end
 		local rotation = Unit.world_rotation(entry.outfit, source)
-		if not Quaternion or not Quaternion.normalize then entry.status = "invalid_weapon_rotation"; return end
-		rotation = Quaternion.normalize(rotation)
+		rotation = normalized(rotation)
+		if not rotation then entry.status = "invalid_weapon_rotation"; return end
 		local rigid = Matrix4x4.from_quaternion_position(rotation,
 			Unit.world_position(entry.outfit, source))
 		if not orthogonal(rigid) or not positive_frame(rigid) then
@@ -259,6 +271,17 @@ local function restore_native_weapon(owner, entry)
 	end
 	World.update_unit(entry.world, entry.weapon)
 	return true
+end
+
+-- Leaving authored ownership while the living carrier still wields the
+-- launcher must return it to the native carrier links. A bare unlink after
+-- a reset, an apply error or an invalid binding would leave it floating.
+-- Death keeps the plain unlink, which preserves placement for native drops.
+local function release_weapon(owner, entry)
+	if live(owner, entry.world) and HEALTH_ALIVE and HEALTH_ALIVE[owner] then
+		return restore_native_weapon(owner, entry)
+	end
+	return unlink_weapon(entry)
 end
 
 local function prepare_legacy(owner, entry)
@@ -372,6 +395,7 @@ local function apply(owner, entry)
 		follow_authored_weapon(owner, entry, channels)
 		return
 	elseif channels.upper_body ~= "legacy" then
+		restore_native_weapon(owner, entry)
 		entry.status = "unsupported_ownership"
 		return
 	end
@@ -442,7 +466,7 @@ function mod._resume_warlock_grip_alignment_item(owner, item)
 end
 
 function mod._reset_warlock_grip_alignment()
-	for _, entry in pairs(entries) do unlink_weapon(entry) end
+	for owner, entry in pairs(entries) do mod:pcall(release_weapon, owner, entry) end
 	entries, pending, epoch = {}, {}, epoch + 1
 end
 
@@ -468,13 +492,13 @@ function mod._queue_warlock_grip_alignment(world, dt)
 			if entry.world == world then
 				if valid(owner, entry) then
 					if not mod:pcall(apply, owner, entry) then
-						mod:pcall(unlink_weapon, entry)
+						mod:pcall(release_weapon, owner, entry)
 						entries[owner] = nil
 					elseif mod._apply_warlock_outfit_correction then
 						mod:pcall(mod._apply_warlock_outfit_correction, owner, entry.outfit, false)
 					end
 				else
-					mod:pcall(unlink_weapon, entry)
+					mod:pcall(release_weapon, owner, entry)
 					entries[owner] = nil
 				end
 			end

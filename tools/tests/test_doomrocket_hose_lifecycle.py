@@ -260,6 +260,7 @@ mod._note_warlock_grip_alignment_event=function() end
 mod._queue_warlock_grip_alignment=function() end
 -- Audio ownership/teardown is exercised by the dedicated audio lifecycle suite.
 mod._stop_warlock_living_sounds=function() end
+mod._forget_warlock_audio_owner=function() end
 mod._release_warlock_audio_world=function() end
 -- The crystal flame has its own executable lifecycle suite.
 mod._start_warlock_crystal_flame=function() end

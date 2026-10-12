@@ -138,6 +138,40 @@ def validate_output_path(output: Path, source_fbx: Path) -> None:
     require(resolved != source_fbx.resolve(), "Cannot overwrite the approved source FBX")
 
 
+def remove_flat_scratch(folder: Path) -> list[Path]:
+    """Remove a tool-created scratch folder without deleting a directory tree.
+
+    Project rule: tools never delete recursively. These scratch folders hold
+    only flat files, so each regular file is removed by its explicit path and
+    then the empty folder. Any other entry stays in place and is returned.
+    """
+    folder = Path(folder)
+    leftovers = []
+    for entry in sorted(folder.iterdir()):
+        if entry.is_file() and not entry.is_symlink():
+            entry.unlink()
+        else:
+            leftovers.append(entry)
+    if not leftovers:
+        folder.rmdir()
+    return leftovers
+
+
+@contextmanager
+def scratch_directory(prefix: str, directory: Path | None = None):
+    """A mkdtemp folder removed by remove_flat_scratch instead of rmtree."""
+    folder = Path(tempfile.mkdtemp(prefix=prefix, dir=directory))
+    try:
+        yield str(folder)
+    finally:
+        try:
+            leftovers = remove_flat_scratch(folder)
+        except OSError as error:
+            leftovers = [error]
+        if leftovers:
+            print(f"WARLOCK_SCRATCH_RETAINED {folder}: {leftovers}", file=sys.stderr)
+
+
 def publish_bundle(staged_files: list[tuple[Path, Path]]) -> None:
     """Publish a validated file set, restoring the previous set on failure.
 
@@ -196,7 +230,7 @@ def publish_bundle(staged_files: list[tuple[Path, Path]]) -> None:
             raise
     finally:
         if not retain_backups:
-            shutil.rmtree(folder)
+            remove_flat_scratch(folder)
 
 
 def run_publication_checks(directory: Path) -> list[dict]:
@@ -204,7 +238,7 @@ def run_publication_checks(directory: Path) -> list[dict]:
     from unittest.mock import patch
 
     checks = []
-    with tempfile.TemporaryDirectory(prefix="warlock-publish-test-", dir=directory) as folder:
+    with scratch_directory("warlock-publish-test-", directory) as folder:
         root = Path(folder)
         destinations = [root / "candidate.animation", root / "candidate.fbx",
                         root / "candidate.export.json"]
@@ -274,7 +308,7 @@ def run_publication_checks(directory: Path) -> list[dict]:
             backup.replace(destinations[0])
             require([path.read_bytes() for path in destinations] == originals,
                     "Retained recovery files cannot restore the previous bundle")
-            shutil.rmtree(recovery_folder)
+            require(not remove_flat_scratch(recovery_folder), "Recovery folder held a nested entry")
         else:
             raise ValueError("Compound publication/rollback failure mutation was not exercised")
         checks.append({"mutation": "publication and previous sidecar rollback both fail",
@@ -812,7 +846,7 @@ def _export_animation(args, source_dirty_at_start=False) -> dict:
     if occupied:
         occupied.name = "AUTHORING_RESERVED_EXPORT_IDENTITY"
     try:
-        with tempfile.TemporaryDirectory(prefix="warlock-animation-", dir=output.parent) as temporary:
+        with scratch_directory("warlock-animation-", output.parent) as temporary:
             temporary_fbx = Path(temporary) / output.name
             temporary_sidecar = Path(temporary) / output.with_suffix(".animation").name
             temporary_manifest = Path(temporary) / manifest_path.name
@@ -865,7 +899,9 @@ def _export_animation(args, source_dirty_at_start=False) -> dict:
 def export_animation(args) -> dict:
     if args.rig:
         bpy.ops.wm.open_mainfile(filepath=str(args.rig.resolve()), use_scripts=False)
-    source_dirty_at_start = bpy.data.is_dirty
+    # Blender marks a file opened headless as dirty before any edit, so a
+    # freshly opened --rig cannot carry unsaved changes.
+    source_dirty_at_start = False if args.rig else bpy.data.is_dirty
     with preserve_ui_state():
         return _export_animation(args, source_dirty_at_start)
 

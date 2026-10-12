@@ -256,7 +256,7 @@ generated blend remain external authoring assets and must not be committed.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$repoRoot = 'C:\Users\danjo\source\repos\doomrocket'
+$repoRoot = git rev-parse --show-toplevel # run inside the development checkout
 $blenderExe = 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
 $toolRoot = Join-Path $repoRoot 'tools\animation_rig'
 $authoringRoot = Join-Path $repoRoot '.build\animator_rig_rebuild' # choose a fresh directory
