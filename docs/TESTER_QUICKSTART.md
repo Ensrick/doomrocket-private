@@ -1,9 +1,14 @@
 # Development TEST quickstart
 
-**Warlock Engineer TEST v0.1.85-dev is published and verified.**
-Verification completed 2026-10-11 01:13 UTC; the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.85-dev)
-binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/95388a6a05298ebf2ef08caae7b181a01aab7ca4).
+**Warlock Engineer TEST v0.1.88-dev is published and verified.**
+Verification completed 2026-10-12 00:46 UTC; the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.88-dev)
+binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d9282f8799b7b53ad99e2cd48fcf164a2fadee29).
 Publication supplies the build for testing; it does not establish its in-game result.
+
+v0.1.89-dev is currently a source candidate awaiting publication: temporarily
+omit the gem flame, make approved custom sounds 30% quieter than v0.1.88-dev,
+and make a small hose rest-shape adjustment while retaining secondary physics.
+Use current status for the verified version; do not test unpublished changes.
 
 Use the verified [TEST Workshop build](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730)
 named in [current status](../PROJECT_STATUS.md) and the issue's latest test
@@ -23,7 +28,7 @@ The six current TEST checks are:
 
 - [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): firmer resting curve while retaining natural flex; visibility and physics are already accepted.
 - [#6 rocket clearance](https://github.com/Ensrick/doomrocket-private/issues/6): whether close shots clear the floor and reach the aimed point.
-- [#15 crystal flame](https://github.com/Ensrick/doomrocket-private/issues/15): whether the flame fits the crystal and changing its command values visibly changes size.
+- [#15 crystal flame](https://github.com/Ensrick/doomrocket-private/issues/15): the repeated size failure is accepted; the next candidate omits the effect. Do not repeat the ineffective size-command test. A suitable small replacement remains open.
 - [#28 launcher/hand alignment](https://github.com/Ensrick/doomrocket-private/issues/28): whether the weapon remains aligned during ordinary movement, aim and reload.
 - [#35 Dutch Spice arena](https://github.com/Ensrick/doomrocket-private/issues/35): whether Into the Nest arena Stormvermin waves spawn on Cataclysm.
 - [#44 lingering audio](https://github.com/Ensrick/doomrocket-private/issues/44): whether living-enemy sounds stop on death during ordinary play; the report is rare, so absence in a short session is not final proof.
@@ -42,7 +47,7 @@ Setup
 [ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
 [ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
 [ ] Enable the TEST item only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.85-dev in the matching new log.
+[ ] Confirm [doomrocket:LOAD] v0.1.88-dev in the matching new log.
 [ ] If the version differs, stop and report the mismatch.
 
 Test and report

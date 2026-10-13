@@ -1,16 +1,15 @@
 local mod = get_mod("doomrocket")
 
--- #15: a persistent warpfire flame on the crystal under the launcher barrel.
--- One linked effect per carried launcher at its measured crystal pose.
--- The native ground fire contains fixed-size billboard clouds:
--- its damage-blob variable does NOT scale the whole effect (Crunch's v84 report).
--- Use native VortexExtension's scaled attachment-pose pattern, and restart only
--- on a tuning change so particles emitted at the previous size do not linger. The dimensions
--- are approximate visual targets; native fire curves are not a solid bounding box.
+-- #15: temporarily omit the gem particle after Crunch's repeated size failure.
+-- Neither the damage-blob variable nor the scaled Vortex attachment pattern has
+-- produced an accepted small flame for this ground-fire effect. Keep its measured
+-- anchor and dormant lifecycle for a future reviewed replacement; no runtime
+-- command can enable this rejected visual on the stable candidate.
+local ENABLED = false
 local EFFECT = "fx/chr_warp_fire_flamethrower_remains_01"
 local DEFAULT_SIZE = { 0.06, 0.2 }
--- Native fire spawn cylinder radius is 0.6 m; vanilla's mature fire height target
--- is 1.2 m. These reference dimensions shrink every cloud, including its sparks.
+-- Reference dimensions of the dormant attachment-scale experiment. These do
+-- not establish rendered billboard dimensions or a working whole-effect scale.
 local REFERENCE_RADIUS, REFERENCE_HEIGHT = 0.6, 1.2
 local MIN_SIZE, MAX_SIZE = 0.01, 2
 local PACKAGE = "resource_packages/breeds/skaven_warpfire_thrower"
@@ -196,7 +195,7 @@ local function carried_launcher(owner, inventory, world)
 end
 
 mod._start_warlock_crystal_flame = function (owner, inventory)
-	if DEDICATED_SERVER or not owner or not Unit.alive(owner) then
+	if not ENABLED or DEDICATED_SERVER or not owner or not Unit.alive(owner) then
 		return false
 	end
 
@@ -260,6 +259,10 @@ mod._stop_warlock_crystal_flame_item = function (owner, item, reason)
 end
 
 mod._update_warlock_crystal_flame = function ()
+	if not ENABLED then
+		return
+	end
+
 	local stopped = {}
 
 	for owner, entry in pairs(state.entries) do
@@ -287,8 +290,12 @@ mod._reset_warlock_crystal_flame = function (reason)
 	release_package_if_safe()
 end
 
--- TEST tuning: resize every live flame on this peer and all later ones.
+-- Retained experiment; the shipping omission must not claim successful tuning.
 mod._set_warlock_crystal_flame_size = function (radius, height)
+	if not ENABLED then
+		return false, "disabled"
+	end
+
 	radius, height = tonumber(radius), tonumber(height)
 
 	if not radius or not height or radius ~= radius or height ~= height
@@ -328,9 +335,11 @@ mod._set_warlock_crystal_flame_size = function (radius, height)
 	return true, restarted
 end
 
-mod:command("warlock_crystal_flame", "TEST: approximate crystal flame radius/height in metres: /warlock_crystal_flame <radius> <height>", function (radius, height)
+mod:command("warlock_crystal_flame", "Crystal flame is temporarily disabled pending a working small effect", function (radius, height)
 	local valid, restarted = mod._set_warlock_crystal_flame_size(radius, height)
-	if valid then
+	if restarted == "disabled" then
+		mod:echo("Crystal flame is temporarily disabled: the previous effect did not respond visibly to size changes.")
+	elseif valid then
 		mod:echo(string.format("Crystal flame target: radius %.3f m, height %.3f m (%d live flames resized)", state.size[1], state.size[2], restarted))
 	else
 		mod:echo("Usage: /warlock_crystal_flame <radius> <height>   (current: %.3f %.3f)", state.size[1], state.size[2])

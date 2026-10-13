@@ -225,15 +225,38 @@ class ApprovedAudioGainTests(unittest.TestCase):
     def test_gain_is_symmetric_preserves_silence_and_cannot_clip(self):
         values = [-32768, -32767, -1000, -1, 0, 1, 1000, 32767]
         converted = struct.unpack("<8h", bank.playback_pcm(struct.pack("<8h", *values)))
-        self.assertEqual(converted, (-23167, -23166, -707, -1, 0, 1, 707, 23166))
+        self.assertEqual(converted, (-16217, -16216, -495, 0, 0, 0, 495, 16216))
         with self.assertRaises(ValueError):
             bank.playback_pcm(b"x")
+
+    def test_all_pcm_levels_are_thirty_percent_quieter_than_shipped_test(self):
+        values = range(-32768, 32768)
+        pcm = struct.pack("<65536h", *values)
+        rendered = struct.unpack("<65536h", bank.playback_pcm(pcm))
+        self.assertEqual(rendered[32768], 0)
+        for before, after in zip(values, rendered):
+            # Independent comparison to the previous bank's rounded 707/1000
+            # PCM, then the requested 0.70 multiplier. Composing on the master
+            # avoids intermediate rounding; the two paths differ by at most
+            # one 16-bit quantisation level.
+            previous = (abs(before) * 707 + 500) // 1000
+            reduced_previous = (previous * 7 + 5) // 10
+            self.assertLessEqual(abs(abs(after) - reduced_previous), 1)
+            self.assertLessEqual(abs(after), previous)
+            self.assertLessEqual(abs(after), 16217)
+            if after:
+                self.assertEqual(after < 0, before < 0)
 
     def test_reduced_gain_preserves_every_approved_source_and_sample_count(self):
         import json
         manifest = json.loads((ROOT / "wwise/doomrocket.bank_manifest.json").read_text())
         self.assertEqual(manifest["authoring"]["playback_gain"],
-                         {"numerator": 707, "denominator": 1000, "approximate_db": -3.01})
+                         {"numerator": 4949, "denominator": 10000, "approximate_db": -6.11})
+        self.assertEqual(manifest["authoring"]["playback_gain_adjustment"], {
+            "relative_to": "TEST v0.1.88-dev",
+            "previous_numerator": 707, "previous_denominator": 1000,
+            "numerator": 7, "denominator": 10, "additional_db": -3.10,
+        })
         for key, name in bank.CANONICAL_SOURCE_NAMES.items():
             source = ROOT / "audio_src/doomrocket" / name
             self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), bank.EXPECTED_SOURCE_HASHES[key])
@@ -264,7 +287,7 @@ class ApprovedAudioGainTests(unittest.TestCase):
             # Check actual packaged media with an independent rational-gain
             # calculation rather than trusting the manifest or renderer.
             for (before,), (after,) in zip(struct.iter_unpack("<h", source_pcm), struct.iter_unpack("<h", pcm)):
-                expected = (abs(before) * 707 + 500) // 1000
+                expected = (abs(before) * 4949 + 5000) // 10000
                 self.assertEqual(after, -expected if before < 0 else expected, key)
 
 

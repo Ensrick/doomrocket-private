@@ -1,6 +1,6 @@
 # Project status
 
-Updated 2026-10-12 UTC. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
+Updated 2026-10-13 UTC. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
 is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
@@ -8,12 +8,27 @@ is the live work queue; this page is a short re-entry map.
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Warlock Engineer TEST v0.1.88-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-12 00:46:21 UTC (96,252,675 bytes; content handle `5232463954926459657`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.88-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d9282f8799b7b53ad99e2cd48fcf164a2fadee29). |
 | Animator handoff | [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11_START_HERE.md), [complete ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip), and [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip.verify.json). Anonymous complete downloads verified 2026-10-11 09:15 UTC. |
-| Next TEST work | Six issues remain ready for solo checks; v0.1.88-dev retains the playable assets from verified v0.1.85-dev: hose rest shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range rocket clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), crystal flame resizing [#15](https://github.com/Ensrick/doomrocket-private/issues/15), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44). Full sound cues [#5](https://github.com/Ensrick/doomrocket-private/issues/5) remain blocked on Arnaud's new masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) remains blocked with `needs-info` on crash evidence. |
+| Next TEST work | v0.1.89-dev is a source candidate awaiting build and publication: slightly firmer hose [#3](https://github.com/Ensrick/doomrocket-private/issues/3), 30% less custom audio amplitude [#5](https://github.com/Ensrick/doomrocket-private/issues/5), and temporary gem-flame omission [#15](https://github.com/Ensrick/doomrocket-private/issues/15). The repeated flame-scaling failure is accepted; do not repeat its old size-command test. Near-range clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35) and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44) remain published candidates. Full sound cues #5 still need Arnaud's masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) still needs crash evidence. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current evidence and work
+
+Arnaud's October 13 feedback was relayed by the user: the latest patch is mostly
+stable, the gem particle still does not resize even at `.0001`, custom audio
+should be about 30% quieter, and the hose needs only a slight adjustment to its
+resting curve. GitHub reads did not find a newer Arnaud comment in either Warlock
+repository; the relayed written report is accepted as the current observation.
+The proposed public-alpha update remains a separate deliberate promotion.
+
+The v0.1.89-dev source candidate temporarily disables the gem particle while
+preserving the crystal and artist assets. It packages all twelve approved
+recordings at 70% of v0.1.88-dev's amplitude (0.4949 of the unchanged WAV masters).
+Hose stiffness changes from 200 to 240 s^-2, preserving all other physics
+parameters, endpoints and rig assets. Actual-Lua measurements show settled
+deflection decreasing from 58.55 to 49.01 mm while residual secondary motion
+remains 4.93 mm. These measurements do not establish the in-game appearance.
 
 The separate [Blender animation authoring guide](docs/ANIMATION_AUTHORING.md)
 covers Arnaud's local control rig, portable exporter, and isolated integration
@@ -122,9 +137,9 @@ changing its masters. New wind-up, flight and reload assets belong to Arnaud.
 
 v0.1.85 corrects measured rocket hull/initialization defects and quantized floor
 clearance (#6); current logs do not isolate the reported near-range shot, so a
-new solo verdict remains necessary. It also replaces ineffective flame-variable
-resizing (#15) with native attachment scale and immediate command comparisons.
-Source tests do not establish how either change looks in the game.
+new solo verdict remains necessary. Its native attachment-scale particle
+candidate (#15) still failed Arnaud's latest visual test. The v0.1.89-dev source
+candidate omits the effect; restoring a suitable small flame remains open.
 
 v0.1.80-dev stops the mod from re-running vanilla breed and pickup settings at
 load. That re-run had put back vanilla functions that Dutch Spice hooks, so its
