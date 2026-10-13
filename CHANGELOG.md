@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.89-dev - gem flame pause, quieter audio and a small hose adjustment
+
+Arnaud's October 13 feedback, relayed by the user, reports that gem particle
+size still does not respond even at very small values, asks for about 30% less
+sound volume, and requests a slight adjustment to the hose's resting curve.
+
+- **Gem flame (#15):** temporarily disable the oversized native particle.
+  Preserve the crystal, artist assets and dormant attachment implementation.
+  The command explains the temporary pause instead of claiming a visible resize.
+- **Audio (#5):** reduce every approved custom recording to 70% of its current
+  packaged amplitude, about 3.10 dB quieter than v0.1.88-dev. Preserve original
+  WAV masters, event identities, durations and spatial attenuation.
+- **Hose (#3):** increase the rest-shape spring from 200 to 240 s^-2. Keep gravity,
+  inertia, damping, endpoint tracking and segment-length constraints. Actual-Lua
+  measurements show 16.3% less settled deflection while retaining secondary motion.
+
+These are a TEST candidate for the proposed public-alpha promotion. Offline
+checks support the changes; the final appearance and loudness need an in-game
+verdict. The animator rig and original animation tracks are unchanged.
+
 ## v0.1.88-dev - review fixes for animation ownership, rig tools and audio
 
 The default Workshop build ships no authored clips or localized profile, so the

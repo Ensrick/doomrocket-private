@@ -23,6 +23,7 @@ import argparse
 import base64
 import hashlib
 import json
+import math
 import shutil
 import struct
 import wave
@@ -40,11 +41,16 @@ DB_SCALING = 2
 LOOP_PROPERTY_ID = 0x3A
 ATTENUATION_PROPERTY_ID = 0x46
 TRANSITION_TIME_PROPERTY_ID = 0x10
-# Crunch's October 9 loudness feedback: lower existing approved recordings by
-# approximately 3 dB at packaging time. Rational integer PCM scaling preserves
-# the masters and reproduces identically on every supported Python host.
-PLAYBACK_GAIN_NUMERATOR = 707
-PLAYBACK_GAIN_DENOMINATOR = 1000
+# Crunch's October 13 feedback: reduce the shipped TEST v0.1.88-dev recordings
+# by another 30% in amplitude. That build already applied 707/1000 to the
+# approved masters. Compose 7/10 with that gain and round PCM only once, so
+# repeated packaging never attenuates an already-rendered bank or edits a master.
+PREVIOUS_PLAYBACK_GAIN_NUMERATOR = 707
+PREVIOUS_PLAYBACK_GAIN_DENOMINATOR = 1000
+PLAYBACK_GAIN_ADJUSTMENT_NUMERATOR = 7
+PLAYBACK_GAIN_ADJUSTMENT_DENOMINATOR = 10
+PLAYBACK_GAIN_NUMERATOR = PREVIOUS_PLAYBACK_GAIN_NUMERATOR * PLAYBACK_GAIN_ADJUSTMENT_NUMERATOR
+PLAYBACK_GAIN_DENOMINATOR = PREVIOUS_PLAYBACK_GAIN_DENOMINATOR * PLAYBACK_GAIN_ADJUSTMENT_DENOMINATOR
 
 # Wwise 2018.1's generated Init bank establishes the standard VT2 custom-bank
 # project buses and output sink. This 1,552-byte product is byte-identical in
@@ -643,7 +649,19 @@ def build(source_dir: Path, repo_root: Path) -> dict[str, object]:
             "evidence": "byte-identical Wwise 2018.1 product in Pusfume and Loremasters' Armoury",
         },
         "authoring": {
-            "playback_gain": {"numerator": PLAYBACK_GAIN_NUMERATOR, "denominator": PLAYBACK_GAIN_DENOMINATOR, "approximate_db": -3.01},
+            "playback_gain": {
+                "numerator": PLAYBACK_GAIN_NUMERATOR,
+                "denominator": PLAYBACK_GAIN_DENOMINATOR,
+                "approximate_db": round(20 * math.log10(PLAYBACK_GAIN_NUMERATOR / PLAYBACK_GAIN_DENOMINATOR), 2),
+            },
+            "playback_gain_adjustment": {
+                "relative_to": "TEST v0.1.88-dev",
+                "previous_numerator": PREVIOUS_PLAYBACK_GAIN_NUMERATOR,
+                "previous_denominator": PREVIOUS_PLAYBACK_GAIN_DENOMINATOR,
+                "numerator": PLAYBACK_GAIN_ADJUSTMENT_NUMERATOR,
+                "denominator": PLAYBACK_GAIN_ADJUSTMENT_DENOMINATOR,
+                "additional_db": round(20 * math.log10(PLAYBACK_GAIN_ADJUSTMENT_NUMERATOR / PLAYBACK_GAIN_ADJUSTMENT_DENOMINATOR), 2),
+            },
             "positioning": "3D emitter-relative, position and orientation",
             "attenuation_m": {"backpack": 45, "launch": 120, "impact": 120, "voice": 60},
             "backpack_loop": "infinite (Sound property 0x3A = 0)",

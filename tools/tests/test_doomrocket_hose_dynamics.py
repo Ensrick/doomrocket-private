@@ -213,10 +213,10 @@ class HoseDynamicsTests(unittest.TestCase):
 
     def test_gravity_deflects_but_springs_preserve_semi_rigid_rest_shape(self):
         result = runtime().globals().static(-9.81, 8)
-        # The shape should settle visibly firmer than the original 11 cm sag,
-        # without becoming a rigid copy of the authored target.
-        self.assertGreater(result.final, .03)
-        self.assertLess(result.final, .07)
+        # The small rest-shape adjustment should reduce the previous 5.85 cm
+        # deflection without becoming a rigid copy of the authored target.
+        self.assertGreater(result.final, .045)
+        self.assertLess(result.final, .053)
         self.assertLess(result.speed, .001)
         self.assertLess(result.links, .02)
         self.assertEqual(result.resets, 1)

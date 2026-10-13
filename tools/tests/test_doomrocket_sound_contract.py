@@ -366,6 +366,30 @@ class DoomrocketWwiseProductsTests(unittest.TestCase):
                 "each Event must immediately follow the Action object(s) it references",
             )
 
+    def test_loudness_adjustment_preserves_shipped_event_graph_and_media_layout(self) -> None:
+        # Independently pinned from the shipped v0.1.88-dev source bank. Gain
+        # changes may replace PCM DATA only: IDs, infinite backpack loop, stop
+        # fade, emitter-relative positioning and attenuation remain byte-exact.
+        expected_sections = {
+            b"BKHD": "2bb752c1b3c9f1d7bea25f3c3a4c6391938548a5ace14a0291a80249dc0b35a3",
+            b"DIDX": "dd6e65689e9f0c6521a484d60671ee2180b5a0914eb9c0e145015b0bf83c0684",
+            b"HIRC": "41f688b1f3aa560ca310511e5c844e3475385d945f5f440550fbf918d553950b",
+        }
+        raw = BANK_PATH.read_bytes()[44:]
+        sections = {}
+        cursor = 0
+        while cursor < len(raw):
+            tag, size = struct.unpack_from("<4sI", raw, cursor)
+            body = raw[cursor + 8:cursor + 8 + size]
+            self.assertEqual(len(body), size)
+            self.assertNotIn(tag, sections)
+            sections[tag] = body
+            cursor += 8 + size
+        self.assertEqual(cursor, len(raw))
+        for tag, expected_hash in expected_sections.items():
+            with self.subTest(section=tag):
+                self.assertEqual(hashlib.sha256(sections[tag]).hexdigest(), expected_hash)
+
     def test_dependency_and_metadata_name_the_bank_and_all_events(self) -> None:
         required = (
             DEPENDENCY_PATH,
