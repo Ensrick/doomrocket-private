@@ -7,6 +7,14 @@ binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit
 ([PR #57](https://github.com/Ensrick/doomrocket-private/pull/57)).
 Publication supplies the build for testing; it does not establish its in-game result.
 
+v0.1.91-dev is being prepared and is not yet available on Workshop. It adds a
+small native pickup-torch candidate at the crystal and optimizes repeated
+skeleton checks in the separately staged authored-animation path. After verified
+publication, #15 needs a written verdict on visible size, colour, attachment and
+cleanup during ordinary play. Do not repeat the retired size-command experiment.
+The full authored integration in #53 still needs its staged profile and native
+runtime validation; normal default Workshop gameplay cannot exercise it.
+
 Published v0.1.90-dev includes the temporary gem-flame omission, 30% quieter
 custom sounds and small hose adjustment prepared for the unpublished
 v0.1.89-dev. It adds guarded aiming, bounded facing diagnostics and animation

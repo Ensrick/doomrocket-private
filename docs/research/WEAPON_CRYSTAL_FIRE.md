@@ -8,6 +8,27 @@ crystal and artist assets. His reference is a
 small flame close to the crystal. No reliable all-map replacement is established.
 The measurements and earlier candidates below retain their historical evidence.
 
+## v0.1.91-dev native small-torch candidate
+
+The source candidate uses the unchanged game effect
+`fx/wpnfx_torch_local_space_3p` and its native small initializer dimensions.
+It reuses the measured crystal frame and inverse scale-100 launcher compensation,
+without the rejected radius/height link-scale controls. The old size command is
+retired and cannot resize or reactivate the ground-fire effect.
+
+The controller acquires only its own `resource_packages/pickups` reference,
+checks native availability, and retains death, drop, reset and world-release
+cleanup. Startup and link failures must not access recycled emitter IDs or let
+an in-flight creation survive a reset. No native particle, texture or material
+payload is added to Git or overridden globally.
+
+`tools/check_crystal_flame_native_effect.py` and its metadata fixture reproduce
+the SHA-pinned dependency audit below; the rejection tests run in local and
+hosted QA. This proves the identified native dependency chain, not runtime
+residency, green colour or visible size. The TEST verdict remains whether the
+effect is small, suits the crystal, follows movement and disappears on death or
+drop. A written report is sufficient. This source candidate is not yet published.
+
 The 0.010 value shown by the old command was our Lua minimum clamp, not an
 established engine limit. The dormant scaled-link experiment reports its inputs
 and link scales without promising rendered dimensions or a successful resize.
@@ -164,10 +185,10 @@ reported visual failure and remains disabled in published TEST v0.1.90-dev. A re
 swap alone does not establish residency or an appropriately small visible flame.
 
 
-### Unactivated small pickup-torch option (read-only audit, 2026-10-13)
+### Native pickup-torch evidence (read-only audit, 2026-10-13)
 
-`fx/wpnfx_torch_local_space_3p` is a separate **unactivated prototype option**,
-not a flame fix in v0.1.90-dev. Its existing 1,253-byte payload has SHA-256
+`fx/wpnfx_torch_local_space_3p` was not active in v0.1.90-dev and is the new
+v0.1.91-dev source candidate. Its existing 1,253-byte payload has SHA-256
 `b09f353565dfcc9dbe51a55b23fe488275f142b1b5b36c749b5dbb95fe958cce`.
 The decoded resource has one billboard cloud, capacity 40, a `local_space`
 simulator and persistent lifetime. Its initial size-channel range is 0.10-0.20,

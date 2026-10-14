@@ -17,6 +17,29 @@ in-game pass.
 
 ## Current transition candidate
 
+The v0.1.91-dev source candidate reduces duplicate skeleton validation during a
+legacy-target blend. A callback-scoped token shares the read-side check between
+the grip and outfit builders; full validation remains at entry and before any
+helper pose write. Events, re-entry, failures and teardown invalidate the scope.
+Custom targets receive no legacy corrections. All original animation tracks,
+transition durations, scene updates and steady-state safety checks are retained.
+The 138-bone actual-Lua work probe measures 5,383 calls rather than 6,204 per
+active legacy frame (13.23% fewer); it measures neither native time nor memory
+allocation. The default playable manifest remains empty, so the existing staged
+diagnostic route is required to test custom/native transitions. The earlier
+measurements below retain their original source and version scope.
+
+Fresh v0.1.91 production-Lua validation uses the current compositor, grip and
+outfit modules with the newly staged manifest against thirteen historical
+decoded SDK specimens. All 3,276 ordinary/interrupted poses pass: 452,088 bone
+and 115,675,560 weighted-vertex comparisons, with maximum skin error 5.448
+micrometres against a 2 mm bound. The 234 pure-authored zero-write checks and
+1,638 authored-helper checks also pass. The ignored report
+`.build/animator_rig/snapshot_blend_numeric_v91.json` has SHA-256
+`100685cdf64cdfbd90dc7baa23bec8206515c83af0c498fcadc5bb4afcdbd8bd`.
+This is fresh evaluation by the current Lua, with zero new native-game captures;
+it does not reclassify the historical decoded inputs as current engine evidence.
+
 v0.1.87-dev replaces immediate mixed cuts with the `snapshot-blend-v1` bridge
 described below. The final compositor passes 36 executable Lua regressions;
 the ownership controller passes 68, with an independent runtime safety review.

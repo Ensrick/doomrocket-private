@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
-"""Issue #15: the rejected gem particle is temporarily disabled in production.
+"""Issue #15 native small pickup-torch controller, executed in real Lua 5.1.
 
-Default-path tests execute the exact shipping controller and prohibit native
-particle/package access. The retained candidate tests explicitly enable a test
-copy of the dormant controller to preserve its lifetime coverage for future work;
-their scale assertions describe API doubles, not the native rendered billboard.
-
-Executes the production controller in Lua 5.1 against strict engine lifetime
-doubles (the backpack smoke suite's boundary): handle and package ownership,
-start/stop/drop/death/world-release ordering. A deleted launcher recycles its
-linked emitter's ID, so cleanup must not reclaim that recycled handle. The anchor is checked against the
-measured fixture and, when bundleV2 exists, regenerated from the compiled
-launcher node. None of this proves how the flame looks in game.
+Strict particle/package/world doubles cover exact ownership, compensated anchor,
+retired size commands, resource and creation failure, reload and teardown. The
+native resource and its direct dependency closure have a separate pinned audit;
+these tests do not establish rendered size, color, or in-game acceptance.
 """
 
 import json
@@ -35,7 +28,8 @@ BUNDLE_ROOT = ROOT / "bundleV2"
 
 HARNESS = r"""
 events={created=0,linked=0,destroyed=0,queried=0,loads=0,unloads=0,nodes=0}
-function printf() end
+logs={}
+function printf(format,...) logs[#logs+1]=string.format(format,...) end
 local function v(x,y,z) return {x=x,y=y,z=z} end
 Vector3=setmetatable({length=function(a) return math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z) end},
  {__call=function(_,x,y,z) return v(x,y,z) end})
@@ -93,13 +87,16 @@ end}
 wm={_worlds={level_world=world},_disabled_worlds={}}
 function wm:has_world(name) return self._worlds[name] ~= nil end
 function wm:world(name) assert(self._worlds[name]); return self._worlds[name] end
-package_name='resource_packages/breeds/skaven_warpfire_thrower'
+package_name='resource_packages/pickups'
+legacy_package='resource_packages/breeds/skaven_warpfire_thrower'
+legacy_owned=false
 package_reference='doomrocket_crystal_flame'
-effect_name='fx/chr_warp_fire_flamethrower_remains_01'
+effect_name='fx/wpnfx_torch_local_space_3p'
 package_available=true; particles_available=true; loaded=true
 refs={global=3}
 pm={}
 function pm:has_loaded(name,reference)
+ if name==legacy_package then return legacy_owned end
  assert(name==package_name)
  return loaded and (not reference or refs[reference] ~= nil)
 end
@@ -109,6 +106,10 @@ function pm:load(name,reference,callback,asynchronous)
  refs[reference]=(refs[reference] or 0)+1; loaded=true; events.loads=events.loads+1
 end
 function pm:unload(name,reference)
+ if name==legacy_package then
+  assert(reference==package_reference and legacy_owned)
+  legacy_owned=false; events.legacy_unloads=(events.legacy_unloads or 0)+1; return
+ end
  assert(name==package_name and reference==package_reference)
  assert(refs[reference] and refs[reference] > 0,'unowned package decrement')
  refs[reference]=refs[reference]-1
@@ -150,10 +151,10 @@ World={
   effects[id]=nil; events.destroyed=events.destroyed+1
  end,
  find_particles_variable=function(w,name,variable)
-  error('a ground-fire variable does not size every cloud')
+  error('native small torch must not use the rejected variable-size experiment')
  end,
  set_particles_variable=function(w,id,variable,value)
-  error('a ground-fire variable does not size every cloud')
+  error('native small torch must not use the rejected variable-size experiment')
  end,
 }
 mod={commands={},echoes={}}
@@ -178,64 +179,51 @@ function start(o,inv) return mod._start_warlock_crystal_flame(o or owner,inv or 
 """
 
 
-def runtime(*, experimental=False):
+def runtime():
     lua = LuaRuntime(unpack_returned_tuples=True)
     lua.execute(HARNESS)
     lua.execute("mod._doomrocket_crystal_anchor = (function()\n"
                 + ANCHOR.read_text(encoding="utf-8") + "\nend)()")
-    source = MODULE.read_text(encoding="utf-8")
-    if experimental:
-        # No runtime opt-in is exposed by production. Only this in-memory test
-        # copy can exercise the retained candidate's attachment/lifetime code.
-        assert source.count("local ENABLED = false") == 1
-        source = source.replace("local ENABLED = false", "local ENABLED = true", 1)
-    lua.execute(source)
+    lua.execute(MODULE.read_text(encoding="utf-8"))
     return lua
 
 
-class CrystalFlameDisabledTests(unittest.TestCase):
-    def test_spawn_tuning_and_all_lifecycle_boundaries_skip_native_apis(self):
+class CrystalFlameInitializationTests(unittest.TestCase):
+    def test_dedicated_server_never_touches_native_resources(self):
         lua = runtime()
         lua.execute("""
-            local function forbidden() error('disabled gem effect touched native API') end
-            -- Even unit/world validation and package residency are unnecessary
-            -- while this effect is omitted. Catch accidental early native work.
+            DEDICATED_SERVER=true
+            local function forbidden() error('dedicated server touched native API') end
             Unit=setmetatable({}, {__index=function() return forbidden end})
             World=setmetatable({}, {__index=function() return forbidden end})
             Application=setmetatable({}, {__index=function() return forbidden end})
             Managers=setmetatable({}, {__index=function() return forbidden end})
-            for i=1,3 do
-                assert(not start())
-                mod._update_warlock_crystal_flame()
-                assert(not mod._stop_warlock_crystal_flame(owner,'death'))
-                assert(not mod._stop_warlock_crystal_flame_item(owner,weapon,'drop'))
-                mod._release_warlock_crystal_flame_world(world)
-                mod._reset_warlock_crystal_flame('reset')
-                local valid,reason=mod._set_warlock_crystal_flame_size(0.0001,0.0001)
-                assert(not valid and reason=='disabled')
-            end
-            assert(count()==0 and refs.global==3 and not refs[package_reference])
-            for key,value in pairs(events) do assert(value==0,key) end
+            assert(not start())
+            assert(events.created==0 and events.loads==0)
         """)
 
-    def test_tuning_command_reports_disabled_without_changing_size(self):
+    def test_retired_tuning_is_a_no_op_before_and_after_spawn(self):
         lua = runtime()
         lua.execute("""
-            local size=mod._doomrocket_crystal_flame_state.size
-            for _,args in ipairs({{0.0001,0.0001},{0.1,0.35},{'big'}, {}}) do
-                mod.commands.warlock_crystal_flame(unpack(args))
-                local message=mod.echoes[#mod.echoes]
-                assert(message:find('temporarily disabled',1,true))
-                assert(not message:find('resized',1,true))
-                assert(message:find("our command's clamp; it did not establish an engine limit",1,true))
-                assert(size[1]==0.06 and size[2]==0.2)
+            assert(mod._doomrocket_crystal_flame_state.size==nil)
+            for phase=1,2 do
+                for _,args in ipairs({{0.0001,0.0001},{0.1,0.35},{'big'}, {}}) do
+                    local valid,reason=mod._set_warlock_crystal_flame_size(unpack(args))
+                    assert(not valid and reason=='native_effect')
+                    mod.commands.warlock_crystal_flame(unpack(args))
+                    local message=mod.echoes[#mod.echoes]
+                    assert(message:find('Numeric size tuning is retired',1,true))
+                    assert(message:find('colour and rendered appearance await',1,true))
+                    assert(not message:find('resized',1,true))
+                end
+                assert(events.created==phase-1 and events.destroyed==0)
+                if phase==1 then assert(start()) end
             end
-            assert(events.created==0 and events.loads==0)
-            assert(not start())
+            assert(events.created==1 and events.loads==1)
         """)
 
-    def test_reload_disposes_old_owned_flame_and_prevents_future_spawns(self):
-        lua = runtime(experimental=True)
+    def test_reload_disposes_owned_flame_and_can_spawn_new_candidate(self):
+        lua = runtime()
         lua.execute("assert(start())")
         lua.execute(MODULE.read_text(encoding="utf-8"))
         lua.execute("""
@@ -243,15 +231,14 @@ class CrystalFlameDisabledTests(unittest.TestCase):
             assert(count()==0 and not refs[package_reference] and refs.global==3)
             assert(not next(mod._doomrocket_crystal_flame_state.entries))
             assert(not next(mod._doomrocket_crystal_flame_state.weapons))
-            assert(not start())
-            mod.commands.warlock_crystal_flame(0.1,0.35)
-            mod._update_warlock_crystal_flame()
+            assert(start())
+            assert(events.created==2 and events.loads==2)
             mod._reset_warlock_crystal_flame('second_reset')
-            assert(events.created==1 and events.destroyed==1 and events.unloads==1)
+            assert(events.destroyed==2 and events.unloads==2 and refs.global==3)
         """)
 
     def test_reload_never_reclaims_native_deleted_launchers_recycled_id(self):
-        lua = runtime(experimental=True)
+        lua = runtime()
         lua.execute("assert(start()); delete_weapon()")
         lua.execute(MODULE.read_text(encoding="utf-8"))
         lua.execute("""
@@ -264,44 +251,69 @@ class CrystalFlameDisabledTests(unittest.TestCase):
         """)
 
     def test_reload_during_world_release_leaves_teardown_to_the_engine(self):
-        lua = runtime(experimental=True)
-        lua.execute("""
-            assert(start())
-            mod._release_warlock_crystal_flame_world(world)
-        """)
+        lua = runtime()
+        lua.execute("assert(start()); mod._release_warlock_crystal_flame_world(world)")
         lua.execute(MODULE.read_text(encoding="utf-8"))
         lua.execute("""
             assert(events.destroyed==0 and events.queried==0 and events.unloads==0)
             assert(not start())
-            -- Only release this module's package reference after the world is
-            -- gone; never touch its formerly linked particle ID during teardown.
             world.alive=false; wm._worlds.level_world=nil
             mod._reset_warlock_crystal_flame('after_world_release')
             assert(events.destroyed==0 and events.queried==0 and events.unloads==1)
             assert(refs.global==3 and not refs[package_reference])
         """)
 
+    def test_legacy_package_and_old_size_state_migrate_without_wrong_unload(self):
+        lua = runtime()
+        lua.execute("""
+            local s=mod._doomrocket_crystal_flame_state
+            s.owns_package=true; s.package_manager=pm; legacy_owned=true
+            s.size={0.01,2}; s.unknown_worlds[world]=true
+            mod._reset_warlock_crystal_flame=function(reason)
+                assert(reason=='module_reload'); old_reset_called=true
+            end
+        """)
+        lua.execute(MODULE.read_text(encoding="utf-8"))
+        lua.execute("""
+            local s=mod._doomrocket_crystal_flame_state
+            assert(old_reset_called and s.size==nil and s.package_manager==nil)
+            assert(s.packages[legacy_package]==pm and legacy_owned)
+            assert(not start() and events.loads==0 and events.unloads==0)
+            mod._release_warlock_crystal_flame_world(world)
+            assert(legacy_owned and events.unloads==0)
+            world.alive=false; wm._worlds.level_world=nil
+            mod._reset_warlock_crystal_flame('after_legacy_world_release')
+            assert(not legacy_owned and events.legacy_unloads==1 and refs.global==3)
+            world={alive=true}; wm._worlds.level_world=world
+            owner=new_owner(); weapon=new_weapon(); inventory=new_inventory()
+            assert(start())
+            assert(events.loads==1 and refs[package_reference]==1)
+            mod._reset_warlock_crystal_flame('current_reset')
+            assert(events.unloads==1 and events.legacy_unloads==1 and refs.global==3)
+        """)
+
 
 class CrystalFlameLifecycleTests(unittest.TestCase):
-    def test_start_links_one_scaled_flame_at_the_anchor_and_is_idempotent(self):
-        lua = runtime(experimental=True)
+    def test_start_links_one_native_flame_with_only_inverse_node_compensation(self):
+        lua = runtime()
         lua.execute("""
             assert(start()); assert(start())
             assert(events.created==1 and events.linked==1 and events.loads==1)
             local a, p = mod._doomrocket_crystal_anchor, events.last_pose
-            -- Effect +Z rises along the crystal's mount-to-tip axis (anchor +X).
             local function close(a,b) return math.abs(a-b)<1e-12 end
-            assert(close(p.z.x,a.x_axis[1]*(0.2/1.2)) and close(p.z.y,a.x_axis[2]*(0.2/1.2)))
-            assert(close(p.x.x,a.y_axis[1]*(0.06/0.6)) and close(p.y.x,a.z_axis[1]*(0.06/0.6)))
+            assert(close(p.z.x,a.x_axis[1]) and close(p.z.y,a.x_axis[2]))
+            assert(close(p.x.x,a.y_axis[1]) and close(p.y.x,a.z_axis[1]))
             assert(p.p.x==a.position[1] and p.p.y==a.position[2] and p.p.z==a.position[3])
             local global=particles_pose(1)
             local scale=Matrix4x4.scale(global)
-            assert(close(scale.x,0.06/0.6) and close(scale.y,0.06/0.6) and close(scale.z,0.2/1.2))
+            assert(close(scale.x,1) and close(scale.y,1) and close(scale.z,1))
             assert(global.p.x==10+a.position[1]*100 and global.p.y==20+a.position[2]*100 and global.p.z==30+a.position[3]*100)
+            assert(logs[#logs]:find('profile=native_small_pickup_torch',1,true))
+            assert(logs[#logs]:find('colour=unverified rendered_size=unverified',1,true))
         """)
 
     def test_stop_destroys_its_own_flame_and_releases_the_package_on_reset(self):
-        lua = runtime(experimental=True)
+        lua = runtime()
         lua.execute("""
             assert(start())
             assert(mod._stop_warlock_crystal_flame(owner,'test'))
@@ -311,8 +323,8 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             assert(events.unloads==1 and refs[package_reference]==nil and refs.global==3)
         """)
 
-    def test_dropping_or_disabling_the_launcher_stops_only_that_flame(self):
-        lua = runtime(experimental=True)
+    def test_dropping_or_disabling_launcher_stops_only_its_flame(self):
+        lua = runtime()
         lua.execute("""
             assert(start())
             assert(not mod._stop_warlock_crystal_flame_item(owner,{alive=true},'other_item'))
@@ -321,50 +333,66 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             assert(events.destroyed==1 and count()==0)
         """)
 
-    def test_deleted_launcher_is_forgotten_without_touching_a_recycled_id(self):
-        lua = runtime(experimental=True)
+    def test_deleted_launcher_is_forgotten_without_touching_recycled_id(self):
+        lua = runtime()
         lua.execute("""
-            assert(start())
-            delete_weapon()
+            assert(start()); delete_weapon()
             mod._update_warlock_crystal_flame()
             assert(events.destroyed==0 and events.queried==0)
             assert(not mod._stop_warlock_crystal_flame(owner,'late'))
         """)
 
-    def test_world_release_forgets_without_particle_calls(self):
-        lua = runtime(experimental=True)
+    def test_world_release_forgets_without_particle_or_package_calls(self):
+        lua = runtime()
         lua.execute("""
-            assert(start())
-            mod._release_warlock_crystal_flame_world(world)
-            assert(events.destroyed==0 and events.queried==0)
-            assert(not start(), 'no new flame while the old world is releasing')
+            assert(start()); mod._release_warlock_crystal_flame_world(world)
+            assert(events.destroyed==0 and events.queried==0 and events.unloads==0)
+            assert(not start(), 'no spawning while the old world releases')
             world.alive=false; wm._worlds.level_world=nil
+            mod._reset_warlock_crystal_flame('after_release')
+            assert(events.unloads==1)
             world={alive=true}; wm._worlds.level_world=world
-            owner=new_owner(); weapon=new_weapon(); inventory=new_inventory(owner,weapon)
+            owner=new_owner(); weapon=new_weapon(); inventory=new_inventory()
             assert(start())
         """)
 
-    def test_no_flame_without_a_carried_launcher_or_on_dedicated_servers(self):
-        lua = runtime(experimental=True)
+    def test_paused_disabled_world_retains_existing_ownership_without_duplication(self):
+        lua = runtime()
         lua.execute("""
-            weapon.item.dropped=true
-            assert(not start())
+            assert(start())
+            wm._worlds.level_world=nil; wm._disabled_worlds.level_world=world
+            mod._update_warlock_crystal_flame()
+            assert(events.destroyed==0 and events.queried==0)
+            assert(not start() and events.created==1)
+            mod._reset_warlock_crystal_flame('disabled_world_reset')
+            assert(events.destroyed==1 and events.unloads==1 and refs.global==3)
+        """)
+
+    def test_no_flame_without_carried_launcher(self):
+        lua = runtime()
+        lua.execute("""
+            weapon.item.dropped=true; assert(not start())
             weapon.item.dropped=false
             assert(not start(owner,{unit=new_owner(),inventory_item_units={weapon}}))
-            weapon.has_node=false
-            assert(not start())
-            weapon.has_node=true
-            particles_available=false
-            assert(not start())
-            particles_available=true
-            DEDICATED_SERVER=true
-            assert(not start())
-            DEDICATED_SERVER=nil
-            assert(start() and events.created==1)
+            weapon.has_node=false; assert(not start())
+            weapon.has_node=true; assert(start() and events.created==1)
         """)
 
-    def test_replaced_launcher_moves_the_flame(self):
-        lua = runtime(experimental=True)
+    def test_invalid_anchor_never_reaches_native_node_lookup(self):
+        for anchor in ("{}", "{node='wrong'}", "{node='pRocketLauncher',x_axis={0,0,0},y_axis={0,0.01,0},z_axis={0,0,0.01},position={0,0,0}}",
+                       "{node='pRocketLauncher',x_axis={0.01,0,0},y_axis={0,0.01,0},z_axis={0,0,-0.01},position={0,0,0}}",
+                       "{node='pRocketLauncher',x_axis={math.huge,0,0},y_axis={0,0.01,0},z_axis={0,0,0.01},position={0,0,0}}"):
+            with self.subTest(anchor=anchor):
+                lua = runtime()
+                lua.execute("mod._doomrocket_crystal_anchor=" + anchor)
+                lua.execute("""
+                    Unit.has_node=function() error('bad anchor reached native node lookup') end
+                    assert(not start())
+                    assert(events.loads==0 and events.created==0 and events.nodes==0)
+                """)
+
+    def test_replaced_launcher_moves_flame(self):
+        lua = runtime()
         lua.execute("""
             assert(start())
             local replacement=new_weapon()
@@ -372,84 +400,240 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             assert(events.created==2 and events.destroyed==1 and count()==1)
         """)
 
-    def test_native_link_follows_rotated_translated_scale100_launcher_without_respawning(self):
-        lua = runtime(experimental=True)
+    def test_other_engineers_do_not_share_or_reclaim_handles(self):
+        lua = runtime()
+        lua.execute("""
+            assert(start())
+            local other_owner,other_weapon=new_owner(),new_weapon()
+            assert(not start(other_owner,new_inventory(other_owner,weapon)))
+            assert(start(other_owner,new_inventory(other_owner,other_weapon)))
+            assert(events.created==2 and count()==2 and events.loads==1)
+            assert(mod._stop_warlock_crystal_flame(owner,'death'))
+            assert(events.destroyed==1 and count()==1)
+            mod._reset_warlock_crystal_flame('reset_all')
+            assert(events.destroyed==2 and events.unloads==1 and refs.global==3)
+        """)
+
+    def test_link_follows_rotated_translated_scale100_launcher_without_respawning(self):
+        lua = runtime()
         lua.execute("""
             assert(start())
             weapon.pose={x=Vector3(0,100,0),y=Vector3(-100,0,0),z=Vector3(0,0,100),p=Vector3(50,60,70)}
             mod._update_warlock_crystal_flame()
             local pose,a=particles_pose(events.latest_id),mod._doomrocket_crystal_anchor
-            assert(events.created==1 and events.linked==1, 'pose changes never respawn or relink')
+            assert(events.created==1 and events.linked==1)
             assert(pose.p.x==50-a.position[2]*100 and pose.p.y==60+a.position[1]*100)
-            assert(math.abs(pose.z.x+a.x_axis[2]*100*(0.2/1.2))<1e-12)
-            assert(math.abs(pose.z.y-a.x_axis[1]*100*(0.2/1.2))<1e-12)
+            assert(math.abs(pose.z.x+a.x_axis[2]*100)<1e-12)
+            assert(math.abs(pose.z.y-a.x_axis[1]*100)<1e-12)
             local scale=Matrix4x4.scale(pose)
-            assert(math.abs(scale.x-0.06/0.6)<1e-12 and math.abs(scale.z-0.2/1.2)<1e-12)
+            assert(math.abs(scale.x-1)<1e-12 and math.abs(scale.z-1)<1e-12)
             mod._release_warlock_crystal_flame_world(world)
             world.alive=false; wm._worlds.level_world=nil
             mod._update_warlock_crystal_flame()
-            assert(events.queried==0, 'released worlds must not be accessed')
+            assert(events.queried==0)
         """)
 
 
-class CrystalFlameTuningTests(unittest.TestCase):
-    def test_resize_command_updates_live_flames_and_later_ones(self):
-        lua = runtime(experimental=True)
+class CrystalFlameFailureTests(unittest.TestCase):
+    def test_missing_package_and_effect_skip_spawn_and_release_only_own_reference(self):
+        lua = runtime()
         lua.execute("""
-            assert(start())
-            mod.commands.warlock_crystal_flame('0.1', '0.35')
-            local scale=Matrix4x4.scale(particles_pose(events.latest_id))
-            assert(math.abs(scale.x-0.1/0.6)<1e-12 and math.abs(scale.z-0.35/1.2)<1e-12)
-            assert(events.created==2 and events.destroyed==1 and count()==1)
-            assert(mod.echoes[#mod.echoes]:find('radius 0.100', 1, true))
-            assert(mod.echoes[#mod.echoes]:find('Rendered size is unverified', 1, true))
-            assert(mod.echoes[#mod.echoes]:find('live emitters recreated', 1, true))
-            assert(not mod.echoes[#mod.echoes]:find(' m,', 1, true))
-            mod._stop_warlock_crystal_flame(owner,'test')
-            owner=new_owner(); weapon=new_weapon(); inventory=new_inventory(owner,weapon)
-            assert(start())
-            local latest=Matrix4x4.scale(particles_pose(events.latest_id))
-            assert(math.abs(latest.x-0.1/0.6)<1e-12 and math.abs(latest.z-0.35/1.2)<1e-12)
+            package_available=false
+            assert(not start() and events.loads==0 and events.created==0)
+            package_available=true; particles_available=false
+            assert(not start() and events.loads==1 and events.unloads==1)
+            assert(not refs[package_reference] and refs.global==3 and count()==0)
+            particles_available=true
+            assert(start() and events.created==1 and events.loads==2)
         """)
 
-    def test_bad_or_extreme_sizes_are_rejected_or_clamped(self):
-        lua = runtime(experimental=True)
+    def test_unloaded_package_after_sync_load_skips_particle_access(self):
+        lua = runtime()
         lua.execute("""
-            assert(start())
-            mod.commands.warlock_crystal_flame('big')
-            assert(events.created==1, 'non-numbers leave the size alone')
-            assert(mod.echoes[#mod.echoes]:find('Usage', 1, true))
-            mod.commands.warlock_crystal_flame('-1', '50')
-            local scale=Matrix4x4.scale(particles_pose(events.latest_id))
-            assert(math.abs(scale.x-0.01/0.6)<1e-12 and math.abs(scale.z-2/1.2)<1e-12)
-            assert(mod.echoes[#mod.echoes]:find('inputs are clamped by this mod to 0.010-2.000', 1, true))
-            local before=events.created
-            assert(not mod._set_warlock_crystal_flame_size(math.huge,0.2))
-            assert(not mod._set_warlock_crystal_flame_size(0.1,-math.huge))
-            assert(events.created==before)
+            pm.load=function() events.loads=events.loads+1 end
+            assert(not start())
+            assert(events.loads==1 and events.created==0 and events.unloads==0)
+            assert(not next(mod._doomrocket_crystal_flame_state.packages))
         """)
 
-    def test_resize_skips_flames_in_a_releasing_world(self):
-        lua = runtime(experimental=True)
+    def test_load_error_after_acquiring_reference_does_not_escape_or_leak(self):
+        lua = runtime()
         lua.execute("""
-            assert(start())
+            local load=pm.load
+            pm.load=function(...) load(...); error('load failed after reference acquired') end
+            assert(not start())
+            assert(events.loads==1 and events.unloads==1 and events.created==0)
+            assert(not refs[package_reference] and refs.global==3)
+        """)
+
+    def test_creation_error_or_invalid_handle_cannot_link_or_claim_owner(self):
+        for failure in ("return nil", "error('native create failed')", "return -1", "return 0/0", "return math.huge", "return 0.5"):
+            with self.subTest(failure=failure):
+                lua = runtime()
+                lua.execute("World.create_particles=function() " + failure + " end")
+                lua.execute("""
+                    assert(not start())
+                    assert(events.linked==0 and events.created==0 and events.unloads==0)
+                    assert(not next(mod._doomrocket_crystal_flame_state.entries))
+                    assert(not next(mod._doomrocket_crystal_flame_state.weapons))
+                    assert(not next(mod._doomrocket_crystal_flame_state.creating_worlds))
+                    assert(not next(mod._doomrocket_crystal_flame_state.pending_owners))
+                    assert(not next(mod._doomrocket_crystal_flame_state.pending_weapons))
+                    assert(mod._doomrocket_crystal_flame_state.unknown_worlds[world])
+                    assert(refs[package_reference]==1 and refs.global==3)
+                    mod._release_warlock_crystal_flame_world(world)
+                    world.alive=false; wm._worlds.level_world=nil
+                    mod._reset_warlock_crystal_flame('uncertain_creation_world_gone')
+                    assert(events.unloads==1 and events.queried==0 and events.destroyed==0)
+                    assert(not refs[package_reference] and refs.global==3)
+                """)
+
+    def test_create_then_error_defers_unknown_emitter_and_package_to_world_release(self):
+        lua = runtime()
+        lua.execute("""
+            local create=World.create_particles
+            World.create_particles=function(...)
+                create(...); error('wrapper failed after allocating')
+            end
+            assert(not start())
+            assert(events.created==1 and events.linked==0 and events.queried==0 and events.destroyed==0)
+            assert(events.unloads==0 and refs[package_reference]==1)
+            assert(mod._doomrocket_crystal_flame_state.unknown_worlds[world])
+            assert(not next(mod._doomrocket_crystal_flame_state.pending_owners))
+            assert(not start() and events.created==1)
             mod._release_warlock_crystal_flame_world(world)
-            local before = events.created
-            assert(mod._set_warlock_crystal_flame_size(0.2, 0.2))
-            assert(events.created==before)
+            world.alive=false; wm._worlds.level_world=nil
+            mod._reset_warlock_crystal_flame('world_gone')
+            assert(events.unloads==1 and events.queried==0 and events.destroyed==0)
         """)
 
-    def test_failed_resize_creation_does_not_retain_the_destroyed_handle(self):
-        lua = runtime(experimental=True)
+    def test_link_error_destroys_only_newly_created_emitter(self):
+        lua = runtime()
         lua.execute("""
-            assert(start())
-            World.create_particles=function() return nil end
-            local valid,live=mod._set_warlock_crystal_flame_size(0.1,0.3)
-            assert(valid and live==0 and events.destroyed==1 and count()==0)
-            assert(not mod._stop_warlock_crystal_flame(owner,'later'))
-            local before=events.queried
-            mod._update_warlock_crystal_flame()
-            assert(events.queried==before, 'the destroyed handle must not be queried')
+            World.link_particles=function() error('native link failed') end
+            assert(not start())
+            assert(events.created==1 and events.destroyed==1 and count()==0)
+            assert(events.unloads==1 and refs.global==3)
+            assert(not mod._stop_warlock_crystal_flame(owner,'late_cleanup'))
+        """)
+
+    def test_link_then_launcher_deletion_never_queries_recycled_handle(self):
+        for failure in ("error('link wrapper failed after native link')", "return"):
+            with self.subTest(failure=failure):
+                lua = runtime()
+                lua.execute("""
+                    local link=World.link_particles
+                    World.link_particles=function(...)
+                        link(...); delete_weapon()
+                """ + failure + " end")
+                lua.execute("""
+                    assert(not start())
+                    assert(events.created==1 and events.queried==0 and events.destroyed==0)
+                    assert(effects[events.latest_id].foreign)
+                    assert(not next(mod._doomrocket_crystal_flame_state.entries))
+                    assert(not next(mod._doomrocket_crystal_flame_state.creating_worlds))
+                    assert(events.unloads==0)
+                    mod._release_warlock_crystal_flame_world(world)
+                    world.alive=false; wm._worlds.level_world=nil
+                    mod._reset_warlock_crystal_flame('world_gone')
+                    assert(events.unloads==1 and events.queried==0 and events.destroyed==0)
+                """)
+
+    def test_release_during_native_create_or_link_makes_no_further_particle_call(self):
+        for boundary in ("create_particles", "link_particles"):
+            for failure in ("error('native wrapper failed after releasing world')", "return result"):
+                with self.subTest(boundary=boundary, failure=failure):
+                    lua = runtime()
+                    lua.execute("""
+                        local native=World[""" + repr(boundary) + """]
+                        World[""" + repr(boundary) + """]=function(...)
+                            local result=native(...)
+                            mod._release_warlock_crystal_flame_world(world)
+                            world.alive=false; wm._worlds.level_world=nil
+                    """ + failure + " end")
+                    lua.execute("""
+                        assert(not start())
+                        assert(events.created==1 and events.queried==0 and events.destroyed==0)
+                        assert(not next(mod._doomrocket_crystal_flame_state.entries))
+                        assert(not next(mod._doomrocket_crystal_flame_state.creating_worlds))
+                        assert(events.unloads==1 and refs.global==3)
+                    """)
+
+    def test_reset_death_or_drop_during_load_create_or_link_cancels_pending_owner(self):
+        actions = (
+            "mod._reset_warlock_crystal_flame('reentrant_reset')",
+            "assert(mod._stop_warlock_crystal_flame(owner,'reentrant_death'))",
+            "assert(mod._stop_warlock_crystal_flame_item(owner,weapon,'reentrant_drop'))",
+        )
+        for boundary in ("pm.load", "World.create_particles", "World.link_particles"):
+            for action in actions:
+                with self.subTest(boundary=boundary, action=action):
+                    lua = runtime()
+                    lua.execute("local native=" + boundary + "\n" + boundary + """=function(...)
+                            local result=native(...)
+                    """ + action + """
+                            assert(events.unloads==0, 'pending operation must retain residency')
+                            return result
+                        end
+                        assert(not start(), 'reset/death/drop cancels the pending emitter')
+                        assert(count()==0)
+                        assert(events.unloads==1 and refs.global==3 and not refs[package_reference])
+                        local s=mod._doomrocket_crystal_flame_state
+                        assert(not next(s.entries) and not next(s.weapons))
+                        assert(not next(s.creating_worlds))
+                        assert(not next(s.pending_owners) and not next(s.pending_weapons))
+                    """)
+                    events = lua.globals().events
+                    self.assertEqual(events.created, int(boundary != "pm.load"))
+                    self.assertEqual(events.destroyed, events.created)
+                    self.assertEqual(events.linked, int(boundary == "World.link_particles"))
+
+    def test_pre_release_hook_during_create_or_link_retains_package_until_world_is_gone(self):
+        for boundary in ("create_particles", "link_particles"):
+            for failure in ("error('wrapper failed after pre-release hook')", "return result"):
+                with self.subTest(boundary=boundary, failure=failure):
+                    lua = runtime()
+                    lua.execute("""
+                        local native=World[""" + repr(boundary) + """]
+                        World[""" + repr(boundary) + """]=function(...)
+                            local result=native(...)
+                            mod._release_warlock_crystal_flame_world(world)
+                    """ + failure + " end")
+                    lua.execute("""
+                        assert(not start())
+                        assert(events.created==1 and events.queried==0 and events.destroyed==0)
+                        assert(events.unloads==0 and refs[package_reference]==1)
+                        assert(mod._doomrocket_crystal_flame_state.releasing_worlds[world])
+                        assert(not next(mod._doomrocket_crystal_flame_state.creating_worlds))
+                        assert(not start() and events.created==1)
+                        world.alive=false; wm._worlds.level_world=nil
+                        mod._reset_warlock_crystal_flame('released_world')
+                        assert(events.unloads==1 and events.queried==0 and events.destroyed==0)
+                    """)
+
+    def test_failed_link_cleanup_holds_residency_until_world_release(self):
+        lua = runtime()
+        lua.execute("""
+            World.link_particles=function() error('native link failed') end
+            World.are_particles_playing=function() error('native query failed') end
+            assert(not start())
+            assert(events.created==1 and events.unloads==0 and refs[package_reference]==1)
+            assert(mod._doomrocket_crystal_flame_state.unknown_worlds[world])
+            assert(not start() and events.created==1)
+            mod._release_warlock_crystal_flame_world(world)
+            assert(events.unloads==0 and events.destroyed==0)
+            world.alive=false; wm._worlds.level_world=nil
+            mod._reset_warlock_crystal_flame('world_gone')
+            assert(events.unloads==1 and refs.global==3)
+        """)
+
+    def test_repeated_failure_diagnostics_are_bounded(self):
+        lua = runtime()
+        lua.execute("""
+            particles_available=false
+            for i=1,20 do assert(not start()) end
+            assert(#logs==1 and logs[1]:find('reason=effect_unavailable',1,true))
+            assert(events.created==0 and events.loads==20 and events.unloads==20)
         """)
 
 

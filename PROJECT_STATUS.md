@@ -9,12 +9,30 @@ is the live work queue; this page is a short re-entry map.
 | Published experimental build | [Warlock Engineer TEST v0.1.90-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-14 05:03:32 UTC (96,148,698 bytes; content handle `8005821270151446939`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.90-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/b805a418e2ccd00818f1ad674eb7f2394b6f9b37) ([PR #57](https://github.com/Ensrick/doomrocket-private/pull/57)). |
 | Animator handoff | [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11_START_HERE.md), [complete ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip), and [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip.verify.json). Anonymous complete downloads verified 2026-10-11 09:15 UTC. |
 | Latest TEST changes | Published v0.1.90-dev combines the gem/audio/hose changes prepared for the unpublished v0.1.89-dev with guarded aiming and facing diagnostics [#55](https://github.com/Ensrick/doomrocket-private/issues/55), plus the sampler parent-frame and teardown fixes [#53](https://github.com/Ensrick/doomrocket-private/issues/53). Publication provides candidates for written in-game verdicts; no alpha promotion has occurred. |
+| Next TEST candidate | v0.1.91-dev replaces the rejected gem effect with the small native pickup torch [#15](https://github.com/Ensrick/doomrocket-private/issues/15) and deduplicates skeleton validation within the staged legacy blend callback [#53](https://github.com/Ensrick/doomrocket-private/issues/53). It is not published yet. Native flame colour/size and custom-animation playback remain unverified. |
 | Remaining work | Six published TEST checks: small hose tune [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44), and ordinary-play facing observations [#55](https://github.com/Ensrick/doomrocket-private/issues/55). The 30% audio reduction [#5](https://github.com/Ensrick/doomrocket-private/issues/5) also accepts normal-play feedback, but the full sound pass remains blocked on aiming take/trigger selection and flight/reload sources. Small flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15), staged native animation [#53](https://github.com/Ensrick/doomrocket-private/issues/53), head readability [#56](https://github.com/Ensrick/doomrocket-private/issues/56), and alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) retain their specific prerequisites. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current evidence and work
+
+v0.1.91-dev prepares the small native `fx/wpnfx_torch_local_space_3p` candidate
+at the measured crystal anchor. Its direct dependencies are pinned and checked
+in `resource_packages/pickups`; the controller owns a separate package reference
+and leaves the game's global reference alone. Native emitter dimensions replace
+the rejected ground-fire size experiment. Colour, rendered size, attachment and
+cleanup need a written verdict after verified TEST publication.
+
+The v0.1.91 animation change scopes shared validation to one synchronous legacy
+blend application, retaining full entry and pre-commit skeleton checks. The
+138-bone production-Lua probe measures 5,383 API-boundary calls per active legacy
+frame instead of 6,204: 821 fewer, or 13.23%. All seven scene updates, authored
+pose ownership and steady-state safety checks remain. The default authored
+manifest is empty; these counts apply to the separately staged custom path and
+are not native frame-time measurements. Original tracks and transition durations
+are unchanged. Fresh staged validation must keep its own source identities;
+earlier receipts remain historical.
 
 Published TEST v0.1.90-dev corrects demonstrated aiming edge cases: a held ballistic direction
 survives attack-data teardown, and missing/non-finite replicated targets never
@@ -33,7 +51,7 @@ measurements below retain their original v0.1.86-v0.1.88 evidence scope; the
 v0.1.90 publication does not turn them into fresh native pose captures.
 
 The old flame command clamped small inputs to 0.010; this is not an engine
-minimum. The effect stays disabled, and experimental diagnostics no longer
+minimum. The rejected ground-fire effect stays disabled, and experimental diagnostics no longer
 promise a rendered size in metres. The five material bindings and approved
 skin/fur/whisker payloads match published v0.1.88; head readability does not
 justify a speculative tint, texture or hitbox change.
