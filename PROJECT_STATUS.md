@@ -1,23 +1,22 @@
 # Project status
 
-Updated 2026-10-13 (America/Chicago). [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
+Updated 2026-10-14 (America/Chicago). [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
 is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
 | --- | --- |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
-| Published experimental build | [Warlock Engineer TEST v0.1.88-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-12 00:46:21 UTC (96,252,675 bytes; content handle `5232463954926459657`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.88-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d9282f8799b7b53ad99e2cd48fcf164a2fadee29). |
+| Published experimental build | [Warlock Engineer TEST v0.1.90-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-14 10:03:32 UTC (96,148,698 bytes; content handle `8005821270151446939`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.90-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/b805a418e2ccd00818f1ad674eb7f2394b6f9b37) ([PR #57](https://github.com/Ensrick/doomrocket-private/pull/57)). |
 | Animator handoff | [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11_START_HERE.md), [complete ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip), and [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip.verify.json). Anonymous complete downloads verified 2026-10-11 09:15 UTC. |
-| Queued candidate | v0.1.90-dev combines the preserved v0.1.89-dev gem/audio/hose changes with guarded aiming and facing diagnostics [#55](https://github.com/Ensrick/doomrocket-private/issues/55), plus the sampler parent-frame and teardown fixes [#53](https://github.com/Ensrick/doomrocket-private/issues/53). The user explicitly queued publication; do not resume Steam recovery or upload without a new instruction. Neither v0.1.89-dev nor v0.1.90-dev has been uploaded. |
-| Remaining work | Near-range clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35) and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44) remain published candidates. Flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15) needs a suitable small effect; do not repeat its rejected size-command test. Head readability [#56](https://github.com/Ensrick/doomrocket-private/issues/56) needs Arnaud's art decision. Sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5) has two supplied aiming candidates awaiting selection/trigger; flight/reload sources are still absent. Alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) still needs crash evidence. |
+| Latest TEST changes | Published v0.1.90-dev combines the gem/audio/hose changes prepared for the unpublished v0.1.89-dev with guarded aiming and facing diagnostics [#55](https://github.com/Ensrick/doomrocket-private/issues/55), plus the sampler parent-frame and teardown fixes [#53](https://github.com/Ensrick/doomrocket-private/issues/53). Publication provides candidates for written in-game verdicts; no alpha promotion has occurred. |
+| Remaining work | Six published TEST checks: small hose tune [#3](https://github.com/Ensrick/doomrocket-private/issues/3), near-range clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44), and ordinary-play facing observations [#55](https://github.com/Ensrick/doomrocket-private/issues/55). The 30% audio reduction [#5](https://github.com/Ensrick/doomrocket-private/issues/5) also accepts normal-play feedback, but the full sound pass remains blocked on aiming take/trigger selection and flight/reload sources. Small flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15), staged native animation [#53](https://github.com/Ensrick/doomrocket-private/issues/53), head readability [#56](https://github.com/Ensrick/doomrocket-private/issues/56), and alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) retain their specific prerequisites. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current evidence and work
 
-The user's follow-up authorizes engineering fixes while the upload stays queued.
-v0.1.90-dev corrects demonstrated aiming edge cases: a held ballistic direction
+Published TEST v0.1.90-dev corrects demonstrated aiming edge cases: a held ballistic direction
 survives attack-data teardown, and missing/non-finite replicated targets never
 reach either native constraint. Bounded `FACING` records capture version, role,
 network identity, aim source/target, carrier/outfit roots and animation phase.
@@ -29,7 +28,9 @@ visible outfit's parent frame. Inventory destruction clears its original
 event-mirroring pair without disturbing a replacement pair or ragdoll driver.
 The current shipping ASM already has its initial idle self-edge. Native hidden
 sampler evaluation, clocks and oracle APIs in #53 remain unverified; historical
-numerical receipts do not become fresh acceptance of these changes.
+numerical receipts do not become fresh acceptance of these changes. The animation
+measurements below retain their original v0.1.86-v0.1.88 evidence scope; the
+v0.1.90 publication does not turn them into fresh native pose captures.
 
 The old flame command clamped small inputs to 0.010; this is not an engine
 minimum. The effect stays disabled, and experimental diagnostics no longer
@@ -40,12 +41,17 @@ justify a speculative tint, texture or hitbox change.
 Arnaud's October 13 feedback was relayed by the user: the latest patch is mostly
 stable, the gem particle still does not resize even at `.0001`, custom audio
 should be about 30% quieter, and the hose needs only a slight adjustment to its
-resting curve. GitHub reads did not find a newer Arnaud comment in either Warlock
-repository; the relayed written report is accepted as the current observation.
-The proposed public-alpha update remains a separate deliberate promotion.
+resting curve. The relayed written report remains accepted. His later
+[#35 startup report](https://github.com/Ensrick/doomrocket-private/issues/35#issuecomment-6158706396)
+loads TEST v0.1.88-dev but records PlayFab `verifyCareerLoadouts` HTTP 500/error
+1110 in `StateTitleScreenLoadSave`, backend popup 510/1110, then `button_quit`,
+cleanup and `[Log end]`. It has no script-error block or arena-specific stack.
+This does not establish a Warlock cause or arena pass; v0.1.90 does not target
+that backend failure. The proposed public-alpha update remains separate.
 
-The queued v0.1.89-dev changes temporarily disable the gem particle while
-preserving the crystal and artist assets. It packages all twelve approved
+Published v0.1.90-dev includes the changes prepared for the unpublished
+v0.1.89-dev: it temporarily disables the gem particle while preserving the
+crystal and artist assets, and packages all twelve approved
 recordings at 70% of v0.1.88-dev's amplitude (0.4949 of the unchanged WAV masters).
 Hose stiffness changes from 200 to 240 s^-2, preserving all other physics
 parameters, endpoints and rig assets. Actual-Lua measurements show settled
@@ -156,14 +162,19 @@ acceptance request is needed for those changes.
 
 The new lingering sound report (#44) is accepted. v0.1.85 tracks and stops exact
 playing IDs, verifies silence, and covers retained corpses and inventory/world
-teardown. Existing approved audio is packaged about 3 dB quieter without
-changing its masters. New wind-up, flight and reload assets belong to Arnaud.
+teardown. Published v0.1.90-dev packages the existing approved audio at 70%
+of v0.1.88-dev's amplitude (about 3.10 dB additional attenuation), without
+changing its masters. Two supplied aiming takes await Arnaud's choice and
+trigger; flight and reload assets remain absent and belong to Arnaud.
 
 v0.1.85 corrects measured rocket hull/initialization defects and quantized floor
 clearance (#6); current logs do not isolate the reported near-range shot, so a
 new solo verdict remains necessary. Its native attachment-scale particle
-candidate (#15) still failed Arnaud's latest visual test. The v0.1.89-dev source
-candidate omits the effect; restoring a suitable small flame remains open.
+candidate (#15) still failed Arnaud's latest visual test. Published v0.1.90-dev
+omits the effect using the change prepared for unpublished v0.1.89-dev;
+restoring a suitable small flame remains open. A read-only dependency audit
+identifies an unactivated small pickup-torch prototype; its rendered size and
+colour remain unverified. See [the investigation](docs/research/WEAPON_CRYSTAL_FIRE.md).
 
 v0.1.80-dev stops the mod from re-running vanilla breed and pickup settings at
 load. That re-run had put back vanilla functions that Dutch Spice hooks, so its
@@ -205,9 +216,14 @@ written observations and the matching console log establish what happened.
 No video, second player, or extra player coordination is required. See the
 [TEST quickstart](docs/TESTER_QUICKSTART.md).
 
-The verified `v0.1.88-dev` release tag is bound to reviewed source commit
-`d9282f8799b7b53ad99e2cd48fcf164a2fadee29`; this later publication journal does not
-move it. The historical `v0.1.87-dev` tag remains at
+The verified `v0.1.90-dev` release tag and publication receipt remain bound to
+reviewed source `b805a418e2ccd00818f1ad674eb7f2394b6f9b37` ([PR #57](https://github.com/Ensrick/doomrocket-private/pull/57)).
+This metadata-only publication journal follows [PR #52](https://github.com/Ensrick/doomrocket-private/pull/52):
+it does not move the release tag, rebind the receipt, rebuild or republish.
+The preceding [TEST v0.1.88-dev publication](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.88-dev)
+was verified 2026-10-12 00:46:21 UTC: 96,252,675 bytes, content handle
+`5232463954926459657`. Its historical tag remains at
+`d9282f8799b7b53ad99e2cd48fcf164a2fadee29`, `v0.1.87-dev` at
 `080278425ea2a90da17ae9febcb37039c884326a` and `v0.1.86-dev` at
 `d8bee540f134e7468d23b3582dd1d148cb88a356`.
 Workshop verification confirms delivery, not an in-game pass.

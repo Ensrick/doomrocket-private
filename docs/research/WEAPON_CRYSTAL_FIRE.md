@@ -1,9 +1,10 @@
 # Under-barrel crystal flame: issue #15
 
-Updated 2026-10-13 (America/Chicago). Crunch's repeated written verdict and
+Updated 2026-10-14 (America/Chicago). Crunch's repeated written verdict and
 in-game screenshot reject the native green ground-fire sizing candidate: it
-remains far too large. Queued v0.1.89-dev and v0.1.90-dev temporarily disable the
-particle while preserving the crystal and artist assets. His reference is a
+remains far too large. Published TEST v0.1.90-dev includes the temporary
+particle omission prepared for the unpublished v0.1.89-dev, preserving the
+crystal and artist assets. His reference is a
 small flame close to the crystal. No reliable all-map replacement is established.
 The measurements and earlier candidates below retain their historical evidence.
 
@@ -159,5 +160,39 @@ breed package too. A string swap would therefore depend on the map's resource
 residency. Loading an entire unrelated level solely for this effect is unsuitable.
 Consistent torch reuse would require a separately verified native effect/material
 dependency packaging change. The scaled ground-fire attempt did not correct the
-reported visual failure and is disabled in the queued candidate. A resource name
+reported visual failure and remains disabled in published TEST v0.1.90-dev. A resource name
 swap alone does not establish residency or an appropriately small visible flame.
+
+
+### Unactivated small pickup-torch option (read-only audit, 2026-10-13)
+
+`fx/wpnfx_torch_local_space_3p` is a separate **unactivated prototype option**,
+not a flame fix in v0.1.90-dev. Its existing 1,253-byte payload has SHA-256
+`b09f353565dfcc9dbe51a55b23fe488275f142b1b5b36c749b5dbb95fe958cce`.
+The decoded resource has one billboard cloud, capacity 40, a `local_space`
+simulator and persistent lifetime. Its initial size-channel range is 0.10-0.20,
+with cylinder radius 0 and height -0.10-0.00. These are native initializer
+parameters, not rendered bounds or a promise of metre-sized output. An
+unchanged codec decode/assemble is byte-identical; opaque curves remain intact.
+
+A typed-table audit of native `resource_packages/pickups` (7,837 bytes, SHA-256
+`985d8add0ffc56998ca4776fb45f1ff91527e17e771793bc30e6718bc87fba64`)
+finds each identified direct dependency exactly once: particle
+`3DB3CE6438D57683`, child material `A0EC15D2679F209F`, parent material
+`EF52A5800BEB269E`, and texture `73548ADEE6C02173` (`fx/textures/anim_smoke_4x8`).
+The decoded child points to that parent and texture; the parent exposes no
+additional texture bindings. Game boot source loads the pickup package with its
+`global` reference. A prototype must still check native availability and own
+its package reference without unloading the game's reference. This evidence
+identifies a smaller existing effect and its direct dependency chain; it is not
+a runtime residency or renderer pass on the current installation.
+
+Colour, rendered size, billboard orientation and the target's small green-flame
+appearance remain unverified. The validated material parser exposes no RGB/RGBA
+tint parameter for this child, and the particle colour curves remain opaque.
+Do not guess a green material override or re-enable the rejected ground fire.
+An isolated controller/package/lifetime prototype can reuse the measured
+crystal anchor and existing cleanup rules without creating art, but it needs
+separate reviewed engineering and an eventual written visual verdict. No
+shipping particle, material, artist asset or package was changed by this audit.
+The original small linked-flame feature remains blocked.
