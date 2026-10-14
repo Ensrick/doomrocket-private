@@ -366,11 +366,11 @@ end
 -- The presentation compositor is the sole authority for this hidden target.
 -- Return current-frame native temporaries; preflight every candidate without
 -- changing either the displayed outfit or the helper's authored clip data.
-function mod._prepare_warlock_legacy_grip_pose(owner, helper)
+function mod._prepare_warlock_legacy_grip_pose(owner, helper, token)
 	local entry = entries[owner]
 	local authorize = mod._warlock_transition_helper_valid
 	if not entry or not valid(owner, entry) or not entry.mirrored or not authorize
-		or not authorize(owner, helper) or not live(helper, entry.world)
+		or not authorize(owner, helper, nil, token) or not live(helper, entry.world)
 		or helper == owner or helper == entry.outfit then return nil, "inactive_helper" end
 	local pairs, parents = target_pairs(owner, helper)
 	if not pairs then return nil, "missing_helper_node" end

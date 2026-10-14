@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.1.91-dev - small native flame candidate and guarded animation optimization
+
+- **Gem flame (#15):** replace the rejected ground-fire experiment with the
+  game's small local-space hand-torch effect. Reuse the measured crystal anchor
+  and inverse launcher-node scale, load only this controller's pickup-package
+  reference, and retain death/drop/reload/world-release cleanup. The native
+  emitter dimensions replace ineffective runtime size tuning. Colour, visible
+  size and attachment still need a written TEST verdict; no new art is added.
+- **Animation integration (#53):** reduce repeated skeleton checks inside one
+  legacy blend application while retaining full validation before pose writes.
+  Keep binding, health, clock, interruption and authored-pose ownership guards.
+  Existing animation tracks, transition durations and scene flushes are unchanged.
+
+The animation optimization is exercised by the separately staged authored
+integration; the default playable package still has an empty authored manifest.
+Offline and SDK validation do not establish native playback or visual acceptance.
+This development release uses the established VMB TEST publication process.
+
 ## v0.1.90-dev - follow-up aim guards and animation frame corrections
 
 - **Facing report (#55):** retain the last valid ballistic aim through attack-data

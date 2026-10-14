@@ -52,6 +52,7 @@ local function destroy(entry)
 end
 
 local function remove(owner, entry)
+	entry.legacy_preparation = nil
 	entries[owner] = nil
 	destroy(entry)
 end
@@ -84,6 +85,7 @@ local RECOVERABLE_CLOCK_FAILURES = {
 }
 
 local function fail(entry, reason)
+	entry.legacy_preparation = nil
 	entry.blocked, entry.status = true, reason
 	diagnostic(entry, reason)
 	return false
@@ -280,20 +282,33 @@ function mod._start_warlock_animation_blend(owner, outfit, profile)
 	return false
 end
 
-local function helper_valid(owner, helper, profile)
-	local entry = entries[owner]
-	return entry and entry.helper == helper and (profile == nil or entry.profile == profile)
-		and usable(owner, entry) and not entry.blocked and entry.active
-		and entry.profile.states[entry.state].owner == "legacy" and skeleton(entry) or false
+local function preparation_valid(owner, entry, token)
+	return type(token) == "table" and entries[owner] == entry and entry.legacy_preparation == token
+		and entry.frame == token.frame and entry.state == token.state
+		and entry.helper == token.helper and entry.outfit == token.outfit
+		and entry.profile == token.profile and entry.world == token.world
+		and entry.active and not entry.blocked and entry.profile.states[entry.state].owner == "legacy"
 end
 
-function mod._warlock_transition_helper_valid(owner, helper, profile)
-	return protected(owner, helper_valid, helper, profile)
+local function helper_valid(owner, helper, profile, token)
+	local entry = entries[owner]
+	if not (entry and entry.helper == helper and (profile == nil or entry.profile == profile)
+		and usable(owner, entry) and not entry.blocked and entry.active
+		and entry.profile.states[entry.state].owner == "legacy") then return false end
+	-- Only the compositor's read-only builder transaction may reuse its entry
+	-- validation. Other callers keep the complete live 138-node check.
+	if token ~= nil then return preparation_valid(owner, entry, token) or false end
+	return skeleton(entry)
+end
+
+function mod._warlock_transition_helper_valid(owner, helper, profile, token)
+	return protected(owner, helper_valid, helper, profile, token)
 end
 
 local function note_event(owner, event, from, to, blend_time)
 	local entry = entries[owner]
 	if not entry then return false end
+	entry.legacy_preparation = nil
 	if not binding(owner, entry) then remove(owner, entry); return false end
 	local ready = healthy(owner, entry)
 	if entries[owner] ~= entry then return false end
@@ -343,6 +358,7 @@ local function update(owner, entry, world, dt)
 	if not binding(owner, entry) then remove(owner, entry); return end
 	if not healthy(owner, entry) or entry.world ~= world or entry.blocked then return end
 	if not live(entry.helper, world) then return fail(entry, "missing_sampler") end
+	entry.legacy_preparation = nil
 	entry.frame = entry.frame + 1
 	if not finite(dt) or dt < 0 then return fail(entry, "invalid_animation_dt") end
 	local position = vector(Unit.world_position(owner, 0))
@@ -433,10 +449,12 @@ local function release_ready(entry)
 	return true
 end
 
-local function legacy_target(owner, entry)
-	local grip, reason = mod._prepare_warlock_legacy_grip_pose(owner, entry.helper)
+local function legacy_target(owner, entry, token)
+	local grip, reason = mod._prepare_warlock_legacy_grip_pose(owner, entry.helper, token)
+	if not preparation_valid(owner, entry, token) then return false end
 	if type(grip) ~= "table" or #grip ~= 12 then return fail(entry, reason or "invalid_legacy_grip") end
-	local outfit, why = mod._prepare_warlock_legacy_outfit_pose(owner, entry.helper, entry.profile, grip)
+	local outfit, why = mod._prepare_warlock_legacy_outfit_pose(owner, entry.helper, entry.profile, grip, token)
+	if not preparation_valid(owner, entry, token) then return false end
 	if type(outfit) ~= "table" or #outfit ~= 7 then return fail(entry, why or "invalid_legacy_outfit") end
 	local prepared, used = {}, {}
 	for _, group in ipairs({grip, outfit}) do
@@ -449,18 +467,28 @@ local function legacy_target(owner, entry)
 			prepared[#prepared+1], used[record.node] = { node = record.node, position = position, rotation = rotation }, true
 		end
 	end
-	-- Both candidate groups are checked before the first helper setter.
+	-- Recheck every bone after both read-only builders, before the first helper
+	-- setter. This catches graph mutations even outside the 19 corrected joints.
+	if not usable(owner, entry) or not preparation_valid(owner, entry, token) then return false end
+	if not skeleton(entry) then return fail(entry, "changed_skeleton") end
+	if not preparation_valid(owner, entry, token) then return false end
+	-- Both candidate groups and the complete graph are now checked atomically.
 	for _, record in ipairs(prepared) do
 		Unit.set_local_position(entry.helper, record.node, Vector3(unpack(record.position)))
 		Unit.set_local_rotation(entry.helper, record.node, Quaternion.from_elements(unpack(record.rotation)))
 	end
 	World.update_unit(entry.world, entry.helper)
-	return true
+	return preparation_valid(owner, entry, token) or false
 end
 
 local function apply(owner, outfit)
 	local entry = entries[owner]
 	if not usable(owner, entry) or (outfit and entry.outfit ~= outfit) or entry.blocked then return false end
+	if entry.legacy_preparation then
+		-- A nested presentation call cannot inherit the outer builder's scope.
+		entry.legacy_preparation = nil
+		return false
+	end
 	if entry.applied_frame == entry.frame then return entry.active end
 	entry.applied_frame = entry.frame
 	if not skeleton(entry) then return fail(entry, "changed_skeleton") end
@@ -474,9 +502,22 @@ local function apply(owner, outfit)
 	end
 	World.update_unit(entry.world, owner)
 	World.update_unit(entry.world, entry.helper)
-	if entry.profile.states[entry.state].owner == "legacy" and not legacy_target(owner, entry) then return false end
+	local token
+	if entry.profile.states[entry.state].owner == "legacy" then
+		token = { frame = entry.frame, state = entry.state, helper = entry.helper,
+			outfit = entry.outfit, profile = entry.profile, world = entry.world }
+		entry.legacy_preparation = token
+		if not legacy_target(owner, entry, token) then
+			if entry.legacy_preparation == token then entry.legacy_preparation = nil end
+			return false
+		end
+	end
 	local target = capture(entry.helper, entry)
 	if not target then return fail(entry, "invalid_sampler_pose") end
+	if token then
+		if not preparation_valid(owner, entry, token) then return false end
+		entry.legacy_preparation = nil
+	end
 	local pose = mix(entry.source, target, entry.elapsed/entry.duration)
 	write_pose(entry.outfit, entry, pose)
 	World.update_unit(entry.world, entry.outfit)

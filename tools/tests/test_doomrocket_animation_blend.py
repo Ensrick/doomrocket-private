@@ -17,7 +17,7 @@ BONES = re.findall(r'"([^"\n]+)"', (ROOT / "units/warlock_bombardier/warlock_bom
 
 HARNESS = r'''
 epoch=1;world={alive=true};other_world={alive=true}
-calls={visible=0,helper_bones=0,helper_root=0,variables=0,constraints=0,spawns=0,destroys=0,native=0,grip=0,accessories=0,events=0,warnings=0}
+calls={visible=0,helper_bones=0,helper_root=0,variables=0,constraints=0,spawns=0,destroys=0,native=0,structural=0,grip=0,accessories=0,events=0,warnings=0}
 local function native(u)
  assert(u and u.alive,'native access after unit deletion')
  assert(u.world and u.world.alive,'native access after world release')
@@ -76,9 +76,9 @@ Unit={
  alive=function(u) return u and u.alive or false end,
  world=function(u) native(u);return u.world end,
  get_data=function(u,key) native(u);return key=='unit_name' and profile.unit or u.data[key] end,
- has_node=function(u,name) native(u);return u.nodes[name]~=nil end,
- node=function(u,name) native(u);assert(u.nodes[name]~=nil);return u.nodes[name] end,
- scene_graph_parent=function(u,node) native(u);return u.parents[node] end,
+ has_node=function(u,name) native(u);calls.structural=calls.structural+1;return u.nodes[name]~=nil end,
+ node=function(u,name) native(u);calls.structural=calls.structural+1;assert(u.nodes[name]~=nil);return u.nodes[name] end,
+ scene_graph_parent=function(u,node) native(u);calls.structural=calls.structural+1;return u.parents[node] end,
  local_position=function(u,node) native(u);return temporary(u.locals[node].p) end,
  local_rotation=function(u,node) native(u);return temporary(u.locals[node].r) end,
  local_scale=function(u,node) native(u);return temporary(u.locals[node].s) end,
@@ -152,15 +152,15 @@ World={
  end,
  update_unit=function(w,u) native(u);assert(w==u.world) end,
 }
-function mod._prepare_warlock_legacy_grip_pose(owner_unit,sampler)
- calls.grip=calls.grip+1;assert(mod._warlock_transition_helper_valid(owner_unit,sampler,nil))
+function mod._prepare_warlock_legacy_grip_pose(owner_unit,sampler,token)
+ calls.grip=calls.grip+1;assert(mod._warlock_transition_helper_valid(owner_unit,sampler,nil,token))
  if bad_grip then return nil,'bad_grip' end
  local result={}
  for i=1,12 do result[i]={node=i,position=vec(100+i,2,3),rotation=q(.2)} end
  return result
 end
-function mod._prepare_warlock_legacy_outfit_pose(owner_unit,sampler,p,grip)
- calls.accessories=calls.accessories+1;assert(mod._warlock_transition_helper_valid(owner_unit,sampler,p))
+function mod._prepare_warlock_legacy_outfit_pose(owner_unit,sampler,p,grip,token)
+ calls.accessories=calls.accessories+1;assert(mod._warlock_transition_helper_valid(owner_unit,sampler,p,token))
  assert(#grip==12 and sampler.locals[1].p.x~=101,'grip applied before accessory preflight')
  if bad_accessories then return nil,'bad_accessories' end
  local result={}
@@ -314,6 +314,167 @@ class AnimationBlendTests(unittest.TestCase):
           assert(math.abs(outfit.locals[13].p.x-(.13+213)/2)<1e-10)
           assert(math.abs(outfit.locals[20].p.x-(.2+10.2)/2)<1e-10)
         ''')
+
+    def test_legacy_apply_keeps_entry_and_precommit_sweeps_and_expires_its_token(self):
+        lua = runtime()
+        lua.execute('''
+          begin();change('authored');frame(.25);change('idle')
+          local prepare=mod._prepare_warlock_legacy_grip_pose
+          mod._prepare_warlock_legacy_grip_pose=function(o,h,token)
+            saved_token=token;return prepare(o,h,token)
+          end
+          calls.structural=0;assert(frame(.1))
+          assert(calls.structural==2*138*6 and calls.helper_bones==38 and calls.visible==414)
+          local checks=calls.structural
+          assert(not mod._warlock_transition_helper_valid(owner,helper,profile,saved_token))
+          assert(calls.structural==checks and status()=='blending')
+          assert(mod._warlock_transition_helper_valid(owner,helper,profile))
+          assert(calls.structural==checks+138*6)
+          for _,foreign in ipairs({{},true,17,'token'}) do
+            assert(not mod._warlock_transition_helper_valid(owner,helper,profile,foreign))
+          end
+          helper.parents[138]=1
+          assert(not mod._warlock_transition_helper_valid(owner,helper,profile))
+        ''')
+
+    def test_steady_and_authored_apply_still_validate_all_138_bones(self):
+        lua = runtime()
+        lua.execute('''
+          begin();calls.structural=0;assert(not frame(.1));assert(calls.structural==138*6)
+          change('authored');calls.structural=0;assert(frame(.1))
+          assert(calls.structural==138*6 and calls.helper_bones==0)
+        ''')
+
+    def test_graph_mutation_after_either_builder_latches_before_any_pose_setter(self):
+        for stage in ("grip", "outfit"):
+            for mutation in ("helper.parents[138]=1", "outfit.parents[138]=1",
+                             "helper.nodes[bone_names[138]]=137", "outfit.nodes[bone_names[138]]=137"):
+                with self.subTest(stage=stage, mutation=mutation):
+                    lua = runtime()
+                    lua.execute("begin();change('authored');frame(.25);change('idle')")
+                    lua.execute('''
+                      local name=STAGE=='grip' and '_prepare_warlock_legacy_grip_pose' or '_prepare_warlock_legacy_outfit_pose'
+                      local prepare=mod[name]
+                      mod[name]=function(...)
+                        local result,reason=prepare(...)
+                        MUTATION
+                        return result,reason
+                      end
+                      assert(not frame(.1));assert(active() and status()=='changed_skeleton')
+                      assert(calls.visible==0 and calls.helper_bones==0 and calls.warnings==1)
+                      helper.parents[138]=0;outfit.parents[138]=0
+                      helper.nodes[bone_names[138]]=138;outfit.nodes[bone_names[138]]=138
+                      assert(not frame(.1) and status()=='changed_skeleton')
+                      assert(calls.visible==0 and calls.helper_bones==0 and calls.warnings==1)
+                    '''.replace("STAGE", repr(stage)).replace("MUTATION", mutation))
+
+    def test_changed_graph_after_a_successful_legacy_frame_still_fails_closed(self):
+        for mutation in ("helper.parents[138]=1", "helper.nodes[bone_names[138]]=137"):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute("begin();change('authored');frame(.25);change('idle');assert(frame(.05));" + mutation)
+                lua.execute('''
+                  local visible,bones=calls.visible,calls.helper_bones
+                  assert(not frame(.05) and status()=='changed_skeleton' and active())
+                  assert(calls.visible==visible and calls.helper_bones==bones)
+                ''')
+
+    def test_event_between_builders_invalidates_old_token_and_keeps_new_custom_pose(self):
+        for stage in ("grip", "outfit"):
+            with self.subTest(stage=stage):
+                lua = runtime()
+                lua.execute("begin();change('authored');frame(.25);change('idle')")
+                lua.execute('''
+                  local name=STAGE=='grip' and '_prepare_warlock_legacy_grip_pose' or '_prepare_warlock_legacy_outfit_pose'
+                  local prepare=mod[name]
+                  mod[name]=function(...)
+                    local result,reason=prepare(...)
+                    change('authored')
+                    return result,reason
+                  end
+                  assert(not frame(.1));assert(active() and status()=='blending' and helper.state=='authored')
+                  assert(calls.visible==0 and calls.helper_bones==0 and calls.warnings==0)
+                  -- The valid replacement transition may still present its
+                  -- zero-weight source in this same frame, without legacy writes.
+                  assert(mod._apply_warlock_animation_blend(owner,outfit))
+                  assert(calls.visible==414 and calls.helper_bones==0)
+                  assert(frame(.1));assert(calls.helper_bones==0 and calls.warnings==0)
+                '''.replace("STAGE", repr(stage)))
+
+    def test_reentrant_apply_revokes_outer_builder_scope_without_pose_writes(self):
+        lua = runtime()
+        lua.execute('''
+          begin();change('authored');frame(.25);change('idle')
+          local prepare=mod._prepare_warlock_legacy_grip_pose
+          mod._prepare_warlock_legacy_grip_pose=function(o,h,token)
+            saved_token=token;local result=prepare(o,h,token)
+            assert(not mod._apply_warlock_animation_blend(owner,outfit))
+            return result
+          end
+          assert(not frame(.1));assert(calls.visible==0 and calls.helper_bones==0)
+          assert(not mod._warlock_transition_helper_valid(owner,helper,profile,saved_token))
+          mod._prepare_warlock_legacy_grip_pose=prepare
+          assert(frame(.05));assert(calls.visible==414 and calls.helper_bones==38 and calls.warnings==0)
+        ''')
+
+    def test_builder_exception_revokes_scope_and_latches_failure_without_pose_writes(self):
+        lua = runtime()
+        lua.execute('''
+          begin();change('authored');frame(.25);change('idle')
+          mod._prepare_warlock_legacy_grip_pose=function(o,h,token)
+            saved_token=token
+            assert(mod._warlock_transition_helper_valid(o,h,nil,token))
+            error('builder failed')
+          end
+          assert(not frame(.1));assert(status()=='sampler_api_error' and active())
+          assert(calls.visible==0 and calls.helper_bones==0 and calls.warnings==1)
+          assert(not mod._warlock_transition_helper_valid(owner,helper,profile,saved_token))
+          assert(not frame(.05));assert(calls.visible==0 and calls.helper_bones==0 and calls.warnings==1)
+        ''')
+
+    def test_precommit_keeps_health_binding_world_and_manifest_guards(self):
+        for mutation, expected in (
+            ("HEALTH_ALIVE[owner]=false", "off"),
+            ("owner.alive=false", "off"),
+            ("outfit.alive=false", "off"),
+            ("owner.world=other_world", "off"),
+            ("mod._warlock_outfits[owner]=nil", "off"),
+            ("outfit.data.warlock_animation_manifest_id='wrong'", "off"),
+            ("helper.alive=false", "missing_sampler"),
+            ("helper.world=other_world", "missing_sampler"),
+        ):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute("begin();change('authored');frame(.25);change('idle')")
+                lua.execute('''
+                  local prepare=mod._prepare_warlock_legacy_outfit_pose
+                  mod._prepare_warlock_legacy_outfit_pose=function(...)
+                    local result,reason=prepare(...)
+                    MUTATION
+                    return result,reason
+                  end
+                  assert(not frame(.1));assert(status()==EXPECTED)
+                  assert(calls.visible==0 and calls.helper_bones==0)
+                '''.replace("MUTATION", mutation).replace("EXPECTED", repr(expected)))
+
+    def test_teardown_or_frame_advance_inside_builder_revokes_scope(self):
+        for action in ("mod._stop_warlock_animation_blend(owner)",
+                       "mod._reset_warlock_animation_blend()",
+                       "mod._release_warlock_animation_blend_world(world)",
+                       "mod._update_warlock_animation_blend(world,.01)"):
+            with self.subTest(action=action):
+                lua = runtime()
+                lua.execute("begin();change('authored');frame(.25);change('idle')")
+                lua.execute('''
+                  local prepare=mod._prepare_warlock_legacy_grip_pose
+                  mod._prepare_warlock_legacy_grip_pose=function(o,h,token)
+                    saved_token=token;local result=prepare(o,h,token)
+                    ACTION
+                    return result
+                  end
+                  assert(not frame(.1));assert(calls.visible==0 and calls.helper_bones==0)
+                  assert(not mod._warlock_transition_helper_valid(owner,helper,profile,saved_token))
+                '''.replace("ACTION", action))
 
     def test_failed_legacy_preflight_cannot_partly_correct_helper_or_visible_pose(self):
         for mutation in ("bad_grip=true", "bad_accessories=true", "duplicate=true", "invalid_candidate=true"):

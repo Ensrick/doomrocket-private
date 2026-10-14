@@ -202,11 +202,11 @@ end
 -- Resolve accessory parents using the uncommitted grip candidates. Both
 -- builders are read-only, so a bad final accessory cannot leave twelve helper
 -- joints corrected while the other seven still contain the raw legacy pose.
-function mod._prepare_warlock_legacy_outfit_pose(owner, helper, profile, grip_writes)
+function mod._prepare_warlock_legacy_outfit_pose(owner, helper, profile, grip_writes, token)
 	local entry = entries[owner]
 	local authorize = mod._warlock_transition_helper_valid
 	if not entry or not valid(owner, entry.outfit, entry, false) or entry.profile ~= profile
-		or not authorize or not authorize(owner, helper, profile) or not live(helper, entry.world)
+		or not authorize or not authorize(owner, helper, profile, token) or not live(helper, entry.world)
 		or helper == owner or helper == entry.outfit then return nil, "inactive_helper" end
 	local target = target_entry(helper, entry.world, profile)
 	if not target or type(grip_writes) ~= "table" or #grip_writes ~= #GRIP_CHANNELS then
