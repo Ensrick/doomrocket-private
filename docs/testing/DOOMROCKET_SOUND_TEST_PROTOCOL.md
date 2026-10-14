@@ -8,10 +8,15 @@ and two death takes. Passing offline checks proves the bank is present and wired
 it does not prove spatialisation, occlusion, replication, variation, or cleanup
 inside Vermintide 2.
 
-A separate bespoke pre-fire cue, rocket flight loop, and insertion/latch sounds
-still require Arnaud's approved sound assets. None of the twelve current masters
-provides those cues; the shot transient must not be repurposed as an infinite
-flight loop. Issue #5 remains open for that work. The combat pool currently begins at the replicated
+Arnaud supplied two experimental `TargetLocked` aiming WAVs on October 9. Both
+are valid markerless mono 16-bit PCM at 44.1 kHz: the first is 3.139 s, the `_02`
+take is 3.202 s. They await his choice and intended trigger (target acquisition
+or pre-fire/wind-up); neither activates in the shipping bank. The `_02` SHA-256
+is `3f03f3453ba9819d18483fdce3e3afaf38775687a4e6d7742961666a66728af9`.
+Rocket flight-loop and insertion/latch sources are still absent. None of the
+twelve active masters provides those cues; the shot transient must not be
+repurposed as an infinite flight loop. Issue #5 remains open for that work.
+The combat pool currently begins at the replicated
 projectile-launch boundary and is limited to one bark per five seconds for each
 Bombardier, preventing a three-rocket volley from stacking three lines. The
 recordings are temporary pending a better capture environment. Any inherited
@@ -130,9 +135,12 @@ This rewrites the main bank, the Wwise `Init` prerequisite, their four
 Stingray metadata/dependency products, and
 `wwise/doomrocket.bank_manifest.json`. For the current approved masters, the
 wrapped bank SHA-256 is
-`7a6aca6b39c129762dab1090354127ed350924b6593fff67d2627495c44e29f1`.
-The October 10 candidate scales packaged signed 16-bit PCM by 707/1000
-(approximately -3 dB), following Crunch's October 9 loudness feedback. The
+`7f7fded74e853f8fee6227b9291e6e4eae31123c527e341d61f12a59367258af`.
+Queued v0.1.89-dev and v0.1.90-dev scale packaged signed 16-bit PCM by 4949/10000
+(approximately -6.11 dB from the masters). This is 70% of published v0.1.88-dev's
+707/1000 amplitude, about 3.10 dB additional attenuation for the requested 30%
+reduction. These candidates are not uploaded; use the published version for
+actual in-game observations. The
 approved masters and their source hashes remain unchanged; sample counts,
 event timing and the spatial attenuation curves are preserved. The manifest
 records both master and reduced-playback PCM hashes.

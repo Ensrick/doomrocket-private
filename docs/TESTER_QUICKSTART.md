@@ -5,9 +5,10 @@ Verification completed 2026-10-12 00:46 UTC; the [release record](https://github
 binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d9282f8799b7b53ad99e2cd48fcf164a2fadee29).
 Publication supplies the build for testing; it does not establish its in-game result.
 
-v0.1.89-dev is currently a source candidate awaiting publication: temporarily
-omit the gem flame, make approved custom sounds 30% quieter than v0.1.88-dev,
-and make a small hose rest-shape adjustment while retaining secondary physics.
+v0.1.90-dev is the queued candidate. It retains the temporary gem-flame omission,
+30% quieter custom sounds and small hose adjustment from v0.1.89-dev, and adds
+guarded aiming, bounded facing diagnostics and animation parent-frame fixes.
+The user has held publication; neither candidate is available on Workshop.
 Use current status for the verified version; do not test unpublished changes.
 
 Use the verified [TEST Workshop build](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730)
@@ -24,19 +25,25 @@ breed-name typo remains. Hose [#3](https://github.com/Ensrick/doomrocket-private
 awaits a verdict on the firmer resting curve, with visibility and physics already
 accepted. Follow each issue's current instructions for other work.
 
-The six current TEST checks are:
+The five current published TEST checks are:
 
 - [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): firmer resting curve while retaining natural flex; visibility and physics are already accepted.
 - [#6 rocket clearance](https://github.com/Ensrick/doomrocket-private/issues/6): whether close shots clear the floor and reach the aimed point.
-- [#15 crystal flame](https://github.com/Ensrick/doomrocket-private/issues/15): the repeated size failure is accepted; the next candidate omits the effect. Do not repeat the ineffective size-command test. A suitable small replacement remains open.
 - [#28 launcher/hand alignment](https://github.com/Ensrick/doomrocket-private/issues/28): whether the weapon remains aligned during ordinary movement, aim and reload.
 - [#35 Dutch Spice arena](https://github.com/Ensrick/doomrocket-private/issues/35): whether Into the Nest arena Stormvermin waves spawn on Cataclysm.
 - [#44 lingering audio](https://github.com/Ensrick/doomrocket-private/issues/44): whether living-enemy sounds stop on death during ordinary play; the report is rare, so absence in a short session is not final proof.
 
 Follow the latest steps in the issue you choose; there is no requirement to
-complete all six in one session. Full sound-cue work #5 needs Arnaud's new
-masters, and alpha crash #34 needs crash evidence; neither is a repeat TEST
+complete all five in one session. The rejected flame (#15) needs a suitable
+small effect; no size-command rerun is requested. Full sound-cue work #5 has two
+aiming candidates awaiting artist selection/trigger, while flight/reload sources
+are still absent. Alpha crash #34 needs crash evidence; none is a repeat TEST
 acceptance assignment.
+
+Facing report #55 has guarded aim handling and bounded diagnostics in the queued
+candidate. If a mismatch is noticed during ordinary play after publication,
+describe the phase and attach existing matching logs. No organised multiplayer
+session or video is required. Head readability #56 remains an artist decision.
 
 Use this short path for an issue labeled `ready-for-testing`:
 

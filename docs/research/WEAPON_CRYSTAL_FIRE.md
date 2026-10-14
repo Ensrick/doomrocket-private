@@ -1,10 +1,15 @@
 # Under-barrel crystal flame: issue #15
 
-Updated 2026-10-10. Crunch confirms the v0.1.84 green fire is visible, but its
-size command makes no visible difference. The next TEST candidate uses the
-native scaled particle attachment pattern and follows the crystal. Its appearance
-and live size response still need an in-game verdict after publication. The
-measurements and earlier candidates below retain their original evidence.
+Updated 2026-10-13 (America/Chicago). Crunch's repeated written verdict and
+in-game screenshot reject the native green ground-fire sizing candidate: it
+remains far too large. Queued v0.1.89-dev and v0.1.90-dev temporarily disable the
+particle while preserving the crystal and artist assets. His reference is a
+small flame close to the crystal. No reliable all-map replacement is established.
+The measurements and earlier candidates below retain their historical evidence.
+
+The 0.010 value shown by the old command was our Lua minimum clamp, not an
+established engine limit. The dormant scaled-link experiment reports its inputs
+and link scales without promising rendered dimensions or a successful resize.
 
 The actual crystal is present in the accepted launcher. Read-only Blender
 inspection of Crunch's SHA-pinned scene identifies the faceted, 75-vertex
@@ -87,7 +92,7 @@ the effect's rising +Z runs along the crystal. Default size 0.06 x 0.2 m; the
 TEST command `/warlock_crystal_flame <radius> <height>` resizes live flames for
 tuning.
 
-## Size failure and corrected engine scaling (2026-10-10)
+## Size failure and rejected scaled-link candidate (2026-10-10)
 
 [Crunch's v0.1.84 report](https://github.com/Ensrick/doomrocket-private/issues/15#issuecomment-6054610629)
 accepts visibility, rejects sizing, and suggests the torch fire. The matching log
@@ -103,13 +108,13 @@ initializers do not bind a particle variable. The native size variable exists,
 but changing it does not scale every cloud. It cannot serve as the controller's
 whole-effect size contract.
 
-The controller now follows VT2's native `VortexExtension` and
+The historical candidate follows VT2's native `VortexExtension` and
 `VortexHuskExtension` pattern: `Matrix4x4.set_scale` on the local attachment pose,
 then `World.link_particles` with that scaled pose. The
 [Stingray World reference](https://help.autodesk.com/cloudhelp/2019/ENU/Max-Interactive-Help/lua_ref/obj_stingray_World.html)
 defines the link pose as the effect's new local coordinates relative to the
 parent scene node. The reference radius is 0.6 m and reference height is vanilla's
-mature 1.2 m fire target; default 0.06/0.2 inputs produce visual scale
+mature 1.2 m fire target; default 0.06/0.2 inputs produce link scale
 (0.1, 0.1, 1/6). These are approximate visual targets, not guaranteed rendered
 bounding-box measurements.
 
@@ -122,9 +127,9 @@ recreated or manually moved every frame. This avoids relying on the unlinked
 `move_particles` API, which affects only newly emitted particles, and avoids a
 second world-transform composition convention in the controller.
 
-The tuning command destroys and recreates only the live emitters on this peer,
+In the dormant experiment the tuning command destroys and recreates only the live emitters on this peer,
 so old particles cannot obscure an immediate size comparison. It reports how
-many live flames it resized and logs both scale axes. New Engineers inherit the
+many emitters were recreated and logs both scale axes; rendered size remains unverified. New Engineers inherit the
 same setting. Invalid/non-finite inputs are rejected and numeric inputs remain
 bounded. Death, item removal, reload, and world teardown retain explicit cleanup.
 The native `destroy` link policy destroys the effect when its launcher is deleted;
@@ -153,6 +158,6 @@ It is present in level packages, including Skittergate, but absent from
 breed package too. A string swap would therefore depend on the map's resource
 residency. Loading an entire unrelated level solely for this effect is unsuitable.
 Consistent torch reuse would require a separately verified native effect/material
-dependency packaging change. This candidate keeps the already visible,
-breed-resident green fire and corrects its known sizing failure without changing
-the established build/upload pipeline or creating art.
+dependency packaging change. The scaled ground-fire attempt did not correct the
+reported visual failure and is disabled in the queued candidate. A resource name
+swap alone does not establish residency or an appropriately small visible flame.

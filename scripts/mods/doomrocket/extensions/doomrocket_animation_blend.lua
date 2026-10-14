@@ -4,6 +4,9 @@ local mod = get_mod("doomrocket")
 -- target. The helper uses this skeleton's zero-edge sampler, never the native
 -- carrier's ASM. Ordinary same-owner transitions keep their native blends.
 local OUTFIT = "units/warlock_bombardier/warlock_bombardier_3p"
+-- Match AttachmentNodeLinking.doomrocket_warlock_root: the visible wrapper
+-- root is attached to this carrier node, not to the carrier unit's node zero.
+local CARRIER_ROOT = "root_point"
 local SPEED = "warlock_move_speed"
 local AIM = "aim_target"
 local BONE_COUNT = 138
@@ -201,11 +204,16 @@ local function start(owner, outfit, profile)
 		or Unit.get_data(outfit, "warlock_animation_manifest_id") ~= profile.manifest_id then return false end
 	local world = Unit.world(owner)
 	if not world or Unit.world(outfit) ~= world then return false end
+	-- Unit.node on a missing native node can assert outside Lua's pcall. Resolve
+	-- the same checked parent frame used by the visible outfit before spawning.
+	if not Unit.has_node(owner, CARRIER_ROOT) then return false end
+	local carrier_root = Unit.node(owner, CARRIER_ROOT)
+	if not finite(carrier_root) or carrier_root < 0 or carrier_root ~= math.floor(carrier_root) then return false end
 	local entry = { world = world, outfit = outfit, profile = profile, state = profile.default_state,
 		bones = {}, bone_set = {}, awaiting_health = health ~= true, frame = 0, applied_frame = -1,
 		elapsed = 0, duration = 0, active = false, status = "starting" }
-	-- The outer unit root follows the same carrier. root_point remains an
-	-- animated skeletal node and is included in the 138-pose compositor.
+	-- Both outer roots share the carrier's root_point parent. Each outfit's own
+	-- root_point remains an animated node in the 138-pose compositor.
 	entries[owner] = entry
 	local ok, result = pcall(function()
 		-- Binding an unloaded resource can assert inside the native engine; a
@@ -231,7 +239,7 @@ local function start(owner, outfit, profile)
 		Unit.set_animation_bone_mode(entry.helper, "transform")
 		Unit.set_animation_root_mode(entry.helper, "ignore")
 		Unit.set_bones_lod(entry.helper, 0)
-		World.link_unit(world, entry.helper, 0, owner, 0)
+		World.link_unit(world, entry.helper, 0, owner, carrier_root)
 		local used = {}
 		for i, name in ipairs(profile.bone_names) do
 			if type(name) ~= "string" or used[name] or not Unit.has_node(outfit, name)

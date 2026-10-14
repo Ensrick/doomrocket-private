@@ -44,6 +44,104 @@ def runtime():
     return lua
 
 
+def destroy_runtime():
+    source = (ROOT / "scripts/mods/doomrocket/utils/hooks.lua").read_text(encoding="utf-8")
+    start = source.index('mod:hook(AIInventoryExtension, "destroy",')
+    end = source.index('mod:hook(AIInventoryExtension, "freeze",', start)
+    lua = LuaRuntime(unpack_returned_tuples=True)
+    lua.execute(r'''
+        owner={}; outfit={}; replacement={}; unrelated={}; driver={}
+        inventory={unit=owner}; calls={}
+        function pack(...) return {n=select('#',...),...} end
+        mod={_warlock_outfits={[owner]=outfit},
+             _warlock_outfit_owners={[outfit]=owner},
+             _warlock_active_death_drivers={[driver]=true}}
+        for _,name in ipairs({'_stop_warlock_grip_alignment',
+            '_stop_warlock_animation_ownership','_stop_warlock_outfit_correction',
+            '_stop_warlock_living_sounds','_forget_warlock_audio_owner',
+            '_stop_warlock_locomotion_animation','_stop_warlock_hose',
+            '_stop_warlock_weapon_pose_probe','_stop_warlock_backpack_smoke',
+            '_stop_warlock_crystal_flame'}) do
+            local phase=name
+            mod[name]=function(unit)
+                assert(unit==inventory.unit)
+                calls[#calls+1]=phase
+                if replace_during_cleanup and phase=='_stop_warlock_crystal_flame' then
+                    mod._warlock_outfits[owner]=replacement
+                    mod._warlock_outfit_owners[replacement]=owner
+                end
+            end
+        end
+        AIInventoryExtension={destroy=function(self,...)
+            calls[#calls+1]='native:destroy'; native_args=pack(...)
+            native_owner_mapping=mod._warlock_outfits[self.unit]
+            if native_error then error('native destroy failed') end
+            return nil,'destroyed',nil
+        end}
+        function mod:hook(object,name,handler)
+            local original=object[name]
+            object[name]=function(...) return handler(original,...) end
+        end
+    ''' + source[start:end])
+    return lua
+
+
+class InventoryDestroyRegistryTests(unittest.TestCase):
+    def test_destroy_retires_both_mirror_handles_before_native_and_preserves_returns(self):
+        lua = destroy_runtime()
+        lua.execute('''
+            local result=pack(AIInventoryExtension.destroy(inventory,0.02,nil,'tail'))
+            assert(mod._warlock_outfits[owner]==nil)
+            assert(mod._warlock_outfit_owners[outfit]==nil and native_owner_mapping==nil)
+            assert(calls[#calls]=='native:destroy' and #calls==11)
+            assert(result.n==3 and result[2]=='destroyed')
+            assert(native_args.n==3 and native_args[1]==0.02 and native_args[2]==nil
+                and native_args[3]=='tail')
+        ''')
+
+    def test_newer_outfit_registered_during_cleanup_survives(self):
+        lua = destroy_runtime()
+        lua.execute('''
+            replace_during_cleanup=true; AIInventoryExtension.destroy(inventory)
+            assert(mod._warlock_outfits[owner]==replacement)
+            assert(mod._warlock_outfit_owners[replacement]==owner)
+            assert(mod._warlock_outfit_owners[outfit]==nil)
+        ''')
+
+    def test_unrelated_inventory_does_not_retire_another_owner(self):
+        lua = destroy_runtime()
+        lua.execute('''
+            inventory.unit=unrelated; AIInventoryExtension.destroy(inventory)
+            assert(mod._warlock_outfits[owner]==outfit)
+            assert(mod._warlock_outfit_owners[outfit]==owner)
+        ''')
+
+    def test_death_driver_survives_already_detached_inventory(self):
+        lua = destroy_runtime()
+        lua.execute('''
+            mod._warlock_outfits[owner]=nil; mod._warlock_outfit_owners[outfit]=nil
+            AIInventoryExtension.destroy(inventory)
+            assert(mod._warlock_active_death_drivers[driver])
+        ''')
+
+    def test_native_failure_does_not_retain_dead_mirroring_handles(self):
+        lua = destroy_runtime()
+        lua.execute('''
+            native_error=true; assert(not pcall(AIInventoryExtension.destroy,inventory))
+            assert(mod._warlock_outfits[owner]==nil)
+            assert(mod._warlock_outfit_owners[outfit]==nil)
+        ''')
+
+    def test_foreign_reverse_mapping_is_not_removed(self):
+        lua = destroy_runtime()
+        lua.execute('''
+            mod._warlock_outfit_owners[outfit]=unrelated
+            AIInventoryExtension.destroy(inventory)
+            assert(mod._warlock_outfits[owner]==nil)
+            assert(mod._warlock_outfit_owners[outfit]==unrelated)
+        ''')
+
+
 class InventoryAnimationLinkTests(unittest.TestCase):
     def test_unwield_stops_following_before_native_relink(self):
         lua = runtime()
