@@ -17,7 +17,7 @@ in-game pass.
 
 ## Current transition candidate
 
-The v0.1.91-dev source candidate reduces duplicate skeleton validation during a
+The published v0.1.91-dev runtime reduces duplicate skeleton validation during a
 legacy-target blend. A callback-scoped token shares the read-side check between
 the grip and outfit builders; full validation remains at entry and before any
 helper pose write. Events, re-entry, failures and teardown invalidate the scope.
@@ -39,6 +39,27 @@ micrometres against a 2 mm bound. The 234 pure-authored zero-write checks and
 `100685cdf64cdfbd90dc7baa23bec8206515c83af0c498fcadc5bb4afcdbd8bd`.
 This is fresh evaluation by the current Lua, with zero new native-game captures;
 it does not reclassify the historical decoded inputs as current engine evidence.
+
+Fresh v0.1.91 candidate/reference SDK compilation and a separate standard audit
+of those compiled bytes pass. The audit join supplies a SHA-pinned independent
+diagnostic prerequisite, with zero additional SDK runs and no compiled-output
+changes. `compiled_animation_contract.json` SHA-256 is
+`91a18e9ddb540392593e559da6836a502d3345f0e7956136cee023003d845d41`;
+`compiled_package_closure.json` SHA-256 is
+`79bf13056b47ab81f0c9752b41b91e1220ad4d6e43514ae93b9b22a408c1950b`.
+All thirteen original compiled clips/138 tracks, the 154-edge integration and
+the 21-member package's 16 required resources pass their independent checks.
+
+The fresh actual-Lua legacy equivalence report matches 24,077 poses and
+3,322,626 local matrices byte for byte, with zero new weighted skin evaluations.
+`legacy_equivalence_v91.json` SHA-256 is
+`bf0ca38ae94d3767c1a236ff8046ba12da9c362e848fcd1081641ff4dee8563c`.
+The strict final acceptance join still fails its historical **whole-file helper
+provenance guard** for `tools/tests/test_doomrocket_visible_aim.py`. These passing
+independent SDK/current-Lua/legacy scopes do not constitute a full acceptance
+receipt. No native `Unit` poses were captured; hidden evaluation, engine event
+clocks and rendered custom playback remain blocked on a runnable staged engine.
+The default Workshop manifest is empty and cannot perform that acceptance.
 
 v0.1.87-dev replaces immediate mixed cuts with the `snapshot-blend-v1` bridge
 described below. The final compositor passes 36 executable Lua regressions;
@@ -436,15 +457,33 @@ Run this step from the development repository, using a verified exported clip
 and its adjacent `.animation` and `.export.json`. The plan creator calculates
 and validates the source hashes; no manual hash inventory is required.
 
+Before creating a plan with an authored clip, run that clip's full isolated SDK
+diagnostic and keep its `compiled_animation_contract.json`. The integration SDK
+audit compares the registered authored resource with those accepted compiled
+bytes; the plan's `--sdk-report` input copies and hash-pins that prerequisite.
+An FBX export receipt alone does not satisfy this SDK dependency. Use a fresh
+diagnostic directory for each revised artist export.
+
 ```powershell
 $handoff = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Blends_2026-10-11'
 $clip = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\ArnaudAnimations\warlock_idle.fbx'
 $plan = '.build\animator_rig\arnaud_idle_plan.json'
 $overlay = '.build\animation_integration_arnaud_idle'
+$diagnosticProbe = '.build\animation_sdk_arnaud_idle_diagnostic'
+
+& powershell -NoProfile -ExecutionPolicy Bypass `
+    -File tools/animation_rig/Invoke-AnimationProbe.ps1 `
+    -AnimationFbx $clip `
+    -BodyFbx (Join-Path $handoff 'validation\warlock_candidate_body.fbx') `
+    -ExportManifest ([IO.Path]::ChangeExtension($clip, '.export.json')) `
+    -SkinProfile (Join-Path $handoff 'rig_manifest.json') `
+    -MidpointMotion -ProbeRoot $diagnosticProbe
+if ($LASTEXITCODE -ne 0) { throw 'Authored clip SDK diagnostic failed.' }
 
 py -3 tools/animation_rig/stage_integration.py --create-plan $plan `
     --rig-manifest (Join-Path $handoff 'rig_manifest.json') `
     --clip $clip --clip-id arnaud_idle --state base/idle `
+    --sdk-report (Join-Path $diagnosticProbe 'compiled_animation_contract.json') `
     --body (Join-Path $handoff 'validation\warlock_candidate_body.fbx') `
     --offsets (Join-Path $handoff 'accessory_bind_offsets.json') `
     --enable-localized-profile

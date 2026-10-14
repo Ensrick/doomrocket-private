@@ -1,16 +1,16 @@
 # Development TEST quickstart
 
-**Warlock Engineer TEST v0.1.90-dev is published and verified.**
-Verification completed 2026-10-14 05:03:32 UTC (96,148,698 bytes; content handle
-`8005821270151446939`); the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.90-dev)
-binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/b805a418e2ccd00818f1ad674eb7f2394b6f9b37)
-([PR #57](https://github.com/Ensrick/doomrocket-private/pull/57)).
+**Warlock Engineer TEST v0.1.91-dev is published and verified.**
+Verification completed 2026-10-14 17:16:22 UTC (96,151,595 bytes; content handle
+`8852394603691670543`); the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.91-dev)
+binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/8285071b8bc78501b6f26dd9572e83c7f7213511)
+([PR #59](https://github.com/Ensrick/doomrocket-private/pull/59)).
 Publication supplies the build for testing; it does not establish its in-game result.
 
-v0.1.91-dev is being prepared and is not yet available on Workshop. It adds a
+Published v0.1.91-dev adds a
 small native pickup-torch candidate at the crystal and optimizes repeated
-skeleton checks in the separately staged authored-animation path. After verified
-publication, #15 needs a written verdict on visible size, colour, attachment and
+skeleton checks in the separately staged authored-animation path. Issue #15
+needs a written verdict on visible size, colour, attachment and
 cleanup during ordinary play. Do not repeat the retired size-command experiment.
 The full authored integration in #53 still needs its staged profile and native
 runtime validation; normal default Workshop gameplay cannot exercise it.
@@ -35,18 +35,18 @@ breed-name typo remains. Hose [#3](https://github.com/Ensrick/doomrocket-private
 awaits a verdict on the firmer resting curve, with visibility and physics already
 accepted. Follow each issue's current instructions for other work.
 
-The six current published TEST checks are:
+The seven current published TEST checks are:
 
 - [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): firmer resting curve while retaining natural flex; visibility and physics are already accepted.
 - [#6 rocket clearance](https://github.com/Ensrick/doomrocket-private/issues/6): whether close shots clear the floor and reach the aimed point.
+- [#15 crystal flame](https://github.com/Ensrick/doomrocket-private/issues/15): whether the small native torch's visible size, colour and attachment suit the crystal and it disappears on death, drop and map change. Green colour is unverified; do not use the retired size command.
 - [#28 launcher/hand alignment](https://github.com/Ensrick/doomrocket-private/issues/28): whether the weapon remains aligned during ordinary movement, aim and reload.
 - [#35 Dutch Spice arena](https://github.com/Ensrick/doomrocket-private/issues/35): whether Into the Nest arena Stormvermin waves spawn on Cataclysm.
 - [#44 lingering audio](https://github.com/Ensrick/doomrocket-private/issues/44): whether living-enemy sounds stop on death during ordinary play; the report is rare, so absence in a short session is not final proof.
 - [#55 facing](https://github.com/Ensrick/doomrocket-private/issues/55): ordinary-play observations after the aim guards; if a mismatch is noticed while playing with friends, describe the phase and retain available matching logs. No arranged multiplayer session is required.
 
 Follow the latest steps in the issue you choose; there is no requirement to
-complete all six in one session. The rejected flame (#15) needs a suitable
-small effect; no size-command rerun is requested. The 30% audio reduction in #5
+complete all seven in one session. No size-command rerun is requested. The 30% audio reduction in #5
 is live and can receive an ordinary written loudness/cleanup verdict. The full
 sound-cue pass still needs artist selection/trigger for the two aiming
 candidates, plus flight/reload sources. Alpha crash #34 needs crash evidence.
@@ -73,7 +73,7 @@ Setup
 [ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
 [ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
 [ ] Enable the TEST item only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.90-dev in the matching new log.
+[ ] Confirm [doomrocket:LOAD] v0.1.91-dev in the matching new log.
 [ ] If the version differs, stop and report the mismatch.
 
 Test and report

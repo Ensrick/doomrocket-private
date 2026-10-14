@@ -5,12 +5,12 @@ in-game screenshot reject the native green ground-fire sizing candidate: it
 remains far too large. Published TEST v0.1.90-dev includes the temporary
 particle omission prepared for the unpublished v0.1.89-dev, preserving the
 crystal and artist assets. His reference is a
-small flame close to the crystal. No reliable all-map replacement is established.
+small flame close to the crystal. No visually accepted all-map replacement is established.
 The measurements and earlier candidates below retain their historical evidence.
 
 ## v0.1.91-dev native small-torch candidate
 
-The source candidate uses the unchanged game effect
+Published TEST v0.1.91-dev uses the unchanged game effect
 `fx/wpnfx_torch_local_space_3p` and its native small initializer dimensions.
 It reuses the measured crystal frame and inverse scale-100 launcher compensation,
 without the rejected radius/height link-scale controls. The old size command is
@@ -27,7 +27,7 @@ the SHA-pinned dependency audit below; the rejection tests run in local and
 hosted QA. This proves the identified native dependency chain, not runtime
 residency, green colour or visible size. The TEST verdict remains whether the
 effect is small, suits the crystal, follows movement and disappears on death or
-drop. A written report is sufficient. This source candidate is not yet published.
+drop. A written report is sufficient; publication does not establish its visual result.
 
 The 0.010 value shown by the old command was our Lua minimum clamp, not an
 established engine limit. The dormant scaled-link experiment reports its inputs
@@ -188,7 +188,7 @@ swap alone does not establish residency or an appropriately small visible flame.
 ### Native pickup-torch evidence (read-only audit, 2026-10-13)
 
 `fx/wpnfx_torch_local_space_3p` was not active in v0.1.90-dev and is the new
-v0.1.91-dev source candidate. Its existing 1,253-byte payload has SHA-256
+published TEST v0.1.91-dev candidate. Its existing 1,253-byte payload has SHA-256
 `b09f353565dfcc9dbe51a55b23fe488275f142b1b5b36c749b5dbb95fe958cce`.
 The decoded resource has one billboard cloud, capacity 40, a `local_space`
 simulator and persistent lifetime. Its initial size-channel range is 0.10-0.20,
@@ -212,8 +212,9 @@ Colour, rendered size, billboard orientation and the target's small green-flame
 appearance remain unverified. The validated material parser exposes no RGB/RGBA
 tint parameter for this child, and the particle colour curves remain opaque.
 Do not guess a green material override or re-enable the rejected ground fire.
-An isolated controller/package/lifetime prototype can reuse the measured
-crystal anchor and existing cleanup rules without creating art, but it needs
-separate reviewed engineering and an eventual written visual verdict. No
+The reviewed v0.1.91 controller uses that measured crystal anchor and
+package/lifetime ownership without creating art. It still needs a written visual
+verdict; the initializer and dependency evidence does not establish green colour
+or rendered dimensions. No
 shipping particle, material, artist asset or package was changed by this audit.
-The original small linked-flame feature remains blocked.
+The original small linked-flame feature remains open pending that written verdict.
