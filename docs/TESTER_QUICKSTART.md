@@ -1,15 +1,17 @@
 # Development TEST quickstart
 
-**Warlock Engineer TEST v0.1.88-dev is published and verified.**
-Verification completed 2026-10-12 00:46 UTC; the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.88-dev)
-binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d9282f8799b7b53ad99e2cd48fcf164a2fadee29).
+**Warlock Engineer TEST v0.1.90-dev is published and verified.**
+Verification completed 2026-10-14 05:03:32 UTC (96,148,698 bytes; content handle
+`8005821270151446939`); the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.90-dev)
+binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/b805a418e2ccd00818f1ad674eb7f2394b6f9b37)
+([PR #57](https://github.com/Ensrick/doomrocket-private/pull/57)).
 Publication supplies the build for testing; it does not establish its in-game result.
 
-v0.1.90-dev is the queued candidate. It retains the temporary gem-flame omission,
-30% quieter custom sounds and small hose adjustment from v0.1.89-dev, and adds
-guarded aiming, bounded facing diagnostics and animation parent-frame fixes.
-The user has held publication; neither candidate is available on Workshop.
-Use current status for the verified version; do not test unpublished changes.
+Published v0.1.90-dev includes the temporary gem-flame omission, 30% quieter
+custom sounds and small hose adjustment prepared for the unpublished
+v0.1.89-dev. It adds guarded aiming, bounded facing diagnostics and animation
+parent-frame fixes. The authored integration remains separately staged; the
+default package has no active custom profile. Public alpha is unchanged.
 
 Use the verified [TEST Workshop build](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730)
 named in [current status](../PROJECT_STATUS.md) and the issue's latest test
@@ -25,25 +27,34 @@ breed-name typo remains. Hose [#3](https://github.com/Ensrick/doomrocket-private
 awaits a verdict on the firmer resting curve, with visibility and physics already
 accepted. Follow each issue's current instructions for other work.
 
-The five current published TEST checks are:
+The six current published TEST checks are:
 
 - [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): firmer resting curve while retaining natural flex; visibility and physics are already accepted.
 - [#6 rocket clearance](https://github.com/Ensrick/doomrocket-private/issues/6): whether close shots clear the floor and reach the aimed point.
 - [#28 launcher/hand alignment](https://github.com/Ensrick/doomrocket-private/issues/28): whether the weapon remains aligned during ordinary movement, aim and reload.
 - [#35 Dutch Spice arena](https://github.com/Ensrick/doomrocket-private/issues/35): whether Into the Nest arena Stormvermin waves spawn on Cataclysm.
 - [#44 lingering audio](https://github.com/Ensrick/doomrocket-private/issues/44): whether living-enemy sounds stop on death during ordinary play; the report is rare, so absence in a short session is not final proof.
+- [#55 facing](https://github.com/Ensrick/doomrocket-private/issues/55): ordinary-play observations after the aim guards; if a mismatch is noticed while playing with friends, describe the phase and retain available matching logs. No arranged multiplayer session is required.
 
 Follow the latest steps in the issue you choose; there is no requirement to
-complete all five in one session. The rejected flame (#15) needs a suitable
-small effect; no size-command rerun is requested. Full sound-cue work #5 has two
-aiming candidates awaiting artist selection/trigger, while flight/reload sources
-are still absent. Alpha crash #34 needs crash evidence; none is a repeat TEST
-acceptance assignment.
+complete all six in one session. The rejected flame (#15) needs a suitable
+small effect; no size-command rerun is requested. The 30% audio reduction in #5
+is live and can receive an ordinary written loudness/cleanup verdict. The full
+sound-cue pass still needs artist selection/trigger for the two aiming
+candidates, plus flight/reload sources. Alpha crash #34 needs crash evidence.
+Staged native animation #53 remains blocked because the default package cannot
+exercise its authored sampler. None is a repeat unavailable acceptance assignment.
 
-Facing report #55 has guarded aim handling and bounded diagnostics in the queued
-candidate. If a mismatch is noticed during ordinary play after publication,
-describe the phase and attach existing matching logs. No organised multiplayer
-session or video is required. Head readability #56 remains an artist decision.
+Facing diagnostics in #55 record `stage=aim_update`; they do not establish
+post-animation facing agreement. Existing written observations remain evidence.
+No organised multiplayer session or video is required. Head readability #56
+remains an artist decision.
+
+Arnaud's [latest #35 attachment](https://github.com/Ensrick/doomrocket-private/issues/35#issuecomment-6158706396)
+loads v0.1.88-dev and records PlayFab HTTP 500/error 1110 during title-state
+startup, followed by the backend popup and an orderly exit. It has no
+arena-specific stack or verdict. v0.1.90-dev does not target that backend
+failure; the Dutch Spice arena check remains open.
 
 Use this short path for an issue labeled `ready-for-testing`:
 
@@ -54,7 +65,7 @@ Setup
 [ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
 [ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
 [ ] Enable the TEST item only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.88-dev in the matching new log.
+[ ] Confirm [doomrocket:LOAD] v0.1.90-dev in the matching new log.
 [ ] If the version differs, stop and report the mismatch.
 
 Test and report

@@ -8,6 +8,11 @@ and two death takes. Passing offline checks proves the bank is present and wired
 it does not prove spatialisation, occlusion, replication, variation, or cleanup
 inside Vermintide 2.
 
+Published TEST v0.1.90-dev includes the requested 30% amplitude reduction from
+v0.1.88-dev. For a new loudness or cleanup observation, confirm
+`[doomrocket:LOAD] v0.1.90-dev` and give a written verdict from normal play.
+Publication does not establish perceived loudness or complete the full cue pass.
+
 Arnaud supplied two experimental `TargetLocked` aiming WAVs on October 9. Both
 are valid markerless mono 16-bit PCM at 44.1 kHz: the first is 3.139 s, the `_02`
 take is 3.202 s. They await his choice and intended trigger (target acquisition
@@ -136,11 +141,11 @@ Stingray metadata/dependency products, and
 `wwise/doomrocket.bank_manifest.json`. For the current approved masters, the
 wrapped bank SHA-256 is
 `7f7fded74e853f8fee6227b9291e6e4eae31123c527e341d61f12a59367258af`.
-Queued v0.1.89-dev and v0.1.90-dev scale packaged signed 16-bit PCM by 4949/10000
-(approximately -6.11 dB from the masters). This is 70% of published v0.1.88-dev's
+Published TEST v0.1.90-dev retains the packaging change prepared for the
+unpublished v0.1.89-dev: signed 16-bit PCM is scaled by 4949/10000
+(approximately -6.11 dB from the masters). This is 70% of v0.1.88-dev's
 707/1000 amplitude, about 3.10 dB additional attenuation for the requested 30%
-reduction. These candidates are not uploaded; use the published version for
-actual in-game observations. The
+reduction. Use the current published LOAD banner for in-game observations. The
 approved masters and their source hashes remain unchanged; sample counts,
 event timing and the spatial attenuation curves are preserved. The manifest
 records both master and reduced-playback PCM hashes.
@@ -281,6 +286,7 @@ Report the exact loaded banner, what was heard, any persistent sound's rough
 location/time, and whether volume still needs adjustment. Existing written
 observations are evidence; logs supplement them instead of overruling them.
 
-Full sound-pass acceptance (#5) remains blocked by the missing approved warning,
-flight and reload assets. Cleanup and volume feedback on the current candidate
-are independent actionable checks, not a claim that the full pass is finished.
+Full sound-pass acceptance (#5) remains blocked by the aiming take/trigger
+decision and absent flight/reload assets. Cleanup and volume feedback on
+published TEST v0.1.90-dev are independent actionable checks, not a claim that
+the full pass is finished.
