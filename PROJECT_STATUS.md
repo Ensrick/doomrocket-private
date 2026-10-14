@@ -1,6 +1,6 @@
 # Project status
 
-Updated 2026-10-13 UTC. [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
+Updated 2026-10-13 (America/Chicago). [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
 is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
@@ -8,12 +8,34 @@ is the live work queue; this page is a short re-entry map.
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Warlock Engineer TEST v0.1.88-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-12 00:46:21 UTC (96,252,675 bytes; content handle `5232463954926459657`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.88-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/d9282f8799b7b53ad99e2cd48fcf164a2fadee29). |
 | Animator handoff | [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11_START_HERE.md), [complete ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip), and [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip.verify.json). Anonymous complete downloads verified 2026-10-11 09:15 UTC. |
-| Next TEST work | v0.1.89-dev is a source candidate awaiting build and publication: slightly firmer hose [#3](https://github.com/Ensrick/doomrocket-private/issues/3), 30% less custom audio amplitude [#5](https://github.com/Ensrick/doomrocket-private/issues/5), and temporary gem-flame omission [#15](https://github.com/Ensrick/doomrocket-private/issues/15). The repeated flame-scaling failure is accepted; do not repeat its old size-command test. Near-range clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35) and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44) remain published candidates. Full sound cues #5 still need Arnaud's masters; alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) still needs crash evidence. |
+| Queued candidate | v0.1.90-dev combines the preserved v0.1.89-dev gem/audio/hose changes with guarded aiming and facing diagnostics [#55](https://github.com/Ensrick/doomrocket-private/issues/55), plus the sampler parent-frame and teardown fixes [#53](https://github.com/Ensrick/doomrocket-private/issues/53). The user explicitly queued publication; do not resume Steam recovery or upload without a new instruction. Neither v0.1.89-dev nor v0.1.90-dev has been uploaded. |
+| Remaining work | Near-range clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), launcher/hand alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), Dutch Spice waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35) and lingering audio [#44](https://github.com/Ensrick/doomrocket-private/issues/44) remain published candidates. Flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15) needs a suitable small effect; do not repeat its rejected size-command test. Head readability [#56](https://github.com/Ensrick/doomrocket-private/issues/56) needs Arnaud's art decision. Sound [#5](https://github.com/Ensrick/doomrocket-private/issues/5) has two supplied aiming candidates awaiting selection/trigger; flight/reload sources are still absent. Alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) still needs crash evidence. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current evidence and work
+
+The user's follow-up authorizes engineering fixes while the upload stays queued.
+v0.1.90-dev corrects demonstrated aiming edge cases: a held ballistic direction
+survives attack-data teardown, and missing/non-finite replicated targets never
+reach either native constraint. Bounded `FACING` records capture version, role,
+network identity, aim source/target, carrier/outfit roots and animation phase.
+Host/client agreement remains an in-game question; no root-rotation correction
+or new multiplayer test requirement is invented.
+
+The authored sampler now uses the carrier's checked `root_point`, matching the
+visible outfit's parent frame. Inventory destruction clears its original
+event-mirroring pair without disturbing a replacement pair or ragdoll driver.
+The current shipping ASM already has its initial idle self-edge. Native hidden
+sampler evaluation, clocks and oracle APIs in #53 remain unverified; historical
+numerical receipts do not become fresh acceptance of these changes.
+
+The old flame command clamped small inputs to 0.010; this is not an engine
+minimum. The effect stays disabled, and experimental diagnostics no longer
+promise a rendered size in metres. The five material bindings and approved
+skin/fur/whisker payloads match published v0.1.88; head readability does not
+justify a speculative tint, texture or hitbox change.
 
 Arnaud's October 13 feedback was relayed by the user: the latest patch is mostly
 stable, the gem particle still does not resize even at `.0001`, custom audio
@@ -22,13 +44,15 @@ resting curve. GitHub reads did not find a newer Arnaud comment in either Warloc
 repository; the relayed written report is accepted as the current observation.
 The proposed public-alpha update remains a separate deliberate promotion.
 
-The v0.1.89-dev source candidate temporarily disables the gem particle while
+The queued v0.1.89-dev changes temporarily disable the gem particle while
 preserving the crystal and artist assets. It packages all twelve approved
 recordings at 70% of v0.1.88-dev's amplitude (0.4949 of the unchanged WAV masters).
 Hose stiffness changes from 200 to 240 s^-2, preserving all other physics
 parameters, endpoints and rig assets. Actual-Lua measurements show settled
 deflection decreasing from 58.55 to 49.01 mm while residual secondary motion
-remains 4.93 mm. These measurements do not establish the in-game appearance.
+remains 4.93 mm. v0.1.90-dev retains these changes. The original v0.1.89-dev
+normalized output and receipt are preserved locally under
+`.build/queued/v0.1.89-dev`. These measurements do not establish the in-game appearance.
 
 The separate [Blender animation authoring guide](docs/ANIMATION_AUTHORING.md)
 covers Arnaud's local control rig, portable exporter, and isolated integration

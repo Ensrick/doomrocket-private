@@ -165,7 +165,7 @@ Unit={alive=function(u) return u and u.alive end,world=function(u) checked(u);re
 World={update_unit=function(w,u) assert(w==world);checked(u);py_flush(u.key);pose_calls.flushes=pose_calls.flushes+1 end,
  spawn_unit=function(w,n,...) assert(w==world and n==outfit.name);helper.alive=true;pose_calls.spawned=pose_calls.spawned+1;return helper end,
  destroy_unit=function(w,u) assert(w==world and u==helper);helper.alive=false;pose_calls.destroyed=pose_calls.destroyed+1 end,
- link_unit=function(w,u,node,p,source) assert(w==world and u==helper and node==0 and source==0 and p==owner) end,
+ link_unit=function(w,u,node,p,source) assert(w==world and u==helper and node==0 and source==owner.nodes.root_point and p==owner) end,
 }
 Application={can_get=function(kind,n) return kind=='state_machine' and n==loaded_sampler end,
  time_since_launch=function() return helper_time end}

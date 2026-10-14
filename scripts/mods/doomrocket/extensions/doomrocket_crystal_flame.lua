@@ -11,6 +11,9 @@ local DEFAULT_SIZE = { 0.06, 0.2 }
 -- Reference dimensions of the dormant attachment-scale experiment. These do
 -- not establish rendered billboard dimensions or a working whole-effect scale.
 local REFERENCE_RADIUS, REFERENCE_HEIGHT = 0.6, 1.2
+-- These are bounds of our old experiment command, not measured engine limits.
+-- In particular, the reported 0.010 minimum came from this clamp. A successful
+-- link/resize call does not establish the billboard's rendered dimensions.
 local MIN_SIZE, MAX_SIZE = 0.01, 2
 local PACKAGE = "resource_packages/breeds/skaven_warpfire_thrower"
 local PACKAGE_REFERENCE = "doomrocket_crystal_flame"
@@ -238,7 +241,7 @@ mod._start_warlock_crystal_flame = function (owner, inventory)
 
 	state.entries[owner] = entry
 	state.weapons[weapon] = owner
-	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s radius=%.3f height=%.3f scale_xy=%.3f scale_z=%.3f",
+	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s input_radius=%.3f input_height=%.3f link_scale_xy=%.3f link_scale_z=%.3f rendered_size=unverified",
 		EFFECT, anchor.node, state.size[1], state.size[2], state.size[1] / REFERENCE_RADIUS,
 		state.size[2] / REFERENCE_HEIGHT)
 	return true
@@ -330,7 +333,7 @@ mod._set_warlock_crystal_flame_size = function (radius, height)
 		end
 	end
 
-	printf("[doomrocket:CRYSTAL] phase=resize radius=%.3f height=%.3f scale_xy=%.3f scale_z=%.3f live=%d",
+	printf("[doomrocket:CRYSTAL] phase=resize input_radius=%.3f input_height=%.3f link_scale_xy=%.3f link_scale_z=%.3f live=%d rendered_size=unverified",
 		state.size[1], state.size[2], state.size[1] / REFERENCE_RADIUS, state.size[2] / REFERENCE_HEIGHT, restarted)
 	return true, restarted
 end
@@ -338,11 +341,11 @@ end
 mod:command("warlock_crystal_flame", "Crystal flame is temporarily disabled pending a working small effect", function (radius, height)
 	local valid, restarted = mod._set_warlock_crystal_flame_size(radius, height)
 	if restarted == "disabled" then
-		mod:echo("Crystal flame is temporarily disabled: the previous effect did not respond visibly to size changes.")
+		mod:echo("Crystal flame is temporarily disabled: the previous effect did not respond visibly to size changes. The old 0.010 minimum was our command's clamp; it did not establish an engine limit.")
 	elseif valid then
-		mod:echo(string.format("Crystal flame target: radius %.3f m, height %.3f m (%d live flames resized)", state.size[1], state.size[2], restarted))
+		mod:echo(string.format("Experimental flame inputs: radius %.3f, height %.3f (%d live emitters recreated). Rendered size is unverified; inputs are clamped by this mod to %.3f-%.3f.", state.size[1], state.size[2], restarted, MIN_SIZE, MAX_SIZE))
 	else
-		mod:echo("Usage: /warlock_crystal_flame <radius> <height>   (current: %.3f %.3f)", state.size[1], state.size[2])
+		mod:echo("Usage: /warlock_crystal_flame <radius> <height>   (current inputs: %.3f %.3f; mod bounds: %.3f-%.3f; rendered size unverified)", state.size[1], state.size[2], MIN_SIZE, MAX_SIZE)
 	end
 end)
 

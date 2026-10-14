@@ -1202,6 +1202,8 @@ end)
 
 -- Stop before native inventory teardown unlinks/deletes the parent outfit.
 mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
+	local owner = self.unit
+	local outfit = mod._warlock_outfits and mod._warlock_outfits[owner]
 	mod._stop_warlock_grip_alignment(self.unit)
 	mod._stop_warlock_animation_ownership(self.unit)
 	mod._stop_warlock_outfit_correction(self.unit)
@@ -1212,6 +1214,15 @@ mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
 	mod._stop_warlock_weapon_pose_probe(self.unit)
 	mod._stop_warlock_backpack_smoke(self.unit, "inventory_destroy")
 	mod._stop_warlock_crystal_flame(self.unit, "inventory_destroy")
+	-- Normal death already detaches this pair for the ragdoll driver. Alive
+	-- despawns and inventory teardown must also retire event-mirroring handles.
+	-- A replacement registered during cleanup owns its newer pair.
+	if mod._warlock_outfits and mod._warlock_outfits[owner] == outfit then
+		mod._warlock_outfits[owner] = nil
+	end
+	if outfit and mod._warlock_outfit_owners and mod._warlock_outfit_owners[outfit] == owner then
+		mod._warlock_outfit_owners[outfit] = nil
+	end
 	return func(self, ...)
 end)
 

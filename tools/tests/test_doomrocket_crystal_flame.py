@@ -227,6 +227,7 @@ class CrystalFlameDisabledTests(unittest.TestCase):
                 local message=mod.echoes[#mod.echoes]
                 assert(message:find('temporarily disabled',1,true))
                 assert(not message:find('resized',1,true))
+                assert(message:find("our command's clamp; it did not establish an engine limit",1,true))
                 assert(size[1]==0.06 and size[2]==0.2)
             end
             assert(events.created==0 and events.loads==0)
@@ -401,6 +402,9 @@ class CrystalFlameTuningTests(unittest.TestCase):
             assert(math.abs(scale.x-0.1/0.6)<1e-12 and math.abs(scale.z-0.35/1.2)<1e-12)
             assert(events.created==2 and events.destroyed==1 and count()==1)
             assert(mod.echoes[#mod.echoes]:find('radius 0.100', 1, true))
+            assert(mod.echoes[#mod.echoes]:find('Rendered size is unverified', 1, true))
+            assert(mod.echoes[#mod.echoes]:find('live emitters recreated', 1, true))
+            assert(not mod.echoes[#mod.echoes]:find(' m,', 1, true))
             mod._stop_warlock_crystal_flame(owner,'test')
             owner=new_owner(); weapon=new_weapon(); inventory=new_inventory(owner,weapon)
             assert(start())
@@ -418,6 +422,7 @@ class CrystalFlameTuningTests(unittest.TestCase):
             mod.commands.warlock_crystal_flame('-1', '50')
             local scale=Matrix4x4.scale(particles_pose(events.latest_id))
             assert(math.abs(scale.x-0.01/0.6)<1e-12 and math.abs(scale.z-2/1.2)<1e-12)
+            assert(mod.echoes[#mod.echoes]:find('inputs are clamped by this mod to 0.010-2.000', 1, true))
             local before=events.created
             assert(not mod._set_warlock_crystal_flame_size(math.huge,0.2))
             assert(not mod._set_warlock_crystal_flame_size(0.1,-math.huge))

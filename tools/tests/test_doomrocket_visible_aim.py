@@ -274,18 +274,23 @@ Vector3={
  length_squared=function(v) return v.x*v.x+v.y*v.y+v.z*v.z end,
  normalize=function(v) local n=math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);return vec(v.x/n,v.y/n,v.z/n) end,
 }
-Quaternion={forward=function() return vec(0,1,0) end}
+Quaternion={forward=function(rotation) return type(rotation)=='table' and rotation or vec(0,1,0) end}
 owner={alive=true,index=7,kind='owner',has_target=true,writes=0,finds=0}
 function make_outfit(index) return {alive=true,index=index,kind='outfit',has_target=true,writes=0,finds=0} end
 outfit=make_outfit(0)
-mod={_warlock_outfits={[owner]=outfit}}
+mod={_warlock_outfits={[owner]=outfit},_doomrocket_version='test-version'}
+logs={}
+function printf(format,...) logs[#logs+1]=string.format(format,...) end
 function get_mod(name) assert(name=='doomrocket');return mod end
 HEALTH_ALIVE={[owner]=true}; POSITION_LOOKUP={[owner]=vec(10,20,30)}
 BLACKBOARDS={[owner]={}}
 AimTemplates={}
 Unit={
  alive=function(u) return u.alive end,
- local_rotation=function(u,i) assert(u.alive and i==0);return true end,
+ local_rotation=function(u,i) assert(u.alive and i==0);return u.forward or true end,
+ world_rotation=function(u,i) assert(u.alive and i==0);return u.forward or true end,
+ world_position=function(u,i) assert(u.alive and i==0);return POSITION_LOOKUP[u] or vec(10,20,30) end,
+ animation_layer_info=function(u,i) assert(u.alive and i==1);return .25,1 end,
  has_animation_event=function(u,n) assert(n=='doomrocket_reload_start');return u.reload or false end,
  animation_has_constraint_target=function(u,n) assert(u.alive and n=='aim_target');return u.has_target end,
  animation_find_constraint_target=function(u,n)
@@ -294,7 +299,7 @@ Unit={
  end,
  animation_set_constraint_target=function(u,index,target)
   assert(u.alive and index==u.index,'foreign constraint index or dead native unit')
-  if u.kind=='outfit' then assert(Vector3.is_valid(target),'invalid visual target') end
+  assert(Vector3.is_valid(target),'invalid native or visual target')
   u.writes=u.writes+1;u.target=target
  end,
 }
@@ -305,7 +310,7 @@ GameSession={
  game_object_field=function(g,id,name) assert(g==net_game and id==5 and name=='aim_target');return replicated end,
 }
 function begin(lane) data={};template=AimTemplates.doomrocket[lane];template.init(owner,data) end
-function tick() template.update(owner,1,1/60,data) end
+function tick(t) template.update(owner,t or 1,1/60,data) end
 """
 
 
@@ -368,6 +373,124 @@ class VisibleAimRuntimeTests(unittest.TestCase):
             with self.subTest(lane=lane):
                 lua = runtime(lane)
                 lua.execute("owner.reload=true;tick();assert(owner.writes==0 and outfit.writes==0 and outfit.finds==0)")
+
+    def test_owner_and_husk_apply_identical_published_target_despite_different_local_facing(self):
+        lua = runtime()
+        lua.execute("""
+         BLACKBOARDS[owner].attack_pattern_data={ballistic_aim_direction_box={unbox=function() return vec(0,4,3) end}}
+         tick();local host_owner,host_outfit=owner,outfit
+         replicated=published
+         owner={alive=true,index=9,kind='owner',has_target=true,writes=0,finds=0,forward=vec(-1,0,0)}
+         outfit=make_outfit(31);mod._warlock_outfits[owner]=outfit
+         HEALTH_ALIVE[owner]=true;POSITION_LOOKUP[owner]=vec(10.1,20,30)
+         begin('husk');tick()
+         assert(owner.target==host_owner.target and outfit.target==host_outfit.target)
+         assert(outfit.target==replicated and outfit.target.x==10 and outfit.target.y==24 and outfit.target.z==33)
+         assert(host_owner.forward==nil and owner.forward.x==-1)
+        """)
+
+    def test_held_ballistic_target_survives_missing_attack_pattern_until_exact_expiry(self):
+        lua = runtime()
+        lua.execute("""
+         local bb=BLACKBOARDS[owner]
+         bb.doomrocket_ballistic_aim_hold_direction_box={unbox=function() return vec(0,4,3) end}
+         bb.doomrocket_ballistic_aim_hold_until=2
+         assert(bb.attack_pattern_data==nil)
+         tick(1);assert(published.y==24 and published.z==33)
+         tick(2);assert(published.y==24 and published.z==33)
+         tick(2.001);assert(published.y==25 and published.z==30)
+         assert(bb.doomrocket_ballistic_aim_hold_direction_box==nil and bb.doomrocket_ballistic_aim_hold_until==nil)
+        """)
+
+    def test_active_ballistic_target_takes_priority_over_hold_and_direct_aim(self):
+        lua = runtime()
+        lua.execute("""
+         local bb=BLACKBOARDS[owner]
+         bb.doomrocket_ballistic_aim_hold_direction_box={unbox=function() return vec(-1,0,0) end}
+         bb.doomrocket_ballistic_aim_hold_until=10
+         bb.attack_pattern_data={ballistic_aim_direction_box={unbox=function() return vec(1,0,0) end},
+          shoot_direction_box={unbox=function() return vec(0,-1,0) end}}
+         tick();assert(published.x==15 and published.y==20 and published.z==30)
+        """)
+
+    def test_invalid_replicated_target_never_reaches_either_native_constraint(self):
+        for target in ("nil", "vec(0/0,0,0)", "vec(math.huge,0,0)", "vec(0,-math.huge,0)"):
+            with self.subTest(target=target):
+                lua = runtime("husk")
+                lua.execute(f"""
+                 tick();replicated={target};tick(3)
+                 assert(owner.writes==1 and outfit.writes==1)
+                 assert(data.visible_aim_outfit==nil and data.visible_aim_constraint==nil)
+                """)
+
+    def test_invalid_owner_direction_falls_back_before_normalizing(self):
+        for direction in ("vec(0,0,0)", "vec(0/0,0,0)", "vec(math.huge,0,0)", "vec(1e308,1e308,1e308)"):
+            with self.subTest(direction=direction):
+                lua = runtime()
+                lua.execute(f"""
+                 BLACKBOARDS[owner].attack_pattern_data={{ballistic_aim_direction_box={{unbox=function() return {direction} end}}}}
+                 tick();assert(owner.target==outfit.target and owner.target==published)
+                 assert(published.x==10 and published.y==25 and published.z==30)
+                """)
+
+    def test_invalid_owner_position_is_neither_written_nor_published(self):
+        lua = runtime()
+        lua.execute("POSITION_LOOKUP[owner]=vec(math.huge,0,0);tick();assert(owner.writes==0 and outfit.writes==0 and published==nil)")
+
+    def test_absent_carrier_constraint_never_uses_unsafe_native_lookup(self):
+        for lane in ("owner", "husk"):
+            with self.subTest(lane=lane):
+                lua = runtime(lane)
+                lua.execute(f"""
+                 owner.has_target=false;owner.finds=0;begin('{lane}');tick()
+                 assert(owner.finds==0 and owner.writes==0 and outfit.writes==0)
+                """)
+
+    def test_facing_evidence_identifies_roles_world_target_roots_and_animation_phase(self):
+        for lane, source in (("owner", "forward"), ("husk", "replicated")):
+            with self.subTest(lane=lane):
+                lua = runtime(lane)
+                lua.execute("""
+                 BLACKBOARDS[owner].action={name='fire_rocket'}
+                 BLACKBOARDS[owner].attack_pattern_data={state='align'}
+                 tick()
+                """)
+                message = lua.globals().logs[1]
+                for field in ("v=test-version", f"role={lane}", "go_id=5", "stage=aim_update",
+                              f"source={source}", "result=applied", "root_pos=10.000,20.000,30.000",
+                              "root_forward=0.000,1.000,0.000", "outfit_forward=0.000,1.000,0.000",
+                              "owner_clock=0.250/1.000", "outfit_clock=0.250/1.000"):
+                    self.assertIn(field, message)
+                if lane == "owner":
+                    self.assertIn("action=fire_rocket pattern=align", message)
+
+    def test_facing_evidence_is_rate_limited_and_per_unit_bounded(self):
+        lua = runtime()
+        lua.execute("""
+         for i=1,600 do tick(i/60) end
+         assert(#logs>=4 and #logs<=6 and owner.writes==600 and outfit.writes==600)
+         for i=1,500 do tick(10+i*2) end
+         assert(#logs==30 and owner.writes==1100 and outfit.writes==1100)
+        """)
+
+    def test_facing_evidence_session_cap_survives_many_unit_initializations(self):
+        lua = runtime()
+        lua.execute("""
+         for spawn=1,20 do
+          begin('owner');for i=1,50 do tick(i*2) end
+         end
+         assert(#logs==240 and owner.writes==1000 and outfit.writes==1000)
+        """)
+
+    def test_diagnostic_api_errors_never_interrupt_aiming_and_are_bounded(self):
+        lua = runtime()
+        lua.execute("""
+         Unit.world_rotation=function() error('diagnostic unavailable') end
+         for i=1,35 do tick(i*2) end
+         assert(owner.writes==35 and outfit.writes==35 and #logs==0 and data.facing_samples==30)
+         Unit.world_rotation=function() return true end
+         tick(100);assert(owner.writes==36 and #logs==0)
+        """)
 
 
 class VisibleAimSourceTests(unittest.TestCase):

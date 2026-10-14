@@ -144,7 +144,12 @@ World={
   native(u);assert(w==u.world and u==helper);if broken_destroy then error('native cleanup unavailable') end
   calls.destroys=calls.destroys+1;u.alive=false
  end,
- link_unit=function(w,u,node,parent,source) native(u);native(parent);assert(w==world and u==helper and node==0 and parent==owner and source==0);u.linked=true end,
+ link_unit=function(w,u,node,parent,source)
+  native(u);native(parent)
+  assert(w==world and u==helper and node==0 and parent==owner and source==owner.nodes.root_point)
+  if broken_link then error('native link unavailable') end
+  u.linked=true;u.link_parent=parent;u.link_source=source
+ end,
  update_unit=function(w,u) native(u);assert(w==u.world) end,
 }
 function mod._prepare_warlock_legacy_grip_pose(owner_unit,sampler)
@@ -216,6 +221,54 @@ class AnimationBlendTests(unittest.TestCase):
         lua = runtime()
         lua.execute("begin();assert(helper.hidden_meshes.default==3 and helper.hidden_meshes.shadow_caster==3 and helper.enabled and helper.linked);assert(calls.visible==0)")
         lua.execute("frame(.1);assert(helper.aim.x==5 and helper.aim.y==7 and helper.aim.z==9)")
+
+    def test_helper_shares_visible_carrier_parent_and_copies_only_its_wrapper_trs(self):
+        lua = runtime()
+        lua.execute('''
+          -- A named carrier root may have a different index/frame from node
+          -- zero. Visible outfit attachment already uses this named parent.
+          owner.nodes.root_point=321
+          outfit.locals[0]={p=vec(.7,-.8,.9),r=q(.4),s=vec(1.2,.8,.5)}
+          begin();frame(.1)
+          assert(helper.link_parent==owner and helper.link_source==321)
+          assert(helper.locals[0].p.x==.7 and helper.locals[0].p.y==-.8 and helper.locals[0].p.z==.9)
+          assert(helper.locals[0].r.z==outfit.locals[0].r.z and helper.locals[0].r.w==outfit.locals[0].r.w)
+          assert(helper.locals[0].s.x==1.2 and helper.locals[0].s.y==.8 and helper.locals[0].s.z==.5)
+          assert(calls.visible==0 and calls.helper_bones==0)
+        ''')
+
+    def test_named_carrier_root_may_resolve_to_zero(self):
+        lua = runtime()
+        lua.execute("owner.nodes.root_point=0;begin();assert(helper.link_source==0 and calls.spawns==1)")
+
+    def test_missing_carrier_root_is_rejected_before_unsafe_lookup_or_spawn(self):
+        lua = runtime()
+        lua.execute('''
+          owner.nodes.root_point=nil
+          local query=Unit.node;local missing_queries=0
+          Unit.node=function(u,name)
+            if u==owner and name=='root_point' then missing_queries=missing_queries+1 end
+            return query(u,name)
+          end
+          assert(not mod._start_warlock_animation_blend(owner,outfit,profile))
+          assert(missing_queries==0 and calls.spawns==0 and status()=='off')
+        ''')
+
+    def test_invalid_carrier_root_index_is_rejected_before_spawn(self):
+        for expression in ("-1", ".5", "0/0", "math.huge", "'1'", "{}"):
+            with self.subTest(expression=expression):
+                lua = runtime()
+                lua.execute("owner.nodes.root_point=" + expression)
+                lua.execute("assert(not mod._start_warlock_animation_blend(owner,outfit,profile));assert(calls.spawns==0 and status()=='off')")
+
+    def test_failed_native_parent_link_destroys_helper_without_leaving_an_entry(self):
+        lua = runtime()
+        lua.execute('''
+          broken_link=true
+          assert(not mod._start_warlock_animation_blend(owner,outfit,profile))
+          assert(calls.spawns==1 and calls.destroys==1 and not helper.alive and status()=='off')
+          mod._reset_warlock_animation_blend();assert(calls.destroys==1)
+        ''')
 
     def test_all_138_trs_mix_from_corrected_displayed_pose_to_moving_authored_target(self):
         lua = runtime()

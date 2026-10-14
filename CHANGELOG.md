@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.1.90-dev - follow-up aim guards and animation frame corrections
+
+- **Facing report (#55):** retain the last valid ballistic aim through attack-data
+  teardown, guard native constraint lookups and reject missing/non-finite
+  replicated targets before either carrier or outfit writes. Add bounded
+  `FACING` records with version, network role/ID, aim source, target, carrier and
+  outfit roots, and animation phase. These fixes and diagnostics do not establish
+  the cause or acceptance of the reported host/client mismatch.
+- **Animation integration (#53):** link the incoming sampler to the same checked
+  carrier `root_point` as the visible outfit. Retire both event-mirroring maps
+  during inventory destruction without clearing a newer replacement or the
+  separate ragdoll driver. Original tracks and transition durations stay exact.
+- **Gem flame (#15):** keep the rejected particle disabled. Explain that the
+  old 0.010 minimum was the command's clamp, and label dormant inputs/link scale
+  separately from unverified rendered dimensions.
+- **Sound/readability tracking (#5, #56):** record the two supplied aiming WAVs
+  as candidates awaiting Arnaud's choice and trigger. Flight/reload assets and
+  head/scarf/cloth colour decisions remain artist work. No new assets activate.
+
+This candidate retains v0.1.89-dev's quieter audio, slight hose adjustment and
+temporary gem-flame omission. Publication remains queued by the user's request;
+no Steam recovery, deployment, Workshop upload or alpha promotion runs here.
+
 ## v0.1.89-dev - gem flame pause, quieter audio and a small hose adjustment
 
 Arnaud's October 13 feedback, relayed by the user, reports that gem particle
