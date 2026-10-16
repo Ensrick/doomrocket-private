@@ -17,7 +17,7 @@ in-game pass.
 
 ## Current transition candidate
 
-The v0.1.92-dev checker candidate repairs the v0.1.91 final provenance join.
+The published v0.1.92-dev checker repairs the v0.1.91 final provenance join.
 Only the exact historical/current aiming-helper hash pair is admitted, and its
 complete import/decoder prefix must remain byte-identical and SHA-pinned. The
 reviewed v0.1.90 changes affect unused aiming-test Lua and eleven test methods.
@@ -32,6 +32,12 @@ It joins the existing v0.1.91 numerical/SDK/legacy proofs with their exact
 preserved inputs. It does not repeat their numerical measurements or SDK runs,
 modify the original failed attempt/receipts, or establish native playback.
 The original v0.1.91 source archive remains an unchanged historical handoff.
+
+The [strict join report](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.92-dev/WarlockEngineer_AnimationEvidence_v0.1.92-dev.json)
+and [reviewed source binding](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.92-dev/WarlockEngineer_AnimationEvidence_v0.1.92-dev.source.json)
+are published separately; complete anonymous downloads match their local hashes.
+Use the reviewed v0.1.92 checker rather than the historical source archive's
+runtime-reference snapshot when reproducing this corrected offline join.
 
 The published v0.1.91-dev runtime reduces duplicate skeleton validation during a
 legacy-target blend. A callback-scoped token shares the read-side check between

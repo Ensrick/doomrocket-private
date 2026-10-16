@@ -1,16 +1,19 @@
 # Development TEST quickstart
 
-**Warlock Engineer TEST v0.1.91-dev is published and verified.**
-Verification completed 2026-10-14 17:16:22 UTC (96,151,595 bytes; content handle
-`8852394603691670543`); the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.91-dev)
-binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/8285071b8bc78501b6f26dd9572e83c7f7213511)
-([PR #59](https://github.com/Ensrick/doomrocket-private/pull/59)).
+**Warlock Engineer TEST v0.1.92-dev is published and verified.**
+Verification completed 2026-10-16 22:41:10 UTC (96,151,595 bytes; content handle
+`4381899514826923644`); the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.92-dev)
+binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/c74ce2c50cbfdf9afce516f748eaafb4a4068b7f)
+([PR #61](https://github.com/Ensrick/doomrocket-private/pull/61)).
 Publication supplies the build for testing; it does not establish its in-game result.
 
-v0.1.92-dev is being prepared. It repairs the offline animation evidence checker
-and retains v0.1.91-dev gameplay and assets. No extra visual test or recording is
-required for the checker fix; ordinary flame feedback remains pending. Native
-authored playback still requires the separately staged integration in #53.
+Published v0.1.92-dev repairs the offline animation evidence checker and retains
+v0.1.91-dev gameplay and assets. No extra visual test or recording is required
+for the checker fix; ordinary flame feedback remains pending. Native authored
+playback still requires the separately staged integration in #53. Existing
+v0.1.91-dev sessions and written reports remain useful for the unchanged flame,
+audio, hose and aiming behavior. No retest is needed solely for this checker
+maintenance update.
 
 Published v0.1.91-dev adds a
 small native pickup-torch candidate at the crystal and optimizes repeated
@@ -78,7 +81,7 @@ Setup
 [ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
 [ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
 [ ] Enable the TEST item only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.91-dev in the matching new log.
+[ ] Confirm [doomrocket:LOAD] v0.1.92-dev in the matching new log.
 [ ] If the version differs, stop and report the mismatch.
 
 Test and report
