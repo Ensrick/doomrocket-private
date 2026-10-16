@@ -17,6 +17,22 @@ in-game pass.
 
 ## Current transition candidate
 
+The v0.1.92-dev checker candidate repairs the v0.1.91 final provenance join.
+Only the exact historical/current aiming-helper hash pair is admitted, and its
+complete import/decoder prefix must remain byte-identical and SHA-pinned. The
+reviewed v0.1.90 changes affect unused aiming-test Lua and eleven test methods.
+Unknown revisions, decoder/import edits and changes to other helpers still fail.
+All 28 acceptance regressions pass, including planted import, decoder and tail
+rebinding changes. The independently reviewed policy is a finite revision pin,
+not a generic exclusion of test code.
+
+The fresh `snapshot_blend_acceptance_v91_rechecked_20261016.json` has SHA-256
+`e83f84ebe284de7ab7931420e75786a00ed93f94fa6a615aa689fa26e6dcce6d`.
+It joins the existing v0.1.91 numerical/SDK/legacy proofs with their exact
+preserved inputs. It does not repeat their numerical measurements or SDK runs,
+modify the original failed attempt/receipts, or establish native playback.
+The original v0.1.91 source archive remains an unchanged historical handoff.
+
 The published v0.1.91-dev runtime reduces duplicate skeleton validation during a
 legacy-target blend. A callback-scoped token shares the read-side check between
 the grip and outfit builders; full validation remains at entry and before any
@@ -54,10 +70,10 @@ The fresh actual-Lua legacy equivalence report matches 24,077 poses and
 3,322,626 local matrices byte for byte, with zero new weighted skin evaluations.
 `legacy_equivalence_v91.json` SHA-256 is
 `bf0ca38ae94d3767c1a236ff8046ba12da9c362e848fcd1081641ff4dee8563c`.
-The strict final acceptance join still fails its historical **whole-file helper
-provenance guard** for `tools/tests/test_doomrocket_visible_aim.py`. These passing
-independent SDK/current-Lua/legacy scopes do not constitute a full acceptance
-receipt. No native `Unit` poses were captured; hidden evaluation, engine event
+The original v0.1.91 final acceptance attempt failed its historical **whole-file
+helper provenance guard** for `tools/tests/test_doomrocket_visible_aim.py`.
+The fresh join above repairs that specific offline blocker while preserving the
+original independent SDK/current-Lua/legacy scopes. No native `Unit` poses were captured; hidden evaluation, engine event
 clocks and rendered custom playback remain blocked on a runnable staged engine.
 The default Workshop manifest is empty and cannot perform that acceptance.
 
