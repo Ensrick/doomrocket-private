@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.92-dev - animation evidence helper provenance correction
+
+- **Animation validation (#53):** accept only the exact reviewed aiming-test
+  revision whose decoder and import prefix remain byte-identical to the
+  historical helper. Pin both complete file hashes and the prefix hash; reject
+  unknown revisions, changed decoder/import code, and changes to every other
+  numerical helper. Preserve the original producer receipts and failed v0.1.91
+  attempt. Native hidden playback and event clocks still require engine testing.
+- Retain v0.1.91-dev's small native flame and animation optimization. Existing
+  tracks, custom-pose ownership, models and gameplay behavior are unchanged.
+
 ## v0.1.91-dev - small native flame candidate and guarded animation optimization
 
 - **Gem flame (#15):** replace the rejected ground-fire experiment with the

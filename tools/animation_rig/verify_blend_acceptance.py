@@ -21,6 +21,16 @@ HELPERS=('tools/hose_lab/compile_paths.py','tools/hose_lab/compiled/verifier_cor
          'tools/tests/test_warlock_weapon_pipeline.py','tools/tests/test_doomrocket_visible_aim.py',
          'tools/tests/test_doomrocket_chimney_anchor.py')
 LIFETIME='tools/tests/test_doomrocket_hose_lifecycle.py'
+AIM_HELPER='tools/tests/test_doomrocket_visible_aim.py'
+# v0.1.90 changed only the unused aiming Lua HARNESS and added eleven test
+# methods. Keep this a finite, reviewed pair: arbitrary future test edits can
+# execute decorators/default expressions or rebind decoder globals on import.
+AIM_TEST_ONLY_UPDATE={
+    'historical_sha256':'98943db7181e67a544a88c4705513a38c641b92dbe97d13e5e8889189cf1dd75',
+    'current_sha256':'c5a400685964b906b5d633d4c7e0861317836ed6568267e128ccc27b65074975',
+    'executed_prefix_sha256':'6bc75cc98fb8c4a0b879f8f4721f7ddbc464615b800ca9d012aaf6a581512814',
+    'reviewed_helper_source_git_ref':'b805a418e2ccd00818f1ad674eb7f2394b6f9b37',
+}
 
 
 def digest_bytes(raw):return hashlib.sha256(raw).hexdigest()
@@ -35,13 +45,45 @@ def harness_prefix(source):
     return value.split('Quaternion={')[0]
 
 
+def aim_decoder_prefix(raw):
+    """Keep the complete import/decoder context before the unused Lua harness."""
+    source=raw.decode('utf8')
+    nodes=[]
+    for node in ast.parse(source).body:
+        targets=node.targets if isinstance(node,ast.Assign) else [node.target] if isinstance(
+            node,(ast.AnnAssign,ast.AugAssign)) else []
+        if any(isinstance(target,ast.Name) and target.id=='HARNESS' for target in targets):nodes.append(node)
+    v.require(len(nodes)==1,'Aiming helper needs one top-level literal HARNESS boundary')
+    node=nodes[0]
+    v.require(isinstance(node,ast.Assign) and len(node.targets)==1 and node.col_offset==0 and
+              isinstance(node.value,ast.Constant) and isinstance(node.value.value,str),
+              'Aiming helper HARNESS boundary is not a single literal string assignment')
+    return ''.join(source.splitlines(keepends=True)[:node.lineno-1]).encode('utf8')
+
+
+def numerical_helper_identity(relative,current,old):
+    identity={'current_sha256':digest_bytes(current),'historical_sha256':digest_bytes(old),
+              'whole_file_byte_identical':current==old}
+    if current==old:return identity
+    v.require(relative==AIM_HELPER and all(identity[key]==AIM_TEST_ONLY_UPDATE[key]
+              for key in ('current_sha256','historical_sha256')),
+              'Executed numerical helper differs from reviewed historical identity: '+relative)
+    a,b=aim_decoder_prefix(current),aim_decoder_prefix(old)
+    v.require(a==b and digest_bytes(a)==AIM_TEST_ONLY_UPDATE['executed_prefix_sha256'],
+              'Executed aiming decoder or import context changed')
+    identity.update({'executed_prefix_sha256':digest_bytes(a),'executed_prefix_byte_identical':True,
+        'identity_policy':'finite-reviewed-aim-test-only-update-v1',
+        'reviewed_helper_source_git_ref':AIM_TEST_ONLY_UPDATE['reviewed_helper_source_git_ref'],
+        'scope':'Exact reviewed full-file pair; unchanged import/decoder prefix; only unused aiming Lua harness and eleven test methods differ; no native playback acceptance'})
+    return identity
+
+
 def helper_identity(ref):
     results=[]
     for relative in HELPERS:
         current=(v.ROOT/relative).read_bytes();old=legacy.git_bytes(ref,relative)
-        v.require(current==old,'Executed numerical helper differs from historical identity: '+relative)
-        results.append({'path':str((v.ROOT/relative).resolve()),'current_sha256':digest_bytes(current),
-                        'historical_sha256':digest_bytes(old),'whole_file_byte_identical':True})
+        identity=numerical_helper_identity(relative,current,old)
+        results.append(dict(identity,path=str((v.ROOT/relative).resolve())))
     current=(v.ROOT/LIFETIME).read_bytes();old=legacy.git_bytes(ref,LIFETIME)
     a,b=harness_prefix(current.decode('utf8')),harness_prefix(old.decode('utf8'))
     v.require(a==b and r.LUA_SCENE.startswith(a),'Executed lifetime harness prefix changed')

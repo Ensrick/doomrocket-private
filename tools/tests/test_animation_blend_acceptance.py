@@ -6,6 +6,7 @@ import math
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'animation_rig'))
 import verify_blend_acceptance as acceptance
@@ -87,6 +88,93 @@ class BlendAcceptance(unittest.TestCase):
 
     def test_invalid_harness_boundary_rejected(self):
         with self.assertRaises(ValueError):acceptance.harness_prefix("HARNESS='no fixed boundary'")
+
+
+class NumericalHelperIdentity(unittest.TestCase):
+    PREFIX=b'import struct\nfrom local_decoder import bounded_read\nLIMIT=138\ndef compiled_bones(data):\n return bounded_read(data,LIMIT)\n\n'
+    OLD=PREFIX+b'HARNESS="unused old Lua"\nclass RuntimeTests:\n def test_original(self):pass\n'
+    CURRENT=PREFIX+b'HARNESS="unused new Lua"\nclass RuntimeTests:\n def test_original(self):pass\n def test_added(self):pass\n'
+
+    def pins(self,current=None,old=None):
+        return dict(acceptance.AIM_TEST_ONLY_UPDATE,
+            current_sha256=acceptance.digest_bytes(self.CURRENT if current is None else current),
+            historical_sha256=acceptance.digest_bytes(self.OLD if old is None else old),
+            executed_prefix_sha256=acceptance.digest_bytes(self.PREFIX))
+
+    def test_unchanged_helper_needs_no_exception(self):
+        for relative in acceptance.HELPERS:
+            identity=acceptance.numerical_helper_identity(relative,b'unchanged',b'unchanged')
+            self.assertTrue(identity['whole_file_byte_identical'])
+            self.assertNotIn('identity_policy',identity)
+
+    def test_reviewed_pair_records_prefix_and_freezes_complete_current_file(self):
+        with mock.patch.object(acceptance,'AIM_TEST_ONLY_UPDATE',self.pins()):
+            identity=acceptance.numerical_helper_identity(acceptance.AIM_HELPER,self.CURRENT,self.OLD)
+        self.assertFalse(identity['whole_file_byte_identical'])
+        self.assertTrue(identity['executed_prefix_byte_identical'])
+        self.assertEqual(identity['current_sha256'],acceptance.digest_bytes(self.CURRENT))
+        self.assertEqual(identity['historical_sha256'],acceptance.digest_bytes(self.OLD))
+        self.assertEqual(identity['executed_prefix_sha256'],acceptance.digest_bytes(self.PREFIX))
+        self.assertEqual(identity['identity_policy'],'finite-reviewed-aim-test-only-update-v1')
+        self.assertIn('no native playback acceptance',identity['scope'])
+
+    def test_finite_policy_matches_current_reviewed_source(self):
+        raw=(acceptance.v.ROOT/acceptance.AIM_HELPER).read_bytes()
+        self.assertEqual(acceptance.digest_bytes(raw),acceptance.AIM_TEST_ONLY_UPDATE['current_sha256'])
+        self.assertEqual(acceptance.digest_bytes(acceptance.aim_decoder_prefix(raw)),
+                         acceptance.AIM_TEST_ONLY_UPDATE['executed_prefix_sha256'])
+
+    def test_other_helpers_cannot_use_aim_exception(self):
+        with mock.patch.object(acceptance,'AIM_TEST_ONLY_UPDATE',self.pins()):
+            for relative in acceptance.HELPERS:
+                if relative==acceptance.AIM_HELPER:continue
+                with self.subTest(relative=relative),self.assertRaises(ValueError):
+                    acceptance.numerical_helper_identity(relative,self.CURRENT,self.OLD)
+
+    def test_unknown_base_current_or_reversed_pair_rejected(self):
+        with mock.patch.object(acceptance,'AIM_TEST_ONLY_UPDATE',self.pins()):
+            for current,old in ((self.CURRENT,self.OLD+b'\n'),(self.CURRENT+b'\n',self.OLD),
+                                (self.OLD,self.CURRENT),(self.CURRENT,self.OLD.replace(b'old',b'unknown'))):
+                with self.subTest(current=current,old=old),self.assertRaises(ValueError):
+                    acceptance.numerical_helper_identity(acceptance.AIM_HELPER,current,old)
+
+    def test_decoder_import_dependency_or_constant_drift_fails_even_with_new_full_file_pin(self):
+        changes=((b'return bounded_read(data,LIMIT)',b'return ()'),(b'import struct',b'import json'),
+                 (b'from local_decoder import bounded_read',b'from foreign_decoder import bounded_read'),
+                 (b'LIMIT=138',b'LIMIT=137'))
+        for before,after in changes:
+            current=self.CURRENT.replace(before,after)
+            with self.subTest(change=after),mock.patch.object(acceptance,'AIM_TEST_ONLY_UPDATE',self.pins(current)):
+                with self.assertRaises(ValueError):
+                    acceptance.numerical_helper_identity(acceptance.AIM_HELPER,current,self.OLD)
+
+    def test_arbitrary_test_tail_and_import_time_rebindings_are_not_ignored(self):
+        tails=(b'\ncompiled_bones=lambda data:()\n',b'\nimport foreign_decoder\n',
+               b'\n@replace_decoder\nclass NewTests:pass\n',
+               b'\ndef test_new(value=replace_decoder()):pass\n',
+               b'\nclass NewTests:\n compiled_bones=replace_decoder()\n',
+               b'\nclass NewTests:\n def test_harmless(self):pass\n')
+        with mock.patch.object(acceptance,'AIM_TEST_ONLY_UPDATE',self.pins()):
+            for tail in tails:
+                with self.subTest(tail=tail),self.assertRaises(ValueError):
+                    acceptance.numerical_helper_identity(acceptance.AIM_HELPER,self.CURRENT+tail,self.OLD)
+
+    def test_missing_duplicate_computed_or_annotated_boundary_rejected_even_when_pinned(self):
+        boundaries=(b'',b'HARNESS="one"\nHARNESS="two"\n',b'HARNESS=str("computed")\n',
+                    b'HARNESS: str="annotated"\n',b'HARNESS=OTHER="shared"\n',
+                    b'HARNESS="one"\nHARNESS+="two"\n')
+        for boundary in boundaries:
+            current=self.PREFIX+boundary
+            with self.subTest(boundary=boundary),mock.patch.object(acceptance,'AIM_TEST_ONLY_UPDATE',self.pins(current)):
+                with self.assertRaises(ValueError):
+                    acceptance.numerical_helper_identity(acceptance.AIM_HELPER,current,self.OLD)
+
+    def test_equal_but_different_prefix_is_not_a_new_reviewed_decoder(self):
+        old=self.OLD.replace(b'LIMIT=138',b'LIMIT=137')
+        current=self.CURRENT.replace(b'LIMIT=138',b'LIMIT=137')
+        with mock.patch.object(acceptance,'AIM_TEST_ONLY_UPDATE',self.pins(current,old)):
+            with self.assertRaises(ValueError):
+                acceptance.numerical_helper_identity(acceptance.AIM_HELPER,current,old)
 
 
 if __name__=='__main__':unittest.main()

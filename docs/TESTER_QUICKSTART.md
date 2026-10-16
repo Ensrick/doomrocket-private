@@ -7,6 +7,11 @@ binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit
 ([PR #59](https://github.com/Ensrick/doomrocket-private/pull/59)).
 Publication supplies the build for testing; it does not establish its in-game result.
 
+v0.1.92-dev is being prepared. It repairs the offline animation evidence checker
+and retains v0.1.91-dev gameplay and assets. No extra visual test or recording is
+required for the checker fix; ordinary flame feedback remains pending. Native
+authored playback still requires the separately staged integration in #53.
+
 Published v0.1.91-dev adds a
 small native pickup-torch candidate at the crystal and optimizes repeated
 skeleton checks in the separately staged authored-animation path. Issue #15

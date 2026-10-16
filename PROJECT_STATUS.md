@@ -1,10 +1,11 @@
 # Project status
 
-Updated 2026-10-14 (America/Chicago). [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
+Updated 2026-10-16 (America/Chicago). [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
 is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
 | --- | --- |
+| Next TEST candidate | v0.1.92-dev corrects the animation acceptance checker's exact helper revision policy [#53](https://github.com/Ensrick/doomrocket-private/issues/53). The fresh offline evidence join passes; publication is pending. It retains v0.1.91-dev gameplay and assets. No v0.1.91-dev tester verdict has been reported. |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Warlock Engineer TEST v0.1.91-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified 2026-10-14 17:16:22 UTC (96,151,595 bytes; content handle `8852394603691670543`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.91-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/8285071b8bc78501b6f26dd9572e83c7f7213511) ([PR #59](https://github.com/Ensrick/doomrocket-private/pull/59)). |
 | Animator handoff | [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11_START_HERE.md), [complete ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip), and [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.87-dev/WarlockEngineer_AnimationRig_Blends_2026-10-11.zip.verify.json). Anonymous complete downloads verified 2026-10-11 09:15 UTC. |
@@ -43,10 +44,20 @@ passes 21 members/16 required resources. Current Lua passes 3,276 mixed poses
 against API doubles and retained decoded SDK targets. A fresh legacy comparison
 matches 24,077 poses/3,322,626 local matrices exactly, with zero new legacy skin
 evaluations. These are independent scopes, not a completed final acceptance join.
-The strict final helper whole-file provenance guard still fails on
-`tools/tests/test_doomrocket_visible_aim.py`; native `Unit` samples remain zero
-and the staged engine/game verdict remains blocked. See the [authoring guide](docs/ANIMATION_AUTHORING.md)
-for the report hashes and SDK prerequisite.
+The October 14 strict final attempt stopped on the whole-file identity of
+`tools/tests/test_doomrocket_visible_aim.py`. The v0.1.92-dev checker candidate
+pins that exact reviewed test-only revision and the unchanged decoder/import
+prefix. Its fresh join passes without changing any producer receipt or adding
+SDK/numerical samples: SHA-256
+`e83f84ebe284de7ab7931420e75786a00ed93f94fa6a615aa689fa26e6dcce6d`.
+Native `Unit` samples remain zero and the staged engine/game verdict remains
+blocked. See the [authoring guide](docs/ANIMATION_AUTHORING.md) for scope and the
+SDK prerequisite.
+
+GitHub feedback checked October 16: Arnaud edited his October 8 flame comment on
+October 15, adding reference images and detail. Its attached log still loads
+v0.1.84-dev. The torch suggestion is already implemented in v0.1.91-dev; this is
+not a versioned verdict on that candidate. No newer tester comment was found.
 
 Published TEST v0.1.90-dev corrects demonstrated aiming edge cases: a held ballistic direction
 survives attack-data teardown, and missing/non-finite replicated targets never
