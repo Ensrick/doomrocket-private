@@ -479,7 +479,11 @@ function mod._release_warlock_grip_alignment_world(world)
 end
 
 function mod._queue_warlock_grip_alignment(world, dt)
-	if pending[world] or not next(entries) or not finite(dt) or dt <= 0 or dt > 0.25 then return end
+	-- A finite hitch still evaluates both ASMs. Presentation must run after
+	-- that evaluation so the compositor can release a completed bridge and
+	-- correct the current legacy endpoint before the scene is displayed. Only
+	-- locomotion derivatives use the short-frame bound; this callback uses no dt.
+	if pending[world] or not next(entries) or not finite(dt) or dt <= 0 then return end
 	local entity = Managers.state.entity
 	local animation = entity and entity:system("animation_system")
 	if not animation then return end

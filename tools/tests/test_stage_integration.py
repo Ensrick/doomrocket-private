@@ -657,6 +657,45 @@ class StageIntegrationTests(unittest.TestCase):
         fixture.write(SAMPLER + ".state_machine", b"unreviewed existing helper")
         self.assert_rejected()
 
+    def rehearsal(self, fixture):
+        sys.path.insert(0, str(ROOT / "tools/animation_rig"))
+        import build_native_rehearsal as rehearsal
+        with patch.object(rehearsal, "stage", stage), patch.multiple(stage,
+                APPROVED_BODY_SHA=fixture.body_hash, APPROVED_BONES_SHA=fixture.bones_hash):
+            outputs = rehearsal.create(fixture.root)
+        for relative, contents in outputs.items():
+            fixture.write(relative, contents)
+        return rehearsal, outputs
+
+    def test_verified_stock_rehearsal_sampler_can_be_replaced_only_in_isolated_overlay(self):
+        fixture = self.fixture
+        rehearsal, outputs = self.rehearsal(fixture)
+        before = fixture.snapshot()
+        with patch.object(rehearsal, "stage", stage):
+            receipt = fixture.run()
+        self.assertEqual(before, fixture.snapshot())
+        for relative, contents in outputs.items():
+            self.assertEqual((fixture.root / relative).read_bytes(), contents)
+            self.assertEqual(receipt["source_inputs_sha256"][str((fixture.root / relative).resolve())], digest(contents))
+        self.assertNotEqual((fixture.root / (SAMPLER + ".state_machine")).read_bytes(),
+                            (fixture.output / (SAMPLER + ".state_machine")).read_bytes())
+
+    def test_partial_or_changed_rehearsal_contract_does_not_waive_source_alias_guard(self):
+        for mutation in ("sampler", "visible", "profile", "contract", "missing"):
+            with self.subTest(mutation=mutation):
+                fixture = Fixture(Path(self.temp.name) / mutation)
+                rehearsal, outputs = self.rehearsal(fixture)
+                path = {"sampler": SAMPLER + ".state_machine", "visible": rehearsal.VISIBLE + ".state_machine",
+                        "profile": rehearsal.COMPANION, "contract": rehearsal.CONTRACT,
+                        "missing": rehearsal.COMPANION}[mutation]
+                target = fixture.root / path
+                if mutation == "missing": target.unlink(); fixture.tracked.remove(target)
+                else: fixture.write(path, target.read_bytes() + b"\nmutation")
+                before = fixture.snapshot()
+                with patch.object(rehearsal, "stage", stage), self.assertRaises(ValueError): fixture.run()
+                self.assertEqual(before, fixture.snapshot())
+                self.assertFalse(fixture.output.exists())
+
     def test_sampler_write_failure_rolls_back_without_publishing_or_mutating_sources(self):
         fixture = self.fixture
         write = Path.write_bytes

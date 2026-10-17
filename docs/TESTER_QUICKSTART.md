@@ -7,6 +7,12 @@ binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit
 ([PR #61](https://github.com/Ensrick/doomrocket-private/pull/61)).
 Publication supplies the build for testing; it does not establish its in-game result.
 
+The v0.1.93-dev animation candidate adds a specific opt-in controller rehearsal
+for #53. Wait for its verified publication in [project status](../PROJECT_STATUS.md),
+then use the [new-spawn command and bounded probe instructions](ANIMATION_AUTHORING.md#v0193-dev-runnable-native-controller-rehearsal).
+It uses existing stock animation and does not establish a Blender-export or
+localized garment pass. Ordinary play on v0.1.92-dev cannot run that new check.
+
 Published v0.1.92-dev repairs the offline animation evidence checker and retains
 v0.1.91-dev gameplay and assets. No extra visual test or recording is required
 for the checker fix; ordinary flame feedback remains pending. Native authored

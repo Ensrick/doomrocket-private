@@ -8,6 +8,7 @@ from pathlib import Path
 import unittest
 
 from lupa.lua51 import LuaRuntime
+import test_doomrocket_animation_blend as blend
 import test_doomrocket_hose_lifecycle as lifetime
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -281,11 +282,105 @@ class GripAlignmentTests(unittest.TestCase):
             "HEALTH_ALIVE[owner]=nil",
             "mod._warlock_outfits[owner]=nil",
         ):
-            with self.subTest(cleanup=cleanup):
+            for dt in ("1/60", "1"):
+                with self.subTest(cleanup=cleanup, dt=dt):
+                    lua = runtime()
+                    lua.execute("mod._queue_warlock_grip_alignment(world," + dt + ");assert(#callbacks==1)")
+                    lua.execute(cleanup)
+                    lua.execute("owner.alive=false;outfit.alive=false;weapon.alive=false;drain();assert(calls.writes==0)")
+
+    def test_finite_hitch_presents_once_before_legacy_correction_and_outfit(self):
+        lua = runtime()
+        lua.execute("""
+          local presented,corrected=0,0
+          local flushed=calls.flushes
+          function mod._apply_warlock_animation_blend(carrier,target)
+           assert(carrier==owner and target==outfit and calls.flushes>=flushed+3)
+           assert(calls.writes==0,'grip ran before compositor release')
+           presented=presented+1
+          end
+          function mod._warlock_animation_ownership(carrier,target)
+           assert(presented==1,'ownership read before queued presentation')
+           return {upper_body='legacy',weapon='legacy'}
+          end
+          function mod._apply_warlock_outfit_correction(carrier,target,corpse)
+           assert(carrier==owner and target==outfit and corpse==false)
+           assert(calls.writes==24 and max_gap()<1e-8,'outfit ran before current-frame grip')
+           corrected=corrected+1
+          end
+          mod._queue_warlock_grip_alignment(world,1)
+          mod._queue_warlock_grip_alignment(world,1)
+          assert(#callbacks==1 and presented==0 and calls.writes==0)
+          move_source('j_lefthand',.4,.2,.9,.6)
+          drain();assert(not mod.last_error,mod.last_error)
+          assert(presented==1 and corrected==1 and calls.writes==24)
+          assert(mod._warlock_grip_alignment_status(owner)=='active')
+        """)
+
+    def test_finite_hitch_keeps_authored_pose_ownership_in_queued_callback(self):
+        lua = runtime()
+        lua.execute("""
+          local presented=0
+          local originals={};for node,p in pairs(outfit.locals) do originals[node]=keep(p) end
+          function mod._apply_warlock_animation_blend(carrier,target)
+           assert(carrier==owner and target==outfit);presented=presented+1
+          end
+          function mod._warlock_animation_ownership(carrier,target)
+           assert(presented==1)
+           return {upper_body='authored',weapon='authored'}
+          end
+          mod._queue_warlock_grip_alignment(world,1);assert(#callbacks==1)
+          drain();assert(not mod.last_error,mod.last_error)
+          assert(presented==1 and calls.writes==0)
+          for node,p in pairs(originals) do
+           for r=1,4 do for c=1,4 do assert(p[r][c]==outfit.locals[node][r][c]) end end
+          end
+          assert(mod._warlock_grip_alignment_status(owner)=='authored_no_wielded_weapon')
+        """)
+
+    def test_actual_compositor_completes_authored_bridge_through_hitch_callback(self):
+        # Use the real 138-bone compositor and grip queue together. The clock
+        # double advances independently in engine(); no direct apply call can
+        # substitute for presentation on either of these two evaluated frames.
+        lua = blend.runtime()
+        lua.execute("""
+          callbacks={}
+          function mod:pcall(fn,...)
+           local ok,result=pcall(fn,...);if not ok then self.last_error=result end;return ok,result
+          end
+          local animation={add_safe_animation_callback=function(self,fn) callbacks[#callbacks+1]=fn end}
+          Managers={state={entity={system=function(self,name)
+           assert(name=='animation_system');return animation
+          end}}}
+          function drain()
+           local todo=callbacks;callbacks={};for _,fn in ipairs(todo) do fn() end
+          end
+          function mod._warlock_animation_ownership(carrier,target)
+           assert(carrier==owner and target==outfit)
+           return {upper_body='authored',weapon='authored'}
+          end
+        """)
+        lua.execute(MODULE.read_text(encoding="utf-8"))
+        lua.execute("""
+          assert(mod._start_warlock_grip_alignment(owner,outfit,{}))
+          begin();change('authored')
+          mod._update_warlock_animation_blend(world,.1);engine(.1)
+          mod._queue_warlock_grip_alignment(world,.1);assert(#callbacks==1);drain()
+          assert(not mod.last_error,mod.last_error)
+          assert(active() and calls.visible==138*3)
+          local writes=calls.visible
+          mod._update_warlock_animation_blend(world,1);engine(1)
+          mod._queue_warlock_grip_alignment(world,1);assert(#callbacks==1);drain()
+          assert(not mod.last_error,mod.last_error)
+          assert(not active() and status()=='native' and calls.visible==writes)
+          assert(calls.helper_bones==0 and calls.grip==0 and calls.accessories==0 and calls.warnings==0)
+        """)
+
+    def test_invalid_or_paused_frame_does_not_queue_presentation(self):
+        for dt in ("nil", "0", "-1", "0/0", "math.huge", "-math.huge", "'1'"):
+            with self.subTest(dt=dt):
                 lua = runtime()
-                lua.execute("mod._queue_warlock_grip_alignment(world,1/60)")
-                lua.execute(cleanup)
-                lua.execute("owner.alive=false;outfit.alive=false;weapon.alive=false;drain();assert(calls.writes==0)")
+                lua.execute("mod._queue_warlock_grip_alignment(world," + dt + ");assert(#callbacks==0 and calls.writes==0)")
 
     def test_missing_node_and_wrong_skeleton_fail_before_unsafe_lookup(self):
         lua = runtime()

@@ -17,6 +17,57 @@ in-game pass.
 
 ## Current transition candidate
 
+### v0.1.93-dev: runnable native controller rehearsal
+
+The v0.1.93-dev candidate adds an opt-in path to exercise the existing ownership
+controller, hidden sampler and mixed transitions inside the normal TEST package.
+It uses the unchanged stock body and existing `combat_idle` clip. Only this
+separate graph treats idle as authored and removes its visible aim constraint.
+The stock graph, thirteen original clips, all 138 tracks and all 154 visible
+transition durations remain unchanged. This is a controller rehearsal, not a
+pass for a Blender export or localized garment deformation.
+
+After the [publication record](../PROJECT_STATUS.md) confirms v0.1.93-dev:
+
+1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.93-dev` in the new log.
+2. Before a new Warlock spawns, enter `/warlock_animation_rehearsal on`, then
+   `/warlock_animation_probe on`. Existing enemies are never rebound.
+3. Let a newly spawned Warlock idle, move, aim and return to idle in ordinary
+   solo play. Report visible transition cuts, frozen poses, launcher/hand drift
+   or other faults in writing. No recording is required.
+4. Enter `/warlock_animation_probe off` to finish the capture if it has not
+   stopped itself. `/warlock_animation_rehearsal off` restores normal selection
+   for subsequent spawns; existing rehearsal enemies finish their own profile.
+   Leaving the map or disabling the mod also turns selection off.
+5. Attach the matching complete console log to #53. Engineering reads it with:
+
+   ```powershell
+   py -3 tools/animation_rig/parse_animation_probe.py <console.log> --expected-version 0.1.93-dev --report <observations.json>
+   ```
+
+The probe is off by default and records final presentation observations for at
+most two distinct enemies, 120 samples, and 30 seconds of matching-outfit-world
+animation time. It waits while no matching outfit exists. It records native
+clocks and ten local body/hand/accessory matrices per visible/helper pair; it
+never seeks, advances animation, spawns units or writes poses. An unavailable
+diagnostic API stops capture with one error. `no-custom-profile-observed` is not
+an animation pass. These sparse observations do not replace the fixed-frame
+oracle, skin comparison or Arnaud's written visual verdict.
+
+Two grounded runtime defects are fixed: queued presentation now runs after
+finite hitches longer than 0.25 seconds, and stock-body profiles can return to
+legacy without nonexistent localized accessory registration. Localized profiles
+retain the twelve grip and seven accessory corrections; authored targets receive
+neither set. Both paths retain skeleton/lifetime checks and scene flushes.
+
+Arnaud can continue animating the published rig. His final clips still require
+the export and whole-set integration steps below, matching profile/Unit/body
+registration, SDK checks and a native verdict with the outfit included. The
+engineering handoff FBX files stay outside Git; reviewed production source
+assets must enter the canonical source receipt together. An ignored FBX copied
+into the build is not a reproducible production input. No local game executable
+is installed here, and the known SDK oracle boot failure remains unresolved.
+
 The published v0.1.92-dev checker repairs the v0.1.91 final provenance join.
 Only the exact historical/current aiming-helper hash pair is admitted, and its
 complete import/decoder prefix must remain byte-identical and SHA-pinned. The

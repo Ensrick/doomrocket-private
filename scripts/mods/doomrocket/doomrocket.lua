@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.92-dev"
+local MOD_VERSION = "0.1.93-dev"
 mod._doomrocket_version = MOD_VERSION
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
@@ -31,11 +31,21 @@ mod._doomrocket_hose_solver = mod:dofile("scripts/mods/doomrocket/utils/doomrock
 mod._doomrocket_hose_frames = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_frames")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_hose")
 mod._warlock_animation_manifest = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_animation_manifest")
+-- A separate trusted profile is inert until the explicit new-spawn rehearsal
+-- command selects it. Never replace a registered artist profile.
+local rehearsal_manifest = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_native_rehearsal_manifest")
+for id, profile in pairs(rehearsal_manifest.profiles) do
+	if mod._warlock_animation_manifest.profiles[id] == nil then
+		mod._warlock_animation_manifest.profiles[id] = profile
+	end
+end
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_rehearsal")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_ownership")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_outfit_correction")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_locomotion_animation")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_grip_alignment")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_blend")
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_probe")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_weapon_pose_probe")
 mod:dofile("scripts/mods/doomrocket/utils/doomrocket_action_lookup")
 mod:dofile("scripts/mods/doomrocket/extensions/projectile_rocket")
@@ -338,6 +348,8 @@ function mod.update(dt)
 end
 
 local function reset_warlock_runtime_state(reason, unload_bank)
+	mod._reset_warlock_animation_probe(reason or "runtime_reset")
+	mod._reset_warlock_animation_rehearsal()
 	mod._reset_warlock_locomotion_animation()
 	mod._reset_warlock_grip_alignment()
 	mod._reset_warlock_animation_ownership()

@@ -103,6 +103,8 @@ jobs:
           python tools/tests/test_doomrocket_animation_ownership.py
           python tools/tests/test_doomrocket_animation_dispatch.py
           python tools/tests/test_doomrocket_animation_blend.py
+          python tools/tests/test_doomrocket_animation_probe.py
+          python tools/tests/test_doomrocket_animation_rehearsal.py
           python tools/tests/test_doomrocket_inventory_animation_links.py
 
       - name: Run opt-in outfit correction regressions

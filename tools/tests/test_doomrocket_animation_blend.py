@@ -13,6 +13,7 @@ from lupa.lua51 import LuaRuntime
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_animation_blend.lua"
 LOCOMOTION = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_locomotion_animation.lua"
+OUTFIT_CORRECTION = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_outfit_correction.lua"
 BONES = re.findall(r'"([^"\n]+)"', (ROOT / "units/warlock_bombardier/warlock_bombardier_3p.bones").read_text())
 
 HARNESS = r'''
@@ -61,7 +62,7 @@ Application={can_get=function(kind,name)
  assert(kind=='state_machine' and name==profile.sampler_state_machine)
  return not unloaded_sampler
 end}
-profile={unit='units/warlock_bombardier/warlock_bombardier_3p',manifest_id=string.rep('a',64),
+profile={unit='units/warlock_bombardier/warlock_bombardier_3p',manifest_id=string.rep('a',64),accessory_skin='localized-v1',
  cross_owner_transition_policy='snapshot-blend-v1',sampler_state_machine='units/warlock_bombardier/warlock_bombardier_3p/presentation_sampler',
  bone_names=bone_names,default_state='idle',states={}}
 for _,name in ipairs({'idle','legacy2','authored','authored2','walk','run'}) do
@@ -314,6 +315,110 @@ class AnimationBlendTests(unittest.TestCase):
           assert(math.abs(outfit.locals[13].p.x-(.13+213)/2)<1e-10)
           assert(math.abs(outfit.locals[20].p.x-(.2+10.2)/2)<1e-10)
         ''')
+
+    def test_stock_body_return_to_legacy_needs_no_outfit_correction_registration(self):
+        lua = runtime()
+        lua.execute(OUTFIT_CORRECTION.read_text(encoding="utf-8"))
+        lua.execute('''
+          profile.accessory_skin=nil
+          assert(not mod._start_warlock_outfit_correction(owner,outfit))
+          local builder=mod._prepare_warlock_legacy_outfit_pose
+          mod._prepare_warlock_legacy_outfit_pose=function(...)
+            calls.accessories=calls.accessories+1;return builder(...)
+          end
+          begin();change('authored');frame(.25);change('idle')
+          local candidate,reason=builder(owner,helper,profile,{})
+          assert(candidate==nil and reason=='inactive_helper')
+          calls.structural=0;assert(frame(.125))
+          assert(calls.grip==1 and calls.accessories==0 and calls.helper_bones==12*2)
+          assert(calls.structural==2*138*6 and calls.visible==138*3 and calls.warnings==0)
+          assert(math.abs(outfit.locals[1].p.x-(.01+101)/2)<1e-10)
+          assert(math.abs(outfit.locals[13].p.x-(.13+10.13)/2)<1e-10)
+          local writes=calls.helper_bones;assert(not frame(.125))
+          assert(not active() and status()=='native' and calls.helper_bones==writes)
+        ''')
+
+    def test_stock_body_interruption_returns_to_authored_without_legacy_pose_writes(self):
+        lua = runtime()
+        lua.execute('''
+          profile.accessory_skin=nil
+          mod._prepare_warlock_legacy_outfit_pose=function() error('stock profile has no outfit registration') end
+          begin();change('authored');assert(frame(.1))
+          assert(calls.grip==0 and calls.accessories==0 and calls.helper_bones==0)
+          change('idle');assert(frame(.05));assert(calls.helper_bones==24)
+          local shown=outfit.locals[138].p.x
+          local writes=calls.helper_bones;change('authored');assert(frame(0))
+          assert(outfit.locals[138].p.x==shown and calls.helper_bones==writes)
+          assert(frame(.1) and calls.helper_bones==writes and calls.grip==1 and calls.warnings==0)
+        ''')
+
+    def test_stock_body_grip_builder_keeps_full_precommit_guards(self):
+        for mutation, expected in (
+            ("helper.parents[138]=1", "changed_skeleton"),
+            ("outfit.parents[138]=1", "changed_skeleton"),
+            ("HEALTH_ALIVE[owner]=false", "off"),
+            ("mod._warlock_outfits[owner]=nil", "off"),
+            ("helper.world=other_world", "missing_sampler"),
+        ):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute("profile.accessory_skin=nil;begin();change('authored');frame(.25);change('idle')")
+                lua.execute('''
+                  local builder=mod._prepare_warlock_legacy_grip_pose
+                  mod._prepare_warlock_legacy_grip_pose=function(...)
+                    local candidate,reason=builder(...)
+                    MUTATION
+                    return candidate,reason
+                  end
+                  assert(not frame(.1) and status()==EXPECTED)
+                  assert(calls.helper_bones==0 and calls.visible==0 and calls.accessories==0)
+                '''.replace("MUTATION", mutation).replace("EXPECTED", repr(expected)))
+
+    def test_unknown_accessory_profile_is_rejected_before_helper_spawn(self):
+        for value in ("'unknown'", "false", "true", "7", "{}"):
+            with self.subTest(value=value):
+                lua = runtime()
+                lua.execute("profile.accessory_skin=" + value)
+                lua.execute("assert(not mod._start_warlock_animation_blend(owner,outfit,profile));assert(calls.spawns==0 and status()=='off')")
+
+    def test_stock_profile_does_not_bypass_other_manifest_checks(self):
+        for mutation in (
+            "profile.manifest_id='bad'",
+            "profile.states.idle.owner='unknown'",
+            "profile.states.idle.loop_animation='true'",
+            "profile.states.idle.speed_expression='untrusted_expression'",
+        ):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute("profile.accessory_skin=nil;" + mutation)
+                lua.execute("assert(not mod._start_warlock_animation_blend(owner,outfit,profile));assert(calls.spawns==0 and status()=='off')")
+
+    def test_skin_profile_change_inside_grip_builder_cannot_commit_partial_pose(self):
+        for original, replacement in (("nil", "'localized-v1'"), ("'localized-v1'", "nil"),
+                                      ("nil", "'unknown'"), ("'localized-v1'", "'unknown'")):
+            with self.subTest(original=original, replacement=replacement):
+                lua = runtime()
+                lua.execute("profile.accessory_skin=" + original + ";begin();change('authored');frame(.25);change('idle')")
+                lua.execute('''
+                  local builder=mod._prepare_warlock_legacy_grip_pose
+                  mod._prepare_warlock_legacy_grip_pose=function(...)
+                    local rows,reason=builder(...);profile.accessory_skin=REPLACEMENT;return rows,reason
+                  end
+                  assert(not frame(.1) and status()=='invalid_accessory_profile')
+                  assert(calls.helper_bones==0 and calls.visible==0 and active())
+                '''.replace("REPLACEMENT", replacement))
+
+    def test_localized_profile_requires_exactly_seven_outfit_candidates(self):
+        for mutation in (
+            "mod._prepare_warlock_legacy_outfit_pose=nil",
+            "mod._prepare_warlock_legacy_outfit_pose=function() return {} end",
+            "local builder=mod._prepare_warlock_legacy_outfit_pose;mod._prepare_warlock_legacy_outfit_pose=function(...) local rows=builder(...);rows[7]=nil;return rows end",
+            "local builder=mod._prepare_warlock_legacy_outfit_pose;mod._prepare_warlock_legacy_outfit_pose=function(...) local rows=builder(...);rows[8]=rows[7];return rows end",
+        ):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute("begin();change('authored');frame(.25);change('idle');" + mutation)
+                lua.execute("assert(not frame(.1));assert(active() and calls.helper_bones==0 and calls.visible==0)")
 
     def test_legacy_apply_keeps_entry_and_precommit_sweeps_and_expires_its_token(self):
         lua = runtime()

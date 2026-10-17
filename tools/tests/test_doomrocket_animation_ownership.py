@@ -167,6 +167,28 @@ class AnimationOwnershipTests(unittest.TestCase):
           assert(mod._warlock_animation_channel_ownership(owner,outfit).upper_body=='legacy')
         ''')
 
+    def test_stock_snapshot_profile_keeps_custom_ownership_without_localized_skin(self):
+        lua = runtime()
+        lua.execute(SNAPSHOT_PROFILE)
+        lua.execute('''
+          profile.accessory_skin=nil;assert(start())
+          local o=mode('legacy');assert(o.accessories=='unsupported' and blend.starts==1)
+          note('custom');o=mode('authored')
+          assert(o.accessories=='authored' and o.speed=='authored' and not o.visible_aim)
+          blend.active=true;note('idle');o=mode('authored')
+          assert(o.transitioning and o.accessories=='authored')
+          blend.active=false;o=mode('legacy')
+          assert(not o.transitioning and o.accessories=='unsupported' and o.visible_aim)
+        ''')
+
+    def test_unknown_accessory_profile_fails_before_compositor_registration(self):
+        for value in ("'unknown'", "false", "true", "7", "{}"):
+            with self.subTest(value=value):
+                lua = runtime()
+                lua.execute(SNAPSHOT_PROFILE)
+                lua.execute("profile.accessory_skin=" + value)
+                lua.execute("assert(not start());mode('unsupported');assert(blend.starts==0)")
+
     def test_authored_entry_is_protected_before_any_animation_update(self):
         lua = runtime()
         lua.execute('''

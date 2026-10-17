@@ -80,6 +80,8 @@ foreach ($integrationRegression in @('test_doomrocket_hose_lifecycle.py', 'test_
         'test_doomrocket_action_lookup.py', 'test_doomrocket_aim_timing.py',
         'test_doomrocket_locomotion_animation.py', 'test_doomrocket_visible_aim.py',
         'test_doomrocket_animation_callbacks.py', 'test_doomrocket_weapon_pose_probe.py',
+        'test_doomrocket_animation_probe.py',
+        'test_doomrocket_animation_rehearsal.py',
         'test_doomrocket_grip_alignment.py', 'test_doomrocket_authored_weapon.py', 'test_doomrocket_animation_ownership.py',
         'test_doomrocket_animation_dispatch.py', 'test_doomrocket_animation_blend.py',
         'test_doomrocket_inventory_animation_links.py',

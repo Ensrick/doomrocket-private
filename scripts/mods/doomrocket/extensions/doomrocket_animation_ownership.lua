@@ -41,6 +41,7 @@ end
 
 local function accepted(profile)
 	if type(profile) ~= "table" or profile.unit ~= OUTFIT
+		or (profile.accessory_skin ~= nil and profile.accessory_skin ~= "localized-v1")
 		or type(profile.manifest_id) ~= "string" or #profile.manifest_id ~= 64
 		or not profile.manifest_id:match("^[0-9a-f]+$")
 		or type(profile.states) ~= "table" or not profile.states[profile.default_state]

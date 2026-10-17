@@ -813,6 +813,9 @@ local function finish_warlock_animation_update(world, dt, ...)
 	mod:pcall(mod._queue_warlock_grip_alignment, world, dt)
 	mod:pcall(mod._queue_warlock_hose, world, dt)
 	mod:pcall(mod._queue_warlock_weapon_pose_probe, world, dt)
+	-- Observe after the existing presentation callbacks; never evaluate a second
+	-- animation frame or write a pose for diagnostics.
+	if mod._queue_warlock_animation_probe then mod:pcall(mod._queue_warlock_animation_probe, world, dt) end
 	return ...
 end
 
@@ -1150,6 +1153,11 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				Unit.set_animation_bone_mode(outfit_unit, "transform")
 				Unit.set_bones_lod(outfit_unit, 0)
 				Unit.enable_animation_state_machine(outfit_unit)
+				-- Only this fresh outfit can opt into the compiled same-skeleton
+				-- controller rehearsal, before any presentation writer registers it.
+				if mod._prepare_warlock_animation_rehearsal then
+					mod._prepare_warlock_animation_rehearsal(unit, outfit_unit, true)
+				end
 				mod._warlock_outfits[unit] = outfit_unit
 				mod._warlock_outfit_owners[outfit_unit] = unit
 				mod._start_warlock_animation_ownership(unit, outfit_unit)
@@ -1305,6 +1313,7 @@ end)
 -- Forget IDs before the engine releases the world. The engine owns destruction
 -- here; a later reset must never operate on a recycled particle/world handle.
 mod:hook(Application, "release_world", function(func, world, ...)
+	if mod._release_warlock_animation_probe_world then mod._release_warlock_animation_probe_world(world) end
 	mod._release_warlock_grip_alignment_world(world)
 	mod._release_warlock_animation_ownership_world(world)
 	mod._release_warlock_outfit_correction_world(world)
