@@ -1,22 +1,22 @@
 # Development TEST quickstart
 
-**Warlock Engineer TEST v0.1.92-dev is published and verified.**
-Verification completed 2026-10-16 22:41:10 UTC (96,151,595 bytes; content handle
-`4381899514826923644`); the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.92-dev)
-binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/c74ce2c50cbfdf9afce516f748eaafb4a4068b7f)
-([PR #61](https://github.com/Ensrick/doomrocket-private/pull/61)).
+**Warlock Engineer TEST v0.1.93-dev is published and verified.**
+Verification completed 2026-10-17 02:08:24 UTC (96,168,463 bytes; content handle
+`2064919069194644398`); the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.93-dev)
+binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/c1e7c00162e468962862cf155850c86889be5051)
+([PR #63](https://github.com/Ensrick/doomrocket-private/pull/63)).
 Publication supplies the build for testing; it does not establish its in-game result.
 
-The v0.1.93-dev animation candidate adds a specific opt-in controller rehearsal
-for #53. Wait for its verified publication in [project status](../PROJECT_STATUS.md),
-then use the [new-spawn command and bounded probe instructions](ANIMATION_AUTHORING.md#v0193-dev-runnable-native-controller-rehearsal).
+Published v0.1.93-dev adds a specific opt-in controller rehearsal
+for #53. Its verified publication is recorded in [project status](../PROJECT_STATUS.md);
+use the [new-spawn command and bounded probe instructions](ANIMATION_AUTHORING.md#v0193-dev-runnable-native-controller-rehearsal).
 It uses existing stock animation and does not establish a Blender-export or
 localized garment pass. Ordinary play on v0.1.92-dev cannot run that new check.
 
 Published v0.1.92-dev repairs the offline animation evidence checker and retains
 v0.1.91-dev gameplay and assets. No extra visual test or recording is required
 for the checker fix; ordinary flame feedback remains pending. Native authored
-playback still requires the separately staged integration in #53. Existing
+playback had no active profile in v0.1.92-dev; use the v0.1.93-dev rehearsal above. Existing
 v0.1.91-dev sessions and written reports remain useful for the unchanged flame,
 audio, hose and aiming behavior. No retest is needed solely for this checker
 maintenance update.
@@ -87,7 +87,7 @@ Setup
 [ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
 [ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
 [ ] Enable the TEST item only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.92-dev in the matching new log.
+[ ] Confirm [doomrocket:LOAD] v0.1.93-dev in the matching new log.
 [ ] If the version differs, stop and report the mismatch.
 
 Test and report

@@ -19,7 +19,7 @@ in-game pass.
 
 ### v0.1.93-dev: runnable native controller rehearsal
 
-The v0.1.93-dev candidate adds an opt-in path to exercise the existing ownership
+Published v0.1.93-dev adds an opt-in path to exercise the existing ownership
 controller, hidden sampler and mixed transitions inside the normal TEST package.
 It uses the unchanged stock body and existing `combat_idle` clip. Only this
 separate graph treats idle as authored and removes its visible aim constraint.
@@ -27,7 +27,7 @@ The stock graph, thirteen original clips, all 138 tracks and all 154 visible
 transition durations remain unchanged. This is a controller rehearsal, not a
 pass for a Blender export or localized garment deformation.
 
-After the [publication record](../PROJECT_STATUS.md) confirms v0.1.93-dev:
+For [verified TEST v0.1.93-dev](../PROJECT_STATUS.md):
 
 1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.93-dev` in the new log.
 2. Before a new Warlock spawns, enter `/warlock_animation_rehearsal on`, then
