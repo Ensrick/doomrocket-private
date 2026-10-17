@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.1.93-dev - native animation rehearsal and hitch recovery
+
+- **Animation integration (#53):** run queued presentation after finite frame
+  hitches instead of skipping every frame longer than 0.25 seconds. Preserve
+  invalid/paused-frame guards, original scene flushes, authored pose ownership,
+  and lifetime checks. The executable queued-callback regression covers the
+  actual compositor, hitch completion, interruption and teardown.
+- Fix stock-body authored profiles returning to legacy: apply the twelve grip
+  corrections without requiring the seven localized accessory corrections.
+  Localized profiles retain both sets; unknown accessory metadata fails closed.
+- Add an explicit opt-in native controller rehearsal for newly spawned outfits,
+  with a separate graph and sampler using the existing idle clip. Preserve the
+  stock Unit, body, thirteen original clips, 138 tracks and all 154 visible
+  transition durations. Default spawning keeps its original graph and assets.
+- Add bounded, passive animation clock/pose diagnostics and a strict log parser.
+  These observations do not advance animation or write poses. The rehearsal is
+  not acceptance of an Arnaud export or localized garment deformation; native
+  playback and the final rendered result still require a written in-game verdict.
+
 ## v0.1.92-dev - animation evidence helper provenance correction
 
 - **Animation validation (#53):** accept only the exact reviewed aiming-test

@@ -643,8 +643,20 @@ def prepare_integration(config_path: Path, source_root: Path, enable_localized=F
     asm_bytes, unit_bytes = sources[UNIT+".state_machine"].read_bytes(), sources[UNIT+".unit"].read_bytes()
     asm_text = asm_bytes.decode("utf-8")
     staged_asm, profile = build_state_manifest(Sjson(asm_text).parse(), mapping, exports, asm_text, aim_policies)
-    require(not relative_path(source_root, SAMPLER_STATE_MACHINE + ".state_machine").exists(),
-            "Presentation sampler aliases an existing source resource")
+    existing_sampler = relative_path(source_root, SAMPLER_STATE_MACHINE + ".state_machine")
+    if existing_sampler.exists():
+        # The default stock-body native rehearsal deliberately uses this same
+        # own-skeleton helper path. Permit only its complete reproducible text
+        # contract, never an arbitrary helper/partial profile. The new overlay
+        # writes its own matching helper; the shipping source remains untouched.
+        import build_native_rehearsal as rehearsal
+        for relative, expected in rehearsal.create(source_root).items():
+            existing = relative_path(source_root, relative)
+            require(existing.is_file() and existing.read_bytes() == expected,
+                    "Presentation sampler aliases an existing source resource: unverified rehearsal " + relative)
+            pinned_input(source_root, relative, hashlib.sha256(expected).hexdigest(), inputs)
+        producer = Path(rehearsal.__file__).resolve()
+        inputs[producer] = sha256(producer)
     sampler_asm = build_sampler_state_machine(staged_asm)
     profile["bone_names"] = list(names)
     profile.update(accessory)

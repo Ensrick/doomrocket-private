@@ -181,6 +181,7 @@ end
 
 local function valid_profile(profile)
 	if type(profile) ~= "table" or profile.unit ~= OUTFIT
+		or (profile.accessory_skin ~= nil and profile.accessory_skin ~= "localized-v1")
 		or profile.cross_owner_transition_policy ~= "snapshot-blend-v1"
 		or profile.sampler_state_machine ~= OUTFIT .. "/presentation_sampler"
 		or type(profile.manifest_id) ~= "string" or #profile.manifest_id ~= 64
@@ -236,6 +237,8 @@ local function start(owner, outfit, profile)
 			Unit.set_mesh_visibility(entry.helper, index, false, "default")
 			Unit.set_mesh_visibility(entry.helper, index, false, "shadow_caster")
 		end
+		-- Diagnostic declaration only; a passive probe cannot establish rendering.
+		entry.sampler_mesh_count = count
 		Unit.set_animation_state_machine(entry.helper, profile.sampler_state_machine)
 		Unit.enable_animation_state_machine(entry.helper)
 		Unit.set_animation_bone_mode(entry.helper, "transform")
@@ -450,12 +453,22 @@ local function release_ready(entry)
 end
 
 local function legacy_target(owner, entry, token)
+	local skin = entry.profile.accessory_skin
+	if skin ~= nil and skin ~= "localized-v1" then return fail(entry, "invalid_accessory_profile") end
 	local grip, reason = mod._prepare_warlock_legacy_grip_pose(owner, entry.helper, token)
 	if not preparation_valid(owner, entry, token) then return false end
 	if type(grip) ~= "table" or #grip ~= 12 then return fail(entry, reason or "invalid_legacy_grip") end
-	local outfit, why = mod._prepare_warlock_legacy_outfit_pose(owner, entry.helper, entry.profile, grip, token)
-	if not preparation_valid(owner, entry, token) then return false end
-	if type(outfit) ~= "table" or #outfit ~= 7 then return fail(entry, why or "invalid_legacy_outfit") end
+	-- Stock-body integrations have no localized skin or registered outfit
+	-- correction. They still need the complete native grip correction, but
+	-- must leave all seven dormant accessory tracks exactly as sampled.
+	local outfit = {}
+	if skin == "localized-v1" then
+		if type(mod._prepare_warlock_legacy_outfit_pose) ~= "function" then return fail(entry, "invalid_legacy_outfit") end
+		local why
+		outfit, why = mod._prepare_warlock_legacy_outfit_pose(owner, entry.helper, entry.profile, grip, token)
+		if not preparation_valid(owner, entry, token) then return false end
+		if type(outfit) ~= "table" or #outfit ~= 7 then return fail(entry, why or "invalid_legacy_outfit") end
+	end
 	local prepared, used = {}, {}
 	for _, group in ipairs({grip, outfit}) do
 		for _, record in ipairs(group) do
@@ -467,12 +480,13 @@ local function legacy_target(owner, entry, token)
 			prepared[#prepared+1], used[record.node] = { node = record.node, position = position, rotation = rotation }, true
 		end
 	end
-	-- Recheck every bone after both read-only builders, before the first helper
-	-- setter. This catches graph mutations even outside the 19 corrected joints.
+	-- Recheck every bone after the read-only builders, before the first helper
+	-- setter. This catches graph mutations outside the 12 or 19 corrected joints.
 	if not usable(owner, entry) or not preparation_valid(owner, entry, token) then return false end
+	if entry.profile.accessory_skin ~= skin then return fail(entry, "invalid_accessory_profile") end
 	if not skeleton(entry) then return fail(entry, "changed_skeleton") end
 	if not preparation_valid(owner, entry, token) then return false end
-	-- Both candidate groups and the complete graph are now checked atomically.
+	-- All candidate groups and the complete graph are now checked atomically.
 	for _, record in ipairs(prepared) do
 		Unit.set_local_position(entry.helper, record.node, Vector3(unpack(record.position)))
 		Unit.set_local_rotation(entry.helper, record.node, Quaternion.from_elements(unpack(record.rotation)))
@@ -498,6 +512,7 @@ local function apply(owner, outfit)
 	if entry.elapsed >= entry.duration then
 		if not release_ready(entry) then return false end
 		entry.active, entry.source, entry.displayed, entry.status = false, nil, nil, "native"
+		entry.release_serial = (entry.release_serial or 0) + 1
 		return false
 	end
 	World.update_unit(entry.world, owner)
@@ -548,6 +563,25 @@ end
 
 function mod._warlock_animation_blend_status(owner)
 	return entries[owner] and entries[owner].status or "off"
+end
+
+-- Passive telemetry: copy scalar metadata, never validate/remove/mutate an entry
+-- or expose its writable pose/profile tables. The probe checks unit lifetimes.
+function mod._warlock_animation_blend_snapshot(owner)
+	local entry = entries[owner]
+	if not entry then return { status = "off" } end
+	local state = entry.profile.states[entry.state]
+	return { status = entry.status, helper = entry.helper, outfit = entry.outfit,
+		manifest_id = entry.profile.manifest_id, state = entry.state, event = entry.event,
+		frame = entry.frame, event_frame = entry.event_frame, clock_reset = entry.clock_reset == true,
+		active = entry.active == true, blocked = entry.blocked == true,
+		elapsed = entry.elapsed, duration = entry.duration, sample_dt = entry.sample_dt,
+		sample_rate = entry.sample_rate, expected_clock = entry.expected_clock,
+		observed_clock = entry.observed_time, observed_length = entry.observed_length,
+		visible_release_clock = entry.observed_visible_time, visible_release_length = entry.observed_visible_length,
+		release_serial = entry.release_serial or 0, sampler_mesh_count = entry.sampler_mesh_count,
+		helper_visibility_policy = "per-mesh-default-and-shadow-hidden-configured",
+		pose_owner = state and state.owner, clip = state and state.clip }
 end
 
 function mod._stop_warlock_animation_blend(owner)

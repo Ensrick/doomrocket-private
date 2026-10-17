@@ -4,6 +4,14 @@ The isolated harness compiles with the installed VT2 SDK. Native playback is
 **unverified and blocked by the installed runtime entrypoint**. There are no
 successful native pose receipts from this tool.
 
+The v0.1.93-dev TEST candidate adds a separate passive in-game observation path:
+`/warlock_animation_rehearsal on` selects a compiled stock-clip rehearsal only
+for new outfits, and `/warlock_animation_probe on` observes clocks and a bounded
+matrix subset after presentation. See [the authoring guide](../../docs/ANIMATION_AUTHORING.md#v0193-dev-runnable-native-controller-rehearsal).
+This does not run this oracle, provide fixed-frame captures, or establish
+Blender-export/garment acceptance. Do not paste the standalone oracle into the
+game: it owns its own world and application shutdown.
+
 On 2026-10-11 at 02:21:45 UTC, SDK executable SHA-256
 `721bc354a520510ea270147c57230c87cc7e07d93f78ca1a0763d5bdb74137de`
 was launched with `--no-rendering --disable-default-window

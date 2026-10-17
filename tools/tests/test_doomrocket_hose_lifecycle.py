@@ -246,6 +246,10 @@ mod._start_warlock_weapon_pose_probe=function() end
 mod._stop_warlock_weapon_pose_probe=function() end
 mod._stop_warlock_weapon_pose_probe_item=function() end
 mod._reset_warlock_weapon_pose_probe=function() end
+-- Independent animation diagnostics/selection have dedicated executable suites.
+-- Keep the production hose reset and its lifetime assertions real here.
+mod._reset_warlock_animation_probe=function() end
+mod._reset_warlock_animation_rehearsal=function() end
 mod._release_warlock_weapon_pose_probe_world=function() end
 mod._queue_warlock_weapon_pose_probe=function() end
 mod._note_warlock_weapon_pose_event=function() end
