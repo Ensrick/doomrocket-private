@@ -12,11 +12,12 @@ sys.path.insert(0, str(ROOT / "tools/animation_rig"))
 from parse_animation_probe import BONES, validate
 
 MODULE = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_animation_probe.lua"
+CLOCK = ROOT / "scripts/mods/doomrocket/utils/doomrocket_animation_clock.lua"
 BOOTSTRAP = ROOT / "scripts/mods/doomrocket/doomrocket.lua"
 HOOKS = ROOT / "scripts/mods/doomrocket/utils/hooks.lua"
 HARNESS = r'''
 world={};other_world={};owner={alive=true,world=world};outfit={alive=true,world=world};helper={alive=true,world=world}
-messages={};callbacks={};reads=0;writes=0;temp_restores=0;commands={}
+messages={};callbacks={};reads=0;writes=0;temp_restores=0;commands={};clock_reads=0;illegal_clock_reads=0
 mod={_doomrocket_version='0.1.93-dev',_warlock_outfits={[owner]=outfit}}
 HEALTH_ALIVE={[owner]=true}
 function get_mod() return mod end
@@ -28,11 +29,28 @@ function valid(u) assert(u and u.alive and u.world==world,'native access after r
 Unit={
  alive=function(u) return u and u.alive end,
  world=function(u) valid(u);return u.world end,
- get_data=function(u,key) valid(u);assert(key=='warlock_rig_profile');return marker end,
+ get_data=function(u,key)
+  valid(u)
+  assert(key=='warlock_rig_profile');return marker
+ end,
+ has_animation_state_machine=function(u) valid(u);return not u.no_asm end,
+ animation_get_state=function(u)
+  valid(u)
+  if u.no_layers then return end
+  if u.empty_layer then return nil end
+  if u.two_layers then return 31,42 end
+  return 31
+ end,
  has_node=function(u,name) valid(u);return not missing_bone end,
  node=function(u,name) valid(u);return 1 end,
  local_pose=function(u,node) valid(u);reads=reads+1;if bad_pose then error('unsupported pose API') end;return {} end,
- animation_layer_info=function(u,layer) valid(u);assert(layer==1);if bad_clock then return 0/0,1 end;return clock or .1,2 end,
+ animation_layer_info=function(u,layer)
+  clock_reads=clock_reads+1
+  if not u or not u.alive or u.no_asm or u.no_layers or u.empty_layer or u.two_layers or layer~=0 then
+   illegal_clock_reads=illegal_clock_reads+1;error('native layer precondition violated')
+  end
+  valid(u);if bad_clock then return 0/0,1 end;return clock or .1,clock_length or 2
+ end,
 }
 setmetatable(Unit,{__index=function(_,key) if key:find('set_',1,true) then return function() writes=writes+1;error('native write') end end end})
 Matrix4x4={x=function() return {x=1,y=0,z=0} end,y=function() return {x=0,y=1,z=0} end,
@@ -56,6 +74,7 @@ end
 def runtime():
     result = LuaRuntime(unpack_returned_tuples=True)
     result.execute(HARNESS)
+    result.globals().mod._warlock_animation_clock = result.execute(CLOCK.read_text(encoding="utf-8"))
     result.execute(MODULE.read_text(encoding="utf-8"))
     return result
 
@@ -65,6 +84,34 @@ def lines(lua):
 
 
 class AnimationProbeLua(unittest.TestCase):
+    def test_unready_owned_layers_never_attempt_native_layer_reads(self):
+        for unit in ("helper", "outfit"):
+            for mutation in ("no_asm=true", "no_layers=true", "empty_layer=true", "two_layers=true"):
+                with self.subTest(unit=unit, mutation=mutation):
+                    lua = runtime()
+                    lua.execute("marker='custom';" + unit + "." + mutation + ";action('on');tick(.1)")
+                    report = validate(lines(lua), "0.1.93-dev")
+                    self.assertEqual(report["status"], "diagnostic-unavailable")
+                    self.assertEqual(report["sample_count"], 0)
+                    # A valid helper may be read first; an unready helper must
+                    # stop before either native layer query is attempted.
+                    self.assertEqual(lua.eval("clock_reads"), 0 if unit == "helper" else 1)
+                    self.assertEqual(lua.eval("illegal_clock_reads + reads + writes"), 0)
+
+    def test_finite_native_sentinel_is_not_emitted_as_clock_evidence(self):
+        lua = runtime()
+        lua.execute("marker='custom';clock_length=1e37;action('on');tick(.1)")
+        report = validate(lines(lua), "0.1.93-dev")
+        self.assertEqual(report["status"], "diagnostic-unavailable")
+        self.assertEqual(report["sample_count"], 0)
+        self.assertEqual(lua.eval("illegal_clock_reads + reads + writes"), 0)
+
+    def test_missing_shared_reader_stops_before_native_queries(self):
+        lua = runtime()
+        lua.execute("marker='custom';mod._warlock_animation_clock=nil;action('on');tick(.1)")
+        self.assertEqual(validate(lines(lua), "0.1.93-dev")["status"], "diagnostic-unavailable")
+        self.assertEqual(lua.eval("clock_reads + illegal_clock_reads + reads + writes"), 0)
+
     def test_default_off_has_no_native_work_or_queued_callbacks(self):
         lua = runtime()
         lua.execute("tick(.1)")
@@ -265,6 +312,15 @@ class AnimationProbeParser(unittest.TestCase):
 
     def encode(self, records):
         return ["log [doomrocket:ANIMATION] " + json.dumps(record) for record in records]
+
+    def test_finite_native_sentinel_and_unsupported_clip_lengths_are_rejected(self):
+        for clock, length in (("helper_clock", "helper_length"), ("visible_clock", "visible_length")):
+            for value in (3600.001, 1e37):
+                with self.subTest(length=length, value=value):
+                    candidate = self.fixture()
+                    candidate[1][clock], candidate[1][length] = 0, value
+                    with self.assertRaisesRegex(ValueError, "Invalid native clock"):
+                        validate(self.encode(candidate), "0.1.93-dev")
 
     def test_truncation_duplicate_indices_keys_and_nonfinite_rejected(self):
         original = self.fixture()

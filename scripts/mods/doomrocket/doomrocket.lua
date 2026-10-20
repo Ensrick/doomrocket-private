@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.93-dev"
+local MOD_VERSION = "0.1.94-dev"
 mod._doomrocket_version = MOD_VERSION
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
@@ -30,6 +30,7 @@ mod._doomrocket_hose_profile = mod:dofile("scripts/mods/doomrocket/utils/doomroc
 mod._doomrocket_hose_solver = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_solver")
 mod._doomrocket_hose_frames = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_hose_frames")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_hose")
+mod._warlock_animation_clock = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_animation_clock")
 mod._warlock_animation_manifest = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_animation_manifest")
 -- A separate trusted profile is inert until the explicit new-spawn rehearsal
 -- command selects it. Never replace a registered artist profile.

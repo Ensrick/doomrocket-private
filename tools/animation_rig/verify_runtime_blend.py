@@ -20,6 +20,7 @@ import verify_runtime_outfit as r
 
 v=r.v
 COMPOSER=v.ROOT/'scripts/mods/doomrocket/extensions/doomrocket_animation_blend.lua'
+CLOCK=v.ROOT/'scripts/mods/doomrocket/utils/doomrocket_animation_clock.lua'
 GRIP_NAMES=['j_spine','j_spine1','j_leftshoulder','j_rightshoulder','j_leftarm','j_rightarm',
             'j_leftforearm','j_rightforearm','j_lefthand','j_righthand','j_leftforearmroll','j_rightforearmroll']
 WEIGHTS=(0.,.01,.25,.5,.75,.99,1.)
@@ -149,7 +150,8 @@ Unit={alive=function(u) return u and u.alive end,world=function(u) checked(u);re
  animation_event=function(u,e) assert(u==helper);u.event=e end,
  has_animation_event=function(u,e) checked(u);return true end,
  has_animation_state_machine=function(u) checked(u);return true end,
- animation_layer_info=function(u,l) checked(u);assert(l==1)
+ animation_get_state=function(u) checked(u);assert(u==helper or u==outfit);return 17 end,
+ animation_layer_info=function(u,l) checked(u);assert(l==0)
   if u==outfit then return visible_time,visible_length end
   assert(u==helper);return helper_time,helper_length end,
  animation_has_variable=function() return true end,
@@ -197,6 +199,7 @@ class LuaBlendScene:
         g.loaded_sampler=profile['sampler_state_machine']
         g.outfit.metadata=self.to_lua({'warlock_rig_profile':'localized-v1-runtime','warlock_animation_manifest_id':profile['manifest_id']})
         g.helper.metadata=g.outfit.metadata
+        g.mod._warlock_animation_clock=self.lua.execute(CLOCK.read_text(encoding='utf8'))
         for path in (r.GRIP,r.RUNTIME,COMPOSER):self.lua.execute(path.read_text(encoding='utf8'))
 
     def to_lua(self,value):
@@ -306,7 +309,7 @@ def run(args):
         animation=v.indexed_resources(v.ROOT,probe,probe/'candidate/data',
             ['units/warlock_bombardier/anims/'+stem+'.animation'])[0]
         inputs.append((stem,animation,r.NATIVE_ANIMS/(stem+'.animation')))
-    frozen_paths=paths+[args.animation_manifest,COMPOSER,r.GRIP,r.RUNTIME,Path(__file__),Path(r.__file__),Path(v.__file__),
+    frozen_paths=paths+[args.animation_manifest,COMPOSER,CLOCK,r.GRIP,r.RUNTIME,Path(__file__),Path(r.__file__),Path(v.__file__),
           r.NATIVE_UNIT,r.NATIVE_BONES,probe/'input_receipt.json',probe/'original-clips.json',probe/'skin_profile.json',probe/'animation_export.json']
     frozen_paths +=[path for _,a,b in inputs for path in (a,b)]
     for clip in original['clips']:

@@ -87,12 +87,11 @@ local function sample(owner, outfit, world, entry, dt)
 			end
 			local helper = snapshot.helper
 			assert(live(helper, world), "helper lifetime changed")
-			local helper_time, helper_length = Unit.animation_layer_info(helper, 1)
-			local visible_time, visible_length = Unit.animation_layer_info(outfit, 1)
-			assert(finite(helper_time) and finite(helper_length) and helper_time >= 0 and helper_length > 0
-				and helper_time <= helper_length + 0.002 and finite(visible_time) and finite(visible_length)
-				and visible_time >= 0 and visible_length > 0 and visible_time <= visible_length + 0.002,
-				"invalid diagnostic clock")
+			assert(type(mod._warlock_animation_clock) == "function", "missing clock reader")
+			local helper_time, helper_length, helper_reason = mod._warlock_animation_clock(helper, world)
+			assert(helper_time ~= nil, helper_reason)
+			local visible_time, visible_length, visible_reason = mod._warlock_animation_clock(outfit, world)
+			assert(visible_time ~= nil, visible_reason)
 			record.helper_clock, record.helper_length = helper_time, helper_length
 			record.visible_clock, record.visible_length = visible_time, visible_length
 			record.bones_local, record.helper_bones_local = {}, {}

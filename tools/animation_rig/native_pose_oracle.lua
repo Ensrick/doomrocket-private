@@ -68,6 +68,27 @@ local function fail(message)
     stop(1)
 end
 
+local function packed(...)
+    return {n = select("#", ...), ...}
+end
+
+local function require_single_animation_layer()
+    assert(unit and Unit.alive(unit), "Native oracle unit is no longer alive")
+    assert(Unit.has_animation_state_machine(unit), "Native oracle unit has no animation state machine")
+    -- The compiled oracle controller has one zero-based layer. Preserve the
+    -- return count: one nil state still describes an existing, idle layer;
+    -- no returns describes zero layers and must never reach native layer APIs.
+    local states = packed(Unit.animation_get_state(unit))
+    assert(states.n == 1, "Native oracle requires exactly one animation layer")
+end
+
+local function start_animation(resource)
+    require_single_animation_layer()
+    animation_id = Unit.crossfade_animation(unit, resource, 0, 0, false, "normal")
+    Unit.crossfade_animation_set_speed(unit, animation_id, 0)
+    active_resource = resource
+end
+
 function init()
     local ok, message = xpcall(function()
         local provenance_file = assert(io.open(config.compiled_provenance_file, "r"))
@@ -88,12 +109,11 @@ function init()
         world = Application.new_world("animation_native_pose_oracle", Application.DISABLE_PHYSICS,
             Application.DISABLE_RENDERING, Application.DISABLE_SOUND, Application.DISABLE_APEX_CLOTH)
         unit = World.spawn_unit(world, config.unit_resource)
+        require_single_animation_layer()
         Unit.disable_animation_state_machine(unit)
         Unit.set_animation_bone_mode(unit, "transform")
         Unit.set_animation_root_mode(unit, "ignore")
-        animation_id = Unit.crossfade_animation(unit, config.animation_resource, 1, 0, false, "normal")
-        active_resource = config.animation_resource
-        Unit.crossfade_animation_set_speed(unit, animation_id, 0)
+        start_animation(config.animation_resource)
         config.unit_node_indices = {}
         for _, name in ipairs(config.bone_names) do config.unit_node_indices[name] = Unit.node(unit, name) end
         output = assert(io.open(config.output_file, "w"))
@@ -115,12 +135,11 @@ function update(dt)
         -- Callback wall-clock dt is unused. Small compatibility batches stay
         -- below temporary native math storage limits (eight bones per sample).
         for _ = 1, config.samples_per_update do
+            require_single_animation_layer()
             local requested = config.samples[sample_index]
             local resource = requested.animation_resource or config.animation_resource
             if active_resource ~= resource then
-                animation_id = Unit.crossfade_animation(unit, resource, 1, 0, false, "normal")
-                Unit.crossfade_animation_set_speed(unit, animation_id, 0)
-                active_resource = resource
+                start_animation(resource)
             end
             Unit.crossfade_animation_set_time(unit, animation_id, requested.time_seconds, true)
             World.update_animations(world, 1 / (requested.sample_fps or config.fps))

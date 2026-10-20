@@ -290,7 +290,7 @@ Unit={
  local_rotation=function(u,i) assert(u.alive and i==0);return u.forward or true end,
  world_rotation=function(u,i) assert(u.alive and i==0);return u.forward or true end,
  world_position=function(u,i) assert(u.alive and i==0);return POSITION_LOOKUP[u] or vec(10,20,30) end,
- animation_layer_info=function(u,i) assert(u.alive and i==1);return .25,1 end,
+ animation_layer_info=function(u,i) layer_reads=(layer_reads or 0)+1;error('native layer assertion cannot be contained') end,
  has_animation_event=function(u,n) assert(n=='doomrocket_reload_start');return u.reload or false end,
  animation_has_constraint_target=function(u,n) assert(u.alive and n=='aim_target');return u.has_target end,
  animation_find_constraint_target=function(u,n)
@@ -459,10 +459,24 @@ class VisibleAimRuntimeTests(unittest.TestCase):
                 for field in ("v=test-version", f"role={lane}", "go_id=5", "stage=aim_update",
                               f"source={source}", "result=applied", "root_pos=10.000,20.000,30.000",
                               "root_forward=0.000,1.000,0.000", "outfit_forward=0.000,1.000,0.000",
-                              "owner_clock=0.250/1.000", "outfit_clock=0.250/1.000"):
+                              "owner_clock=not_sampled/not_sampled", "outfit_clock=not_sampled/not_sampled"):
                     self.assertIn(field, message)
                 if lane == "owner":
                     self.assertIn("action=fire_rocket pattern=align", message)
+
+    def test_facing_never_attempts_native_layer_read_on_owner_or_outfit(self):
+        for lane in ("owner", "husk"):
+            with self.subTest(lane=lane):
+                lua = runtime(lane)
+                lua.execute("""
+                 -- Count the attempt before raising: pcall hiding a Lua mock's
+                 -- error cannot disguise the native-assert regression in #65.
+                 for i=1,3 do tick(i*2) end
+                 assert((layer_reads or 0)==0)
+                 assert(owner.writes==3 and outfit.writes==3 and #logs==3)
+                 outfit.alive=false;tick(8)
+                 assert((layer_reads or 0)==0 and owner.writes==4 and #logs==4)
+                """)
 
     def test_facing_evidence_is_rate_limited_and_per_unit_bounded(self):
         lua = runtime()

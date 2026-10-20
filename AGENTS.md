@@ -68,6 +68,27 @@ checks do not establish an in-game pass or authorize alpha promotion.
 4. Treat GitHub Issues as the live backlog. Do not create a competing TODO list.
 5. Run `py -3 tools/check_repository.py --channel development` before a commit.
 
+## Current crash and launch gate, October 20, 2026
+
+- Published TEST v0.1.93-dev has a confirmed repeatable ordinary-spawn crash,
+  [#65](https://github.com/Ensrick/doomrocket-private/issues/65). Its #53 rehearsal
+  and regular Warlock test instructions are suspended. v0.1.94-dev is an
+  unpublished source candidate; preserve existing tracks and custom poses.
+- Before a new runtime handoff, silently launch the actual installed candidate
+  in its supported background/windowless mode using scripts/CLIs/logs. Record
+  the exact installation, actual startup/menu progress, errors/crashes, timeout
+  and relevant loading/memory measurements. Exhaust these checks before
+  involving the user. Build/ABI/ready messages do not prove successful launch;
+  batch coverage does not establish graphics/input/audio behavior.
+- No local manifest `552500`, game executable or game bundles are available;
+  the installed SDK oracle fails before Lua boot. This precisely blocks
+  installed-candidate launch verification. Keep the handoff pending; do not ask
+  Crunch to perform the candidate's first launch or present publication as
+  readiness. Preserve current sessions and resource guards. No guessed launch
+  flags, GUI automation, game deployment or alpha promotion.
+- Canonical VMB BuildOnly, source plus receipt preparation and hosted QA may
+  proceed. Historical receipts and artist-rig links retain their original scope.
+
 ## Evidence and release rules
 
 - Accept a tester's written report of what they saw or heard as the runtime
@@ -97,8 +118,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-WarlockPipeline.p
 
 `tools/Invoke-DoomrocketRelease.ps1` delegates to the canonical standalone
 adapter. Generated bundles stay ignored; commit `.build-receipt.json` with
-source before hosted QA and merge. This release uses publication-only mode
-because the game is not installed; no deployment or game acceptance is claimed.
+source before hosted QA and merge. Historical releases used publication-only
+mode because the game was not installed. That mode does not bypass the current
+installed-candidate launch gate; no new runtime handoff or game acceptance is
+claimed while the game is absent.
 
 See `docs/RELEASE_CHANNELS.md`, `CONTRIBUTING.md`, and
 `docs/TESTER_QUICKSTART.md` for the human workflows.

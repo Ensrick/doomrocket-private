@@ -33,10 +33,10 @@ local function diagnostic(entry, reason)
 	entry.reported[reason] = true
 	local output = mod.warning or mod.echo
 	if type(output) == "function" then
-		pcall(output, mod, "Warlock animation sampler stopped: %s state=%s event=%s time=%s length=%s previous=%s dt=%s rate=%s expected=%s visible_time=%s visible_length=%s",
+		pcall(output, mod, "Warlock animation sampler stopped: %s state=%s event=%s time=%s length=%s previous=%s dt=%s rate=%s expected=%s visible_time=%s visible_length=%s clock_read_reason=%s",
 			reason, tostring(entry.state), tostring(entry.event), tostring(entry.observed_time), tostring(entry.observed_length),
 			tostring(entry.previous_clock), tostring(entry.sample_dt), tostring(entry.sample_rate), tostring(entry.expected_clock),
-			tostring(entry.observed_visible_time), tostring(entry.observed_visible_length))
+			tostring(entry.observed_visible_time), tostring(entry.observed_visible_length), tostring(entry.clock_read_reason))
 	end
 end
 
@@ -406,7 +406,11 @@ end
 local function clock_ready(entry)
 	-- This is a target-clip clock, not an engine blend-weight API. Guard against
 	-- a hidden helper that stopped evaluating, rather than displaying stale poses.
-	local time, length = Unit.animation_layer_info(entry.helper, 1)
+	local read = mod._warlock_animation_clock
+	local time, length, reason
+	if type(read) == "function" then time, length, reason = read(entry.helper, entry.world)
+	else reason = "missing_clock_reader" end
+	entry.clock_read_reason = reason
 	entry.observed_time, entry.observed_length = time, length
 	if not finite(time) or not finite(length) or time < 0 or length <= 0 or time > length + 0.002 then
 		return fail(entry, "invalid_sampler_clock")
@@ -438,7 +442,11 @@ local function release_ready(entry)
 	-- Both independently resolved rigs must reach the same destination phase
 	-- before the native visible pose resumes ownership. This does not claim to
 	-- measure native blend weights or prove hidden-mesh evaluation in-game.
-	local time, length = Unit.animation_layer_info(entry.outfit, 1)
+	local read = mod._warlock_animation_clock
+	local time, length, reason
+	if type(read) == "function" then time, length, reason = read(entry.outfit, entry.world)
+	else reason = "missing_clock_reader" end
+	entry.clock_read_reason = reason
 	entry.observed_visible_time, entry.observed_visible_length = time, length
 	if not finite(time) or not finite(length) or time < 0 or length <= 0 or time > length + 0.002 then
 		return fail(entry, "invalid_visible_clock")
@@ -577,7 +585,7 @@ function mod._warlock_animation_blend_snapshot(owner)
 		active = entry.active == true, blocked = entry.blocked == true,
 		elapsed = entry.elapsed, duration = entry.duration, sample_dt = entry.sample_dt,
 		sample_rate = entry.sample_rate, expected_clock = entry.expected_clock,
-		observed_clock = entry.observed_time, observed_length = entry.observed_length,
+		observed_clock = entry.observed_time, observed_length = entry.observed_length, clock_read_reason = entry.clock_read_reason,
 		visible_release_clock = entry.observed_visible_time, visible_release_length = entry.observed_visible_length,
 		release_serial = entry.release_serial or 0, sampler_mesh_count = entry.sampler_mesh_count,
 		helper_visibility_policy = "per-mesh-default-and-shadow-hidden-configured",

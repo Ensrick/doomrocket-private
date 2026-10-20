@@ -12,13 +12,14 @@ from lupa.lua51 import LuaRuntime
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_animation_blend.lua"
+CLOCK = ROOT / "scripts/mods/doomrocket/utils/doomrocket_animation_clock.lua"
 LOCOMOTION = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_locomotion_animation.lua"
 OUTFIT_CORRECTION = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_outfit_correction.lua"
 BONES = re.findall(r'"([^"\n]+)"', (ROOT / "units/warlock_bombardier/warlock_bombardier_3p.bones").read_text())
 
 HARNESS = r'''
 epoch=1;world={alive=true};other_world={alive=true}
-calls={visible=0,helper_bones=0,helper_root=0,variables=0,constraints=0,spawns=0,destroys=0,native=0,structural=0,grip=0,accessories=0,events=0,warnings=0}
+calls={visible=0,helper_bones=0,helper_root=0,variables=0,constraints=0,spawns=0,destroys=0,native=0,structural=0,grip=0,accessories=0,events=0,warnings=0,clock=0,illegal_clock=0}
 local function native(u)
  assert(u and u.alive,'native access after unit deletion')
  assert(u.world and u.world.alive,'native access after world release')
@@ -114,12 +115,24 @@ Unit={
   else assert(Vector3.is_valid(value));u.aim=vec(value.x,value.y,value.z) end
  end,
  has_animation_event=function(u,event) native(u);return not missing_event and profile.states[event]~=nil end,
+ has_animation_state_machine=function(u) native(u);return not u.no_asm end,
+ animation_get_state=function(u)
+  native(u)
+  if u.no_layers then return end
+  if u.empty_layer then return nil end
+  if u.two_layers then return 17,23 end
+  return 17
+ end,
  animation_event=function(u,event)
   native(u);if broken_event and u==helper then error('native event unavailable') end
   assert(profile.states[event]);u.state=event;u.time=0;calls.events=calls.events+1
  end,
  animation_layer_info=function(u,index)
-  native(u);assert((u==helper or u==outfit) and index==1)
+  calls.clock=calls.clock+1
+  if not u or not u.alive or u.no_asm or u.no_layers or u.empty_layer or u.two_layers or index~=0 then
+   calls.illegal_clock=calls.illegal_clock+1;error('native layer precondition violated')
+  end
+  native(u);assert(u==helper or u==outfit)
   if broken_clock then error('native clock unavailable') end
   return u.time,u.length
  end,
@@ -213,11 +226,46 @@ def runtime():
     lua = LuaRuntime(unpack_returned_tuples=True)
     lua.globals().bone_names = lua.table_from(BONES)
     lua.execute(HARNESS)
+    lua.globals().mod._warlock_animation_clock = lua.execute(CLOCK.read_text(encoding="utf-8"))
     lua.execute(MODULE.read_text(encoding="utf-8"))
     return lua
 
 
 class AnimationBlendTests(unittest.TestCase):
+    def test_unready_sampler_layer_blocks_before_native_query_or_visible_writes(self):
+        for mutation in ("helper.no_asm=true", "helper.no_layers=true", "helper.empty_layer=true",
+                         "helper.two_layers=true", "Unit.animation_get_state=nil",
+                         "mod._warlock_animation_clock=nil"):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute("begin();change('authored');mod._update_warlock_animation_blend(world,.1);engine(.1);"
+                            "local clocks=calls.clock;" + mutation + ";"
+                            "assert(not mod._apply_warlock_animation_blend(owner,outfit));"
+                            "assert(calls.clock==clocks and calls.illegal_clock==0 and calls.visible==0);"
+                            "assert(status()=='invalid_sampler_clock' and active())")
+
+    def test_unready_visible_layer_retains_guard_without_attempting_its_native_query(self):
+        for mutation in ("outfit.no_asm=true", "outfit.no_layers=true", "outfit.empty_layer=true",
+                         "outfit.two_layers=true"):
+            with self.subTest(mutation=mutation):
+                lua = runtime()
+                lua.execute("begin();change('authored');mod._update_warlock_animation_blend(world,.25);engine(.25);"
+                            "local clocks=calls.clock;" + mutation + ";"
+                            "assert(not mod._apply_warlock_animation_blend(owner,outfit));"
+                            # The helper clock is valid; the visible query is forbidden.
+                            "assert(calls.clock==clocks+1 and calls.illegal_clock==0 and calls.visible==0);"
+                            "assert(status()=='invalid_visible_clock' and active())")
+
+    def test_finite_native_sentinel_blocks_sampler_and_visible_release(self):
+        for unit, status in (("helper", "invalid_sampler_clock"), ("outfit", "invalid_visible_clock")):
+            with self.subTest(unit=unit):
+                lua = runtime()
+                lua.execute("begin();change('authored');mod._update_warlock_animation_blend(world,.25);engine(.25);"
+                            + unit + ".length=1e37;assert(not mod._apply_warlock_animation_blend(owner,outfit));"
+                            "assert(calls.visible==0 and calls.illegal_clock==0 and active());"
+                            "assert(status()=='" + status + "');"
+                            "assert(calls.warning:find('clock_read_reason=invalid_clock',1,true))")
+
     def test_helper_uses_own_rig_hidden_meshes_named_indices_and_root_only_link(self):
         lua = runtime()
         lua.execute("begin();assert(helper.hidden_meshes.default==3 and helper.hidden_meshes.shadow_caster==3 and helper.enabled and helper.linked);assert(calls.visible==0)")
