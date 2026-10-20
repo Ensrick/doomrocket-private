@@ -141,7 +141,7 @@ def validate(lines, expected_version, session=None):
                     "Missing helper visibility configuration")
             for clock, length in (("helper_clock", "helper_length"), ("visible_clock", "visible_length")):
                 require(finite_number(sample.get(clock)) and finite_number(sample.get(length)) and
-                        sample[length] > 0 and 0 <= sample[clock] <= sample[length] + .002, "Invalid native clock")
+                        0 < sample[length] <= 3600 and 0 <= sample[clock] <= sample[length] + .002, "Invalid native clock")
             for key in ("bones_local", "helper_bones_local"):
                 require(isinstance(sample.get(key), dict) and set(sample[key]) == set(BONES), "Incomplete matrix subset")
                 for value in sample[key].values():

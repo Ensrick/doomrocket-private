@@ -87,9 +87,10 @@ local function facing_sample(unit, data, target, role, source, result, t, game, 
 		local id = GameSession.game_object_field(game, go_id, "bt_action_name")
 		action = id and rawget(NetworkLookup.bt_action_names, id)
 	end
-	local owner_clock, owner_length = Unit.animation_layer_info(unit, 1)
-	local outfit_clock, outfit_length
-	if outfit then outfit_clock, outfit_length = Unit.animation_layer_info(outfit, 1) end
+	-- #65: optional facing telemetry must never index a native animation layer.
+	-- The carrier is a foreign multi-layer ASM; the outfit has one zero-based
+	-- layer. A native assertion here bypasses pcall and crashes ordinary spawning.
+	-- Clock observations belong to the explicitly enabled, checked own-rig probe.
 	local outfit_forward = outfit and Quaternion.forward(Unit.world_rotation(outfit, 0))
 	printf("[doomrocket:FACING] v=%s role=%s go_id=%s t=%.2f stage=aim_update source=%s result=%s " ..
 		"action=%s pattern=%s state=%s pose_owner=%s visible_aim=%s aim=%s root_pos=%s root_forward=%s " ..
@@ -100,10 +101,7 @@ local function facing_sample(unit, data, target, role, source, result, t, game, 
 		vector_text(target), vector_text(Unit.world_position(unit, 0)),
 		vector_text(Quaternion.forward(Unit.world_rotation(unit, 0))),
 		vector_text(outfit and Unit.world_position(outfit, 0)), vector_text(outfit_forward),
-		finite(owner_clock) and string.format("%.3f", owner_clock) or "n/a",
-		finite(owner_length) and string.format("%.3f", owner_length) or "n/a",
-		finite(outfit_clock) and string.format("%.3f", outfit_clock) or "n/a",
-		finite(outfit_length) and string.format("%.3f", outfit_length) or "n/a")
+		"not_sampled", "not_sampled", "not_sampled", "not_sampled")
 end
 
 local function diagnose_facing(unit, data, target, role, source, result, t, game, go_id)

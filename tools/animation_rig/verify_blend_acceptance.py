@@ -31,6 +31,23 @@ AIM_TEST_ONLY_UPDATE={
     'executed_prefix_sha256':'6bc75cc98fb8c4a0b879f8f4721f7ddbc464615b800ca9d012aaf6a581512814',
     'reviewed_helper_source_git_ref':'b805a418e2ccd00818f1ad674eb7f2394b6f9b37',
 }
+# #65 replaces the unused aiming-harness clock mock with a forbidden-call
+# trap, updates two expected fields and adds one no-native-read regression.
+# This is another reviewed full-file edge, not permission for future test edits.
+AIM_TEST_ONLY_CLOCK_GUARD_UPDATE={
+    'historical_sha256':'98943db7181e67a544a88c4705513a38c641b92dbe97d13e5e8889189cf1dd75',
+    'current_sha256':'5b87d8217e797dcadfeab377fb0831618a1f9dec02e4e9a15d9ca3a72f3cb7f1',
+    'executed_prefix_sha256':'6bc75cc98fb8c4a0b879f8f4721f7ddbc464615b800ca9d012aaf6a581512814',
+    'identity_policy':'finite-reviewed-aim-test-only-update-v2',
+    'review_reference':'https://github.com/Ensrick/doomrocket-private/issues/65',
+    'scope':'Exact reviewed full-file pair; unchanged import/decoder prefix; unused aiming Lua harness rejects native clock reads, two expected fields are not_sampled and one no-native-read regression is added; no native playback acceptance',
+}
+AIM_TEST_ONLY_UPDATES=(
+    dict(AIM_TEST_ONLY_UPDATE,
+         identity_policy='finite-reviewed-aim-test-only-update-v1',
+         scope='Exact reviewed full-file pair; unchanged import/decoder prefix; only unused aiming Lua harness and eleven test methods differ; no native playback acceptance'),
+    AIM_TEST_ONLY_CLOCK_GUARD_UPDATE,
+)
 
 
 def digest_bytes(raw):return hashlib.sha256(raw).hexdigest()
@@ -65,16 +82,18 @@ def numerical_helper_identity(relative,current,old):
     identity={'current_sha256':digest_bytes(current),'historical_sha256':digest_bytes(old),
               'whole_file_byte_identical':current==old}
     if current==old:return identity
-    v.require(relative==AIM_HELPER and all(identity[key]==AIM_TEST_ONLY_UPDATE[key]
-              for key in ('current_sha256','historical_sha256')),
+    matches=[record for record in AIM_TEST_ONLY_UPDATES if relative==AIM_HELPER and
+             all(identity[key]==record[key] for key in ('current_sha256','historical_sha256'))]
+    v.require(len(matches)==1,
               'Executed numerical helper differs from reviewed historical identity: '+relative)
+    reviewed=matches[0]
     a,b=aim_decoder_prefix(current),aim_decoder_prefix(old)
-    v.require(a==b and digest_bytes(a)==AIM_TEST_ONLY_UPDATE['executed_prefix_sha256'],
+    v.require(a==b and digest_bytes(a)==reviewed['executed_prefix_sha256'],
               'Executed aiming decoder or import context changed')
-    identity.update({'executed_prefix_sha256':digest_bytes(a),'executed_prefix_byte_identical':True,
-        'identity_policy':'finite-reviewed-aim-test-only-update-v1',
-        'reviewed_helper_source_git_ref':AIM_TEST_ONLY_UPDATE['reviewed_helper_source_git_ref'],
-        'scope':'Exact reviewed full-file pair; unchanged import/decoder prefix; only unused aiming Lua harness and eleven test methods differ; no native playback acceptance'})
+    identity.update({'executed_prefix_sha256':digest_bytes(a),'executed_prefix_byte_identical':True})
+    identity.update({key:reviewed[key] for key in
+                     ('identity_policy','reviewed_helper_source_git_ref','review_reference','scope')
+                     if key in reviewed})
     return identity
 
 
@@ -108,7 +127,7 @@ def expected_inputs(probe,manifest,original_report):
     common=[r.GRIP,r.RUNTIME,Path(r.__file__),Path(v.__file__),r.NATIVE_UNIT,r.NATIVE_BONES,
             probe/'input_receipt.json',probe/'original-clips.json',*core,*pairs]
     legacy_paths=[*common,original_report,Path(legacy.__file__),probe/'integration_manifest.json']
-    blend_paths=[*common,authored,manifest,blend.COMPOSER,Path(blend.__file__),
+    blend_paths=[*common,authored,manifest,blend.COMPOSER,blend.CLOCK,Path(blend.__file__),
                  probe/'skin_profile.json',probe/'animation_export.json']
     for clip in original['clips']:
         resource='units/warlock_bombardier/anims/'+Path(clip['clip']).stem

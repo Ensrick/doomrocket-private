@@ -102,6 +102,7 @@ jobs:
         run: |
           python tools/tests/test_doomrocket_animation_ownership.py
           python tools/tests/test_doomrocket_animation_dispatch.py
+          python tools/tests/test_doomrocket_animation_clock.py
           python tools/tests/test_doomrocket_animation_blend.py
           python tools/tests/test_doomrocket_animation_probe.py
           python tools/tests/test_doomrocket_animation_rehearsal.py
@@ -122,6 +123,7 @@ jobs:
           python tools/tests/test_animation_blend_numeric.py
           python tools/tests/test_animation_blend_acceptance.py
           python tools/tests/test_animation_runtime_scene.py
+          python tools/tests/test_native_pose_oracle_layers.py
           python tools/tests/test_animation_runtime_acceptance.py
           python tools/tests/test_animation_runtime_bridge.py
 

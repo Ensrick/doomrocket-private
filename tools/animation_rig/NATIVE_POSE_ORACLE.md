@@ -28,6 +28,26 @@ its own `compile_streamable_resources.bat` also invokes that executable without
 do not establish an accessible playback entrypoint in this VT2 mod-tools build.
 The runner refuses another native attempt with this known executable hash.
 
+The October 20 read-only installation audit found one configured Steam library,
+`C:\Program Files (x86)\Steam`, in both `steamapps/libraryfolders.vdf` and
+`config/libraryfolders.vdf`. It has no `appmanifest_552500.acf`; the residual
+`common/Warhammer Vermintide 2` directory contains only configuration, chroma,
+and launcher-log files, without game executables or bundles. The installed SDK
+still has the failed executable hash above. No new process was launched during
+that audit. Under the launch-verification requirement, a new runtime handoff
+remains pending before game startup; compilation and API-double tests do not
+satisfy that stage.
+
+The standalone oracle now starts both its initial and replacement crossfades
+on zero-based layer `0`, after checking that its own spawned unit is alive,
+has an animation state machine, and reports exactly one layer. The packed
+`animation_get_state` return count distinguishes zero layers from one layer
+whose current state is nil; the latter can start frozen playback. Every sample
+also checks these prerequisites before seeking. Executable Lua-double tests
+exercise both crossfades, absent/multiple layers and teardown while preserving
+the frozen speed, seek times and matrix convention. These are engineering
+checks, not evidence that the blocked native runtime has executed these APIs.
+
 Ignored diagnostic evidence is under
 `.build/animation_native_pose_oracle/clip_00/candidate/`:
 `compiler.stdout.log`, `runtime.stdout.log`, `runtime.stderr.log`,

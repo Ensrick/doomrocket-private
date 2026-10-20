@@ -15,9 +15,35 @@ and an in-game visual verdict are separate checks. Read the generated reports
 for their actual results; this guide does not claim native playback or an
 in-game pass.
 
-## Current transition candidate
+## Current integration hold
+
+[#65](https://github.com/Ensrick/doomrocket-private/issues/65) confirms a
+repeatable ordinary-spawn crash on published v0.1.93-dev: facing diagnostics
+request nonexistent animation layer `1` from the outfit. The engine assertion
+escapes `pcall`; this is not evidence that Arnaud's animation tracks are faulty.
+Regular TEST checks and the #53 rehearsal below are suspended.
+
+The unpublished v0.1.94-dev source candidate removes ordinary facing-clock reads
+and guards registered-controller clock reads against the single-layer contract.
+It preserves existing tracks, transition durations and authored-pose ownership.
+Historical numerical/SDK receipts remain bound to their original sources; they
+do not establish native acceptance of this candidate.
+
+The October 19 launch rule requires engineering to silently launch the actual
+installed candidate using a supported background/windowless mode before a new
+runtime handoff. Game manifest `552500`, executables and game bundles are absent
+locally; the installed SDK oracle cannot reach Lua boot. Startup/menu progress,
+loading/memory behavior and runtime safety remain unverified. BuildOnly and
+source/receipt/QA preparation can proceed, but testing handoff remains pending.
+Do not ask Crunch to perform the first launch or run the historical procedure.
+Arnaud can continue authoring with the published rig; final custom-export and
+localized-outfit integration still need their own native verification.
 
 ### v0.1.93-dev: runnable native controller rehearsal
+
+**Historical procedure, suspended on #65. Do not run these steps until an
+installed candidate has passed engineering launch verification and the hold is
+cleared.** Publication and offline checks below remain historical evidence.
 
 Published v0.1.93-dev adds an opt-in path to exercise the existing ownership
 controller, hidden sampler and mixed transitions inside the normal TEST package.
@@ -27,7 +53,7 @@ The stock graph, thirteen original clips, all 138 tracks and all 154 visible
 transition durations remain unchanged. This is a controller rehearsal, not a
 pass for a Blender export or localized garment deformation.
 
-For [verified TEST v0.1.93-dev](../PROJECT_STATUS.md):
+Historical steps for [published TEST v0.1.93-dev](../PROJECT_STATUS.md), suspended:
 
 1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.93-dev` in the new log.
 2. Before a new Warlock spawns, enter `/warlock_animation_rehearsal on`, then
@@ -49,9 +75,9 @@ The probe is off by default and records final presentation observations for at
 most two distinct enemies, 120 samples, and 30 seconds of matching-outfit-world
 animation time. It waits while no matching outfit exists. It records native
 clocks and ten local body/hand/accessory matrices per visible/helper pair; it
-never seeks, advances animation, spawns units or writes poses. An unavailable
-diagnostic API stops capture with one error. `no-custom-profile-observed` is not
-an animation pass. These sparse observations do not replace the fixed-frame
+never seeks, advances animation, spawns units or writes poses. A Lua diagnostic
+error stops capture with one error. Native assertions are not contained by this
+guard, as #65 demonstrates. `no-custom-profile-observed` is not an animation pass. These sparse observations do not replace the fixed-frame
 oracle, skin comparison or Arnaud's written visual verdict.
 
 Two grounded runtime defects are fixed: queued presentation now runs after
@@ -98,8 +124,8 @@ Custom targets receive no legacy corrections. All original animation tracks,
 transition durations, scene updates and steady-state safety checks are retained.
 The 138-bone actual-Lua work probe measures 5,383 calls rather than 6,204 per
 active legacy frame (13.23% fewer); it measures neither native time nor memory
-allocation. The default playable manifest remains empty, so the existing staged
-diagnostic route is required to test custom/native transitions. The earlier
+allocation. The v0.1.91 default playable manifest was empty, so that version
+required the separately staged diagnostic route for custom/native transitions. The earlier
 measurements below retain their original source and version scope.
 
 Fresh v0.1.91 production-Lua validation uses the current compositor, grip and
@@ -132,7 +158,7 @@ helper provenance guard** for `tools/tests/test_doomrocket_visible_aim.py`.
 The fresh join above repairs that specific offline blocker while preserving the
 original independent SDK/current-Lua/legacy scopes. No native `Unit` poses were captured; hidden evaluation, engine event
 clocks and rendered custom playback remain blocked on a runnable staged engine.
-The default Workshop manifest is empty and cannot perform that acceptance.
+The v0.1.91/v0.1.92 default Workshop manifest was empty and could not perform that acceptance.
 
 v0.1.87-dev replaces immediate mixed cuts with the `snapshot-blend-v1` bridge
 described below. The final compositor passes 36 executable Lua regressions;
@@ -209,10 +235,10 @@ The local handoff folder is
 Use this updated handoff for new work. The previous
 `WarlockEngineer_AnimationRig_Integration_2026-10-11` folder and ZIP, and the
 earlier `WarlockEngineer_AnimationRig` package, remain frozen as historical
-evidence. The complete updated ZIP, `START_HERE.md`, and verification receipt
-will accompany the canonical v0.1.87-dev GitHub release after verified
-publication and download verification. Project status records the actual
-delivery; this candidate guide does not claim that it has happened.
+evidence. The complete updated ZIP, `START_HERE.md`, and verification receipt were
+published with v0.1.87-dev; [project status](../PROJECT_STATUS.md) retains the
+verified download links and source scope. This authoring handoff remains usable
+while game integration is held on #65.
 Open `WarlockEngineer_AnimationRig.blend`, select `WARLOCK_CTRL`, and enter
 Pose Mode. Animate the visible curves. Keep the scene at 60 fps and save a
 separate working copy for each animation.

@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.94-dev - native animation-layer crash fix candidate
+
+- **Spawn crash (#65):** remove optional animation-clock queries from ordinary
+  facing diagnostics. The matching v0.1.93-dev log identifies an out-of-range
+  outfit layer query here; `pcall` cannot contain the native assertion.
+- Guard compositor and passive-probe clocks with live same-world bindings,
+  an animation state machine and exactly one current layer. Query zero-based
+  layer 0, reject unready states and sentinel durations, and retain protected
+  recovery when a clock is unavailable. Guard the standalone oracle's layer-0
+  crossfades and sampling after controller loss or teardown.
+- Keep all original source clips, tracks, visible transitions and custom-pose
+  ownership unchanged. Executable Lua regressions cover forbidden query attempts;
+  API doubles and SDK compilation do not establish native playback acceptance.
+
+This candidate is not published. Published v0.1.93-dev has a confirmed repeatable
+spawn crash; its outstanding playtests are suspended. The October 19 launch
+verification rule keeps a new runtime handoff pending: the game is not installed,
+and the installed SDK cannot reach oracle Lua boot. No new test is requested
+until an actual installed candidate passes the required launch verification.
+
 ## v0.1.93-dev - native animation rehearsal and hitch recovery
 
 - **Animation integration (#53):** run queued presentation after finite frame
