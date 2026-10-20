@@ -68,26 +68,26 @@ checks do not establish an in-game pass or authorize alpha promotion.
 4. Treat GitHub Issues as the live backlog. Do not create a competing TODO list.
 5. Run `py -3 tools/check_repository.py --channel development` before a commit.
 
-## Current crash and launch gate, October 20, 2026
+## Publication-only TEST exception, October 20, 2026
 
+- The user explicitly ruled that the local launch requirement does not apply
+  here because Vermintide 2 is not installed, and authorized uploading
+  v0.1.94-dev to TEST for Crunch to test. Use canonical VMB publication-only
+  mode; retain source plus receipt authority, hosted QA and fresh transaction
+  verification. This scoped ruling supersedes the earlier October 20 handoff
+  hold. No local or remote game deployment or alpha promotion is authorized.
 - Published TEST v0.1.93-dev has a confirmed repeatable ordinary-spawn crash,
-  [#65](https://github.com/Ensrick/doomrocket-private/issues/65). Its #53 rehearsal
-  and regular Warlock test instructions are suspended. v0.1.94-dev is an
-  unpublished source candidate; preserve existing tracks and custom poses.
-- Before a new runtime handoff, silently launch the actual installed candidate
-  in its supported background/windowless mode using scripts/CLIs/logs. Record
-  the exact installation, actual startup/menu progress, errors/crashes, timeout
-  and relevant loading/memory measurements. Exhaust these checks before
-  involving the user. Build/ABI/ready messages do not prove successful launch;
-  batch coverage does not establish graphics/input/audio behavior.
+  [#65](https://github.com/Ensrick/doomrocket-private/issues/65). v0.1.94-dev is
+  the fix candidate until its upload is verified. Only then restore concrete
+  TEST instructions and accurate ready-for-testing/testing issue labels where
+  no other blocker remains. Preserve existing tracks and custom poses.
 - No local manifest `552500`, game executable or game bundles are available;
-  the installed SDK oracle fails before Lua boot. This precisely blocks
-  installed-candidate launch verification. Keep the handoff pending; do not ask
-  Crunch to perform the candidate's first launch or present publication as
-  readiness. Preserve current sessions and resource guards. No guessed launch
-  flags, GUI automation, game deployment or alpha promotion.
-- Canonical VMB BuildOnly, source plus receipt preparation and hosted QA may
-  proceed. Historical receipts and artist-rig links retain their original scope.
+  the installed SDK oracle fails before Lua boot. Record this coverage limit.
+  Publication and offline checks establish no native startup, animation or
+  visual pass. Accept Crunch's written runtime feedback and matching logs.
+  Preserve current sessions and resource guards; do not invent launch flags,
+  use GUI automation or install the game to satisfy an exempted local check.
+- Historical receipts and artist-rig links retain their original scope.
 
 ## Evidence and release rules
 
@@ -118,10 +118,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-WarlockPipeline.p
 
 `tools/Invoke-DoomrocketRelease.ps1` delegates to the canonical standalone
 adapter. Generated bundles stay ignored; commit `.build-receipt.json` with
-source before hosted QA and merge. Historical releases used publication-only
-mode because the game was not installed. That mode does not bypass the current
-installed-candidate launch gate; no new runtime handoff or game acceptance is
-claimed while the game is absent.
+source before hosted QA and merge. Use publication-only mode under the user's
+October 20 exception because the game is not installed. Verified publication
+authorizes the TEST handoff; it does not establish native runtime acceptance.
 
 See `docs/RELEASE_CHANNELS.md`, `CONTRIBUTING.md`, and
 `docs/TESTER_QUICKSTART.md` for the human workflows.

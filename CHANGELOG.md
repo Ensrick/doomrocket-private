@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.94-dev - native animation-layer crash fix candidate
+## v0.1.94-dev - native animation-layer crash fix
 
 - **Spawn crash (#65):** remove optional animation-clock queries from ordinary
   facing diagnostics. The matching v0.1.93-dev log identifies an out-of-range
@@ -14,11 +14,11 @@
   ownership unchanged. Executable Lua regressions cover forbidden query attempts;
   API doubles and SDK compilation do not establish native playback acceptance.
 
-This candidate is not published. Published v0.1.93-dev has a confirmed repeatable
-spawn crash; its outstanding playtests are suspended. The October 19 launch
-verification rule keeps a new runtime handoff pending: the game is not installed,
-and the installed SDK cannot reach oracle Lua boot. No new test is requested
-until an actual installed candidate passes the required launch verification.
+This TEST update uses the canonical VMB publication-only process. On October 20,
+the user clarified that the local launch rule does not apply to Warlock while
+the game is not installed here, and authorized uploading v0.1.94-dev for Crunch.
+No local deployment or native runtime pass is claimed. Verify ordinary spawning
+first, then optionally run the #53 controller rehearsal on a newly spawned enemy.
 
 ## v0.1.93-dev - native animation rehearsal and hitch recovery
 

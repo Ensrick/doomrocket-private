@@ -19,25 +19,28 @@ title keeps its visible `TEST` marker and version suffix. Renaming the base
 Workshop name is a normal reviewed release, not Tweaker's narrow title-version
 synchronization exception for an unchanged base name.
 
-## Current TEST hold, October 20, 2026
+## Publication-only TEST exception, October 20, 2026
+
+The user explicitly ruled that the local launch requirement does not apply
+here because Vermintide 2 is not installed, and authorized uploading
+v0.1.94-dev to TEST for Crunch to test. This scoped exception supersedes the
+earlier October 20 handoff hold. Canonical VMB source plus receipt authority,
+hosted QA and fresh Workshop transaction verification remain mandatory.
 
 Published TEST v0.1.93-dev has a confirmed repeatable ordinary-spawn crash
-[#65](https://github.com/Ensrick/doomrocket-private/issues/65). v0.1.94-dev is an
-unpublished source candidate. Regular TEST and #53 rehearsal handoffs are held.
-Historical publication receipts remain valid evidence of delivery only.
-
-The user's October 19 launch rule requires engineering to silently launch the
-actual installed candidate in a supported background/windowless mode before a
-new runtime handoff. Record the exact installation, startup/menu progress,
-errors/crashes, timeout and relevant loading/memory measurements. Batch checks
-remain distinct from graphics/input/audio acceptance. Do not guess engine flags,
-interrupt current sessions or use desktop automation.
+[#65](https://github.com/Ensrick/doomrocket-private/issues/65). v0.1.94-dev is
+the fix candidate until its publication is verified. Then restore concrete
+TEST and #53 rehearsal instructions and ready-for-testing/testing labels for
+issues with a useful test and no other blocker. Historical publication
+receipts remain valid evidence of delivery only.
 
 Game manifest `552500`, game executables and game bundles are absent locally;
-the installed SDK oracle fails before Lua boot. Installed-candidate launch
-verification is blocked, so handoff remains pending. Canonical VMB BuildOnly,
-source plus receipt preparation and hosted QA are allowed. No publication as a
-ready build, deployment or alpha promotion is authorized by those checks.
+the installed SDK oracle fails before Lua boot. Record that native startup and
+runtime behavior remain unverified locally. Publication-only mode performs no
+local or remote game deployment; no alpha promotion is authorized. Preserve
+current sessions and resource guards, and do not guess engine flags or use
+desktop automation. Crunch's written runtime report remains acceptance
+evidence; a build or upload is not an in-game pass.
 
 ## Build, deploy and upload method
 
@@ -79,11 +82,11 @@ Follow the source workflow's noninteractive launcher path. The old v0.5.6
 launcher wrapper and `.build/interactive-launcher` experiment are superseded;
 do not revive them or replace the working method with another retry script.
 
-Engineering completes installed-candidate launch verification before involving
-volunteer testers. After that gate and verified publication, testers refresh the
+Under the user's October 20 publication-only exception, verified publication
+allows the TEST handoff without a local game launch. Testers refresh the
 Workshop subscription, restart Vermintide 2 and confirm `[doomrocket:LOAD]` with
-the exact version in the newest log. These handoff steps are currently suspended
-on #65. A publication-only run has no local deployment to claim.
+the exact version in the newest log before following the issue's test steps.
+A publication-only run has no local deployment or native runtime pass to claim.
 
 Steam restart is exceptional recovery, not a normal build/upload/test step.
 Follow [Tweaker's recovery evidence](upstream/vermintide-2-tweaker/docs/PORTABLE_SETUP.md#sdk-prerequisites-and-exceptional-steam-recovery):
@@ -114,18 +117,16 @@ $env:VT2_SHIP_VMB_LAUNCHER = $launcher            # approved standalone 0.6.4 bu
 ./tools/ship/ship.ps1 -BuildOnly -LauncherPath $launcher -ConfigPath $config
 # Commit source plus .build-receipt.json, push, pass hosted qa-gate, merge,
 # and update this checkout to the clean live default HEAD.
-# Final publication/handoff remains held on #65 and installed-candidate launch verification.
-# After that hold clears, the canonical publication command is:
-# ./tools/ship/ship.ps1 -AllowPublic -PublicationOnly -LauncherPath $launcher -ConfigPath $config
+# The user authorized publication-only TEST under the October 20 local-launch exception.
+./tools/ship/ship.ps1 -AllowPublic -PublicationOnly -LauncherPath $launcher -ConfigPath $config
 ```
 
-Historical TEST releases used publication-only mode because the game was not
-installed. That mode does not waive the October 19 installed-candidate launch
-rule for a new runtime handoff. The adapter refuses the public-alpha item and
-performs no local or remote deployment in publication-only mode. Its compatibility
-wrapper delegates to the same transaction. An upload is complete only after the
-fresh Steam transaction and metadata agree; upload completion alone does not
-clear the current handoff hold.
+Use publication-only mode because the game is not installed, as explicitly
+authorized by the user on October 20. The adapter refuses the public-alpha item
+and performs no local or remote deployment in publication-only mode. Its
+compatibility wrapper delegates to the same transaction. An upload is complete
+only after the fresh Steam transaction and metadata agree. Verified delivery
+allows testing; native runtime acceptance still depends on tester feedback.
 
 ## Verified preflight (2026-09-14)
 

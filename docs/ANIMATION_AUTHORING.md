@@ -15,37 +15,31 @@ and an in-game visual verdict are separate checks. Read the generated reports
 for their actual results; this guide does not claim native playback or an
 in-game pass.
 
-## Current integration hold
+## Current controller crash fix and testing scope
 
-[#65](https://github.com/Ensrick/doomrocket-private/issues/65) confirms a
-repeatable ordinary-spawn crash on published v0.1.93-dev: facing diagnostics
-request nonexistent animation layer `1` from the outfit. The engine assertion
-escapes `pcall`; this is not evidence that Arnaud's animation tracks are faulty.
-Regular TEST checks and the #53 rehearsal below are suspended.
+Published v0.1.93-dev has the repeatable ordinary-spawn crash recorded in
+[#65](https://github.com/Ensrick/doomrocket-private/issues/65). v0.1.94-dev removes
+ordinary facing-clock queries and guards registered-controller reads against the
+zero-based single-layer contract. Existing tracks, transition durations and
+custom-pose ownership are preserved. Historical receipts keep their original
+source identities and do not establish a native runtime pass for the fix.
 
-The unpublished v0.1.94-dev source candidate removes ordinary facing-clock reads
-and guards registered-controller clock reads against the single-layer contract.
-It preserves existing tracks, transition durations and authored-pose ownership.
-Historical numerical/SDK receipts remain bound to their original sources; they
-do not establish native acceptance of this candidate.
+The user's October 20 clarification exempts this Warlock publication-only TEST
+release from the local launch rule because the game is absent. Crunch can test
+v0.1.94-dev after canonical VMB delivery is verified. First confirm ordinary
+spawning with rehearsal/probe off (#65), then optionally use the procedure below.
+This controller rehearsal uses stock idle; it does not establish acceptance of
+Arnaud's Blender export or localized coat/belt deformation. Arnaud can continue
+authoring with the published rig. No local deployment or game pass is claimed.
 
-The October 19 launch rule requires engineering to silently launch the actual
-installed candidate using a supported background/windowless mode before a new
-runtime handoff. Game manifest `552500`, executables and game bundles are absent
-locally; the installed SDK oracle cannot reach Lua boot. Startup/menu progress,
-loading/memory behavior and runtime safety remain unverified. BuildOnly and
-source/receipt/QA preparation can proceed, but testing handoff remains pending.
-Do not ask Crunch to perform the first launch or run the historical procedure.
-Arnaud can continue authoring with the published rig; final custom-export and
-localized-outfit integration still need their own native verification.
+<a id="v0193-dev-runnable-native-controller-rehearsal"></a>
 
-### v0.1.93-dev: runnable native controller rehearsal
+### v0.1.94-dev: runnable native controller rehearsal
 
-**Historical procedure, suspended on #65. Do not run these steps until an
-installed candidate has passed engineering launch verification and the hold is
-cleared.** Publication and offline checks below remain historical evidence.
+Use this procedure only after [verified v0.1.94-dev publication](../PROJECT_STATUS.md)
+and a successful ordinary-spawn check. A source candidate alone is not delivery.
 
-Published v0.1.93-dev adds an opt-in path to exercise the existing ownership
+v0.1.94-dev retains an opt-in path to exercise the existing ownership
 controller, hidden sampler and mixed transitions inside the normal TEST package.
 It uses the unchanged stock body and existing `combat_idle` clip. Only this
 separate graph treats idle as authored and removes its visible aim constraint.
@@ -53,9 +47,9 @@ The stock graph, thirteen original clips, all 138 tracks and all 154 visible
 transition durations remain unchanged. This is a controller rehearsal, not a
 pass for a Blender export or localized garment deformation.
 
-Historical steps for [published TEST v0.1.93-dev](../PROJECT_STATUS.md), suspended:
+Steps for verified TEST v0.1.94-dev:
 
-1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.93-dev` in the new log.
+1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.94-dev` in the new log.
 2. Before a new Warlock spawns, enter `/warlock_animation_rehearsal on`, then
    `/warlock_animation_probe on`. Existing enemies are never rebound.
 3. Let a newly spawned Warlock idle, move, aim and return to idle in ordinary
@@ -68,7 +62,7 @@ Historical steps for [published TEST v0.1.93-dev](../PROJECT_STATUS.md), suspend
 5. Attach the matching complete console log to #53. Engineering reads it with:
 
    ```powershell
-   py -3 tools/animation_rig/parse_animation_probe.py <console.log> --expected-version 0.1.93-dev --report <observations.json>
+   py -3 tools/animation_rig/parse_animation_probe.py <console.log> --expected-version 0.1.94-dev --report <observations.json>
    ```
 
 The probe is off by default and records final presentation observations for at
@@ -238,7 +232,7 @@ earlier `WarlockEngineer_AnimationRig` package, remain frozen as historical
 evidence. The complete updated ZIP, `START_HERE.md`, and verification receipt were
 published with v0.1.87-dev; [project status](../PROJECT_STATUS.md) retains the
 verified download links and source scope. This authoring handoff remains usable
-while game integration is held on #65.
+while final custom-export and localized-outfit acceptance remain pending.
 Open `WarlockEngineer_AnimationRig.blend`, select `WARLOCK_CTRL`, and enter
 Pose Mode. Animate the visible curves. Keep the scene at 60 fps and save a
 separate working copy for each animation.

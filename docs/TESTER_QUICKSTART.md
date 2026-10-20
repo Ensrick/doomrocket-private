@@ -1,135 +1,67 @@
 # Development TEST quickstart
 
-**TEST testing is suspended on [#65](https://github.com/Ensrick/doomrocket-private/issues/65).**
+v0.1.94-dev addresses the repeatable ordinary-spawn crash in
+[#65](https://github.com/Ensrick/doomrocket-private/issues/65). Use it only after
+[project status](../PROJECT_STATUS.md) records verified canonical VMB publication
+for [TEST item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
+An uploaded source commit alone is not a Workshop update. v0.1.93-dev is the
+known crashing build; do not repeat its old instructions.
 
-Crunch's matching v0.1.93-dev log confirms a repeatable ordinary-spawn crash in
-native animation-layer diagnostics. No rehearsal activation is required by the
-report. Do not run the old #53 rehearsal or regular Warlock checks while this
-hold remains.
+The user clarified on October 20 that the local launch rule does not apply to
+this Warlock publication-only TEST release because the game is absent here.
+Crunch's in-game feedback remains the runtime check. No local deployment,
+local game launch, alpha promotion or in-game acceptance is claimed by a build.
 
-v0.1.94-dev is an unpublished source candidate. Before handing over a new runtime
-build, engineering must silently launch the actual installed candidate in its
-supported background/windowless mode and record startup/menu progress, errors,
-timeout and relevant loading/memory results. No local game manifest `552500`,
-executables or bundles are present; the installed SDK fails before oracle Lua
-boot. Installed-candidate launch verification and handoff therefore remain
-pending. A successful compile or VMB upload cannot replace this gate. Crunch is
-not being asked to perform the candidate's first launch.
+## First check: ordinary spawning (#65)
 
-**Historical publication: Warlock Engineer TEST v0.1.93-dev.**
-Verification completed 2026-10-17 02:08:24 UTC (96,168,463 bytes; content handle
-`2064919069194644398`); the [release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.93-dev)
-binds [the reviewed source](https://github.com/Ensrick/doomrocket-private/commit/c1e7c00162e468962862cf155850c86889be5051)
-([PR #63](https://github.com/Ensrick/doomrocket-private/pull/63)).
-This records delivery only. The later #65 crash suspends its testing instructions.
+1. Refresh the TEST subscription and restart Vermintide 2 in the Modded Realm.
+   Enable Vermintide Mod Framework above TEST; disable public item 3771657344.
+2. Confirm `[doomrocket:LOAD] v0.1.94-dev` in the new console log. If it differs,
+   stop and report the mismatch.
+3. In a fresh keep, leave the animation rehearsal and probe off (their defaults).
+   Spawn a Warlock through Creature Spawner, matching the reported crash trigger.
+4. Report whether spawning succeeds. If it crashes, attach the complete matching
+   log and GUID/Crashify link; a written result is enough.
 
-Published v0.1.93-dev adds a specific opt-in controller rehearsal
-for #53. Its verified publication is recorded in [project status](../PROJECT_STATUS.md);
-the [new-spawn command and probe instructions](ANIMATION_AUTHORING.md#v0193-dev-runnable-native-controller-rehearsal) are historical and suspended.
-It uses existing stock animation and does not establish a Blender-export or
-localized garment pass. Ordinary play on v0.1.92-dev cannot run that new check.
+After that works, other ordinary-play checks can resume. There is no requirement
+to complete all issues in one session or repeat already accepted behavior.
 
-Published v0.1.92-dev repairs the offline animation evidence checker and retains
-v0.1.91-dev gameplay and assets. No extra visual test or recording is required
-for the checker fix; ordinary flame feedback remains pending. Native authored
-playback had no active profile in v0.1.92-dev; the later v0.1.93-dev rehearsal is suspended. Existing
-v0.1.91-dev sessions and written reports remain useful for the unchanged flame,
-audio, hose and aiming behavior. No retest is needed solely for this checker
-maintenance update.
+- [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): slight resting-curve adjustment while retaining natural flex. Visibility and secondary physics are already accepted.
+- [#6 rocket clearance](https://github.com/Ensrick/doomrocket-private/issues/6): close shots clearing the floor and reaching the aimed point.
+- [#15 crystal flame](https://github.com/Ensrick/doomrocket-private/issues/15): small native torch size, colour, attachment and cleanup. Do not repeat the retired size-command experiment.
+- [#28 launcher/hand alignment](https://github.com/Ensrick/doomrocket-private/issues/28): grip during ordinary movement, aim and reload.
+- [#35 Dutch Spice arena](https://github.com/Ensrick/doomrocket-private/issues/35): Into the Nest Stormvermin waves on Cataclysm. Dutch Spice's separate Legend breed-name typo is not fixed here.
+- [#44 lingering audio](https://github.com/Ensrick/doomrocket-private/issues/44): sounds stopping at death. Absence in a short session does not disprove a rare fault.
+- [#55 facing](https://github.com/Ensrick/doomrocket-private/issues/55): ordinary written observations. If it naturally happens with friends, retain available matching logs; no arranged lobby is required.
 
-Published v0.1.91-dev adds a
-small native pickup-torch candidate at the crystal and optimizes repeated
-skeleton checks in the separately staged authored-animation path. Issue #15
-needs a written verdict on visible size, colour, attachment and
-cleanup during ordinary play. Do not repeat the retired size-command experiment.
-The full authored integration in #53 still needs its staged profile and native
-runtime validation; normal default Workshop gameplay cannot exercise it.
+[#53](https://github.com/Ensrick/doomrocket-private/issues/53) has a separate,
+optional [new-spawn controller rehearsal and passive probe](ANIMATION_AUTHORING.md#v0194-dev-runnable-native-controller-rehearsal).
+Run it after the ordinary-spawn check. It uses existing stock idle and does not
+establish final Blender-export or localized outfit acceptance. Original clips,
+tracks, visible transitions and custom-pose ownership remain preserved.
 
-Published v0.1.90-dev includes the temporary gem-flame omission, 30% quieter
-custom sounds and small hose adjustment prepared for the unpublished
-v0.1.89-dev. It adds guarded aiming, bounded facing diagnostics and animation
-parent-frame fixes. The authored integration remains separately staged; the
-default package has no active custom profile. Public alpha is unchanged.
+The 30% quieter audio in #5 can receive ordinary written loudness/cleanup
+feedback. Its full sound pass remains blocked on artist take/trigger selection
+and flight/reload sources. Head readability #56 remains an artist decision.
+Crunch's accepted #33 balance plan and #30 portrait verdict need no repeat test.
 
-The [TEST Workshop item](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730)
-still contains the published v0.1.93-dev build with the reported crash. Follow
-the hold in [current status](../PROJECT_STATUS.md). A candidate in source is not
-evidence of publication, successful launch or readiness.
+## Report a result
 
-Crunch accepted the five-change balance plan in v0.1.84-dev
-([#33](https://github.com/Ensrick/doomrocket-private/issues/33#issuecomment-6101970608)),
-including the movable camera during the flailing throw and the contact/velocity
-impact fix. Do not ask him to repeat that completed acceptance. The Dutch Spice
-arena fix [#35](https://github.com/Ensrick/doomrocket-private/issues/35) awaits an
-arena-wave verdict; its earlier acceptance plan uses Cataclysm while Dutch
-Spice's separate Legend breed-name typo remains. Hose [#3](https://github.com/Ensrick/doomrocket-private/issues/3)
-awaits a verdict on the firmer resting curve, with visibility and physics already
-accepted. These checks remain held on #65.
-
-The seven earlier ordinary-play TEST checks below are **held on #65**:
-
-- [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): firmer resting curve while retaining natural flex; visibility and physics are already accepted.
-- [#6 rocket clearance](https://github.com/Ensrick/doomrocket-private/issues/6): whether close shots clear the floor and reach the aimed point.
-- [#15 crystal flame](https://github.com/Ensrick/doomrocket-private/issues/15): whether the small native torch's visible size, colour and attachment suit the crystal and it disappears on death, drop and map change. Green colour is unverified; do not use the retired size command.
-- [#28 launcher/hand alignment](https://github.com/Ensrick/doomrocket-private/issues/28): whether the weapon remains aligned during ordinary movement, aim and reload.
-- [#35 Dutch Spice arena](https://github.com/Ensrick/doomrocket-private/issues/35): whether Into the Nest arena Stormvermin waves spawn on Cataclysm.
-- [#44 lingering audio](https://github.com/Ensrick/doomrocket-private/issues/44): whether living-enemy sounds stop on death during ordinary play; the report is rare, so absence in a short session is not final proof.
-- [#55 facing](https://github.com/Ensrick/doomrocket-private/issues/55): ordinary-play observations after the aim guards; if a mismatch is noticed while playing with friends, describe the phase and retain available matching logs. No arranged multiplayer session is required.
-
-Do not resume these steps until the hold is cleared. Existing written verdicts
-remain evidence; no size-command rerun is requested. The 30% audio reduction in
-#5 is published, with its remaining loudness/cleanup check also held. The full
-sound-cue pass still needs artist selection/trigger for the two aiming
-candidates, plus flight/reload sources. Alpha crash #34 needs crash evidence.
-Native animation #53 remains blocked on the crash fix, installed-candidate
-launch verification and later native/custom-export acceptance.
-
-Facing diagnostics in #55 record `stage=aim_update`; they do not establish
-post-animation facing agreement. Existing written observations remain evidence.
-No organised multiplayer session or video is required. Head readability #56
-remains an artist decision.
-
-Arnaud's [latest #35 attachment](https://github.com/Ensrick/doomrocket-private/issues/35#issuecomment-6158706396)
-loads v0.1.88-dev and records PlayFab HTTP 500/error 1110 during title-state
-startup, followed by the backend popup and an orderly exit. It has no
-arena-specific stack or verdict. v0.1.90-dev does not target that backend
-failure; the Dutch Spice arena check remains open.
-
-The following v0.1.93-dev checklist is **historical and suspended**. It is kept
-for interpreting earlier reports, not as a new test assignment. Future checks
-need fresh version-specific instructions after engineering clears the launch
-gate, publication and issue-specific hold:
+State what you saw or heard, the action, and whether it repeated. Attach the
+complete matching log where relevant from:
 
 ```text
-HISTORICAL v0.1.93-dev SOLO CHECKLIST - SUSPENDED ON #65
-
-Setup
-[ ] Refresh the TEST Workshop item 3794172730 and restart Vermintide 2.
-[ ] Launch the Modded Realm. Load Vermintide Mod Framework above Warlock Engineer TEST.
-[ ] Enable the TEST item only; disable public item 3771657344.
-[ ] Confirm [doomrocket:LOAD] v0.1.93-dev in the matching new log.
-[ ] If the version differs, stop and report the mismatch.
-
-Test and report
-[ ] Pick a ready-for-testing issue and follow its latest, issue-specific steps.
-[ ] Note what you actually saw or heard, including the action and whether it repeated.
-[ ] Attach the matching complete console log from:
-    %APPDATA%\Fatshark\Vermintide 2\console_logs\
-[ ] For a crash, include the GUID and Crashify link if available.
-[ ] Add the result to the issue: https://github.com/Ensrick/doomrocket-private/issues
+%APPDATA%\Fatshark\Vermintide 2\console_logs\
 ```
 
-A written observation and its matching log are enough. No recording, second
-player, or coordinated lobby test is required. If a bug appears while playing
-with friends, report it normally; the process does not require arranging that
-session in advance.
+For a crash, add its GUID/Crashify link. A written observation and matching log
+suffice; no video, recording, second player or coordinated lobby is requested.
+Facing diagnostics record `stage=aim_update`, not post-animation agreement.
 
-An issue marked `blocked` names a missing prerequisite such as engineering,
-publication, source assets, or crash evidence. Resolve that prerequisite before
-asking for an acceptance test it prevents. An issue marked
-`ready-for-testing` requires installed-candidate launch verification, verified
-publication and a concrete remaining question. Older labels do not override the
-#65 hold. Do not re-run accepted steps after a newer written verdict.
+`testing` + `ready-for-testing` means a verified published candidate and a
+concrete remaining question, not an accepted fix. `blocked` names a prerequisite
+that prevents that test. These states are mutually exclusive. Existing accepted
+written observations remain evidence after a new release.
 
 [Alpha crash #34](https://github.com/Ensrick/doomrocket-private/issues/34) needs a
 crash-bearing log or GUID from the reported alpha version, rather than another
