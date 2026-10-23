@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.94-dev"
+local MOD_VERSION = "0.1.95-dev"
 mod._doomrocket_version = MOD_VERSION
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
@@ -23,6 +23,7 @@ mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_interaction")
 mod:dofile("scripts/mods/doomrocket/interactions/doom_rocket_pickup")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_audio")
 mod._doomrocket_chimney_anchor = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_chimney_anchor")
+mod._warlock_effect_package = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_effect_package")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_backpack_smoke")
 mod._doomrocket_crystal_anchor = mod:dofile("scripts/mods/doomrocket/utils/doomrocket_crystal_anchor")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_crystal_flame")
@@ -333,6 +334,11 @@ mod.anim_emitters = {}
 mod.projectiles = {}
 
 function mod.update(dt)
+	-- Retain one asynchronous cosmetic-package lease per active world. Starting
+	-- before ordinary emitter updates keeps first spawn out of sync-read/flush.
+	mod._prewarm_warlock_backpack_smoke()
+	mod._prewarm_warlock_crystal_flame()
+
     for unit_string,projectile in pairs(mod.projectiles) do
 		if unit_string then
 			projectile:update(dt)

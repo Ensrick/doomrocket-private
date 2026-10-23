@@ -1,11 +1,12 @@
 local mod = get_mod("doomrocket")
 
--- #15 TEST candidate: reuse the native small, local-space pickup torch unchanged.
--- Its effect/material/parent/texture chain is verified in the pickups package.
--- Native initializer values are smaller than the rejected ground-fire effect;
+-- #15 TEST candidate: a mod-only copy of the native local-space pickup torch.
+-- The deterministic material splice scales its size/rise initializers to 0.4
+-- and tints the active gradient green. Native materials/textures are unchanged;
 -- colour and rendered appearance still require a written in-game verdict.
-local EFFECT = "fx/wpnfx_torch_local_space_3p"
+local EFFECT = "fx/doomrocket/crystal_torch_green_small"
 local PACKAGE = "resource_packages/pickups"
+local EFFECT_PACKAGE = "resource_packages/doomrocket/warlock_crystal"
 local PACKAGE_REFERENCE = "doomrocket_crystal_flame"
 local WEAPON = "units/rocket/pRocketLauncher"
 
@@ -77,6 +78,13 @@ local function forget_pending(entry)
 	end
 end
 
+local function cancel_pending(entry)
+	entry.cancelled = true
+	-- A native wrapper can call reset during load/create/link. That operation
+	-- still owns residency until it has unwound and cleaned its newly allocated ID.
+	if not entry.operating then forget_pending(entry) end
+end
+
 local function release_package_if_safe()
 	for world in pairs(state.releasing_worlds) do
 		if not known_world(world) then
@@ -84,29 +92,28 @@ local function release_package_if_safe()
 		end
 	end
 
-	if next(state.entries) or next(state.releasing_worlds) or next(state.unknown_worlds)
+	if state.prewarm_world and not known_world(state.prewarm_world) then
+		state.prewarm_world = nil
+	end
+	if state.prewarm_world or next(state.entries) or next(state.releasing_worlds) or next(state.unknown_worlds)
 		or next(state.creating_worlds) or next(state.pending_owners) then
 		return
 	end
 
 	-- Only drop references held by this module, including any old controller's
 	-- retained reference. The game's global pickup reference is never touched.
-	for name, manager in pairs(state.packages) do
-		if manager == Managers.package and manager:has_loaded(name, PACKAGE_REFERENCE) then
-			manager:unload(name, PACKAGE_REFERENCE)
-		end
-		state.packages[name] = nil
-	end
+	mod._warlock_effect_package.release(state.packages, PACKAGE_REFERENCE, { EFFECT_PACKAGE, PACKAGE })
 end
 
 local function stop(owner, reason)
 	local pending = state.pending_owners[owner]
 	local cancelled = pending and not pending.cancelled
-	if pending then pending.cancelled = true end
+	if pending then cancel_pending(pending) end
 	-- Claim before native calls: repeated or reentrant cleanup cannot reuse the ID.
 	local entry = forget(owner)
 
 	if not entry then
+		if cancelled then release_package_if_safe() end
 		return cancelled or false
 	end
 
@@ -167,31 +174,26 @@ local function anchor_pose(anchor)
 	Matrix4x4.set_z(pose, Vector3(unpack(anchor.x_axis)))
 	Matrix4x4.set_translation(pose, Vector3(unpack(anchor.position)))
 	-- Keep only the measured inverse-node compensation: its 0.01 axes cancel
-	-- the launcher's scale-100 mesh wrapper. The native small effect's own
-	-- initializers are unchanged; no rejected radius/height scaling is applied.
+	-- the launcher's scale-100 mesh wrapper. The mod-only particle's native
+	-- initializers carry the 0.4 adjustment; no link-pose size trick is applied.
 	return pose
 end
 
 local function ensure_resource()
-	local manager = Managers.package
-
-	if not manager or not Application.can_get("package", PACKAGE) then
-		report_skip("package_unavailable")
-		return false
+	local resident, reason = mod._warlock_effect_package.ensure(state.packages, PACKAGE, PACKAGE_REFERENCE)
+	if not resident then
+		if reason ~= "package_pending" then report_skip(reason) end
+		return false, reason
 	end
-
-	state.packages[PACKAGE] = manager
-	if not manager:has_loaded(PACKAGE, PACKAGE_REFERENCE) then
-		-- Omitted async argument means load + flush in native PackageManager.
-		manager:load(PACKAGE, PACKAGE_REFERENCE)
-	end
-
-	if not manager:has_loaded(PACKAGE, PACKAGE_REFERENCE) then
-		report_skip("package_not_loaded")
-		return false
+	-- The mod-only particle depends on the native pickup material chain. Delay
+	-- even its package request until that chain is resident; never boot-load it.
+	resident, reason = mod._warlock_effect_package.ensure_mod(state.packages, EFFECT_PACKAGE, PACKAGE_REFERENCE)
+	if not resident then
+		if reason ~= "package_pending" then report_skip(reason) end
+		return false, reason
 	elseif not Application.can_get("particles", EFFECT) then
 		report_skip("effect_unavailable")
-		return false
+		return false, "effect_unavailable"
 	end
 	return true
 end
@@ -295,6 +297,64 @@ local function carried_launcher(owner, inventory, world)
 	end
 end
 
+local function attempt_start(entry, pose)
+	if entry.operating then return false end
+	entry.operating = true
+	local checked, resident, reason = pcall(ensure_resource)
+	entry.operating = false
+	if entry.cancelled then
+		forget_pending(entry)
+		release_package_if_safe()
+		report_skip("creation_cancelled")
+		return false
+	elseif not checked or not resident then
+		if not checked then report_skip("resource_error") end
+		if not checked or reason == "resource_error" or reason == "effect_unavailable"
+			or reason == "package_not_loaded" then
+			forget_pending(entry)
+			release_package_if_safe()
+		end
+		return false
+	end
+
+	-- Residency completion is polled on the ordinary update, never a package
+	-- callback. Recheck every mutable attachment/lifetime boundary before native
+	-- particle calls; an async request can outlive any of these.
+	if DEDICATED_SERVER or not Unit.alive(entry.owner) or not Unit.alive(entry.weapon)
+		or not known_world(entry.world) or Unit.world(entry.owner) ~= entry.world
+		or Unit.world(entry.weapon) ~= entry.world
+		or carried_launcher(entry.owner, entry.inventory, entry.world) ~= entry.weapon
+		or state.releasing_worlds[entry.world] or state.unknown_worlds[entry.world] then
+		cancel_pending(entry)
+		release_package_if_safe()
+		return false
+	elseif active_world() ~= entry.world then
+		return false -- paused/disabled worlds keep the request, without spawning
+	end
+
+	entry.operating = true
+	local id = create_emitter(entry, pose)
+	entry.operating = false
+	if type(id) ~= "number" then
+		release_package_if_safe()
+		return false
+	end
+	entry.id = id
+	state.entries[entry.owner] = entry
+	state.weapons[entry.weapon] = entry.owner
+	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s profile=green_small_pickup_torch native_scale=0.4 tint=green rendered_size=unverified",
+		EFFECT, mod._doomrocket_crystal_anchor.node)
+	return true
+end
+
+mod._prewarm_warlock_crystal_flame = function ()
+	if DEDICATED_SERVER then return false end
+	local world = active_world()
+	if not world or state.releasing_worlds[world] or state.unknown_worlds[world] then return false end
+	state.prewarm_world = world
+	return ensure_resource()
+end
+
 mod._start_warlock_crystal_flame = function (owner, inventory)
 	if DEDICATED_SERVER or not owner or not Unit.alive(owner) then
 		return false
@@ -317,6 +377,12 @@ mod._start_warlock_crystal_flame = function (owner, inventory)
 
 	local anchor = mod._doomrocket_crystal_anchor
 
+	local pending = state.pending_owners[owner]
+	if pending and pending.weapon == weapon and pending.inventory == inventory then
+		return attempt_start(pending)
+	elseif pending then
+		cancel_pending(pending)
+	end
 	if not weapon or state.weapons[weapon] or state.pending_owners[owner] or state.pending_weapons[weapon] then
 		return false
 	end
@@ -327,35 +393,9 @@ mod._start_warlock_crystal_flame = function (owner, inventory)
 		return false
 	end
 	local node = Unit.node(weapon, anchor.node)
-	local entry = { owner = owner, weapon = weapon, world = world, node = node }
+	local entry = { owner = owner, inventory = inventory, weapon = weapon, world = world, node = node }
 	state.pending_owners[owner], state.pending_weapons[weapon] = entry, entry
-	local checked, resident = pcall(ensure_resource)
-	if not checked or not resident then
-		if not checked then report_skip("resource_error") end
-		forget_pending(entry)
-		release_package_if_safe()
-		return false
-	end
-	if entry.cancelled then
-		forget_pending(entry)
-		release_package_if_safe()
-		report_skip("creation_cancelled")
-		return false
-	end
-	local id = create_emitter(entry, pose)
-
-	if type(id) ~= "number" then
-		release_package_if_safe()
-		return false
-	end
-
-	entry.id = id
-
-	state.entries[owner] = entry
-	state.weapons[weapon] = owner
-	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s profile=native_small_pickup_torch scale=anchor_compensation_only colour=unverified rendered_size=unverified",
-		EFFECT, anchor.node)
-	return true
+	return attempt_start(entry, pose)
 end
 
 mod._stop_warlock_crystal_flame = function (owner, reason)
@@ -384,11 +424,30 @@ mod._update_warlock_crystal_flame = function ()
 	for i = 1, #stopped do
 		stop(stopped[i], "context_removed")
 	end
+	local pending = {}
+	for _, entry in pairs(state.pending_owners) do pending[#pending + 1] = entry end
+	for i = 1, #pending do
+		local entry = pending[i]
+		if state.pending_owners[entry.owner] == entry and not entry.operating then
+			if not Unit.alive(entry.owner) or not Unit.alive(entry.weapon)
+				or not known_world(entry.world) or Unit.world(entry.owner) ~= entry.world
+				or Unit.world(entry.weapon) ~= entry.world
+				or carried_launcher(entry.owner, entry.inventory, entry.world) ~= entry.weapon then
+				cancel_pending(entry)
+			elseif active_world() == entry.world then
+				attempt_start(entry)
+			end
+		end
+	end
+	release_package_if_safe()
 end
 
 mod._reset_warlock_crystal_flame = function (reason)
 	local owners = {}
-	for _, pending in pairs(state.pending_owners) do pending.cancelled = true end
+	state.prewarm_world = nil
+	local pending = {}
+	for _, entry in pairs(state.pending_owners) do pending[#pending + 1] = entry end
+	for i = 1, #pending do cancel_pending(pending[i]) end
 
 	for owner in pairs(state.entries) do
 		owners[#owners + 1] = owner
@@ -402,14 +461,14 @@ mod._reset_warlock_crystal_flame = function (reason)
 end
 
 -- Compatibility for an old hot-reloaded caller: numeric tuning is retired.
--- The small native effect is used unchanged, so this cannot recreate, resize,
+-- The frozen effect profile is used as packaged, so this cannot recreate, resize,
 -- enable or otherwise mutate any emitter.
 mod._set_warlock_crystal_flame_size = function ()
 	return false, "native_effect"
 end
 
-mod:command("warlock_crystal_flame", "Describe the native small crystal-flame TEST candidate; size tuning is retired", function ()
-	mod:echo("Crystal flame TEST candidate: unchanged native pickup torch. Numeric size tuning is retired; colour and rendered appearance await in-game testing.")
+mod:command("warlock_crystal_flame", "Describe the green 40-percent crystal-flame TEST candidate; size tuning is retired", function ()
+	mod:echo("Crystal flame TEST candidate: green pickup torch at 40 percent native dimensions. Numeric size tuning is retired; colour and rendered appearance await in-game testing.")
 end)
 
 mod._release_warlock_crystal_flame_world = function (world)
@@ -417,12 +476,16 @@ mod._release_warlock_crystal_flame_world = function (world)
 	-- so neither particle calls nor a package unload are safe or needed here.
 	local owners = {}
 	local pending_in_world = false
-	for _, pending in pairs(state.pending_owners) do
-		if pending.world == world then
-			pending.cancelled = true
+	local pending = {}
+	for _, entry in pairs(state.pending_owners) do pending[#pending + 1] = entry end
+	for i = 1, #pending do
+		if pending[i].world == world then
+			cancel_pending(pending[i])
 			pending_in_world = true
 		end
 	end
+	local prewarmed = state.prewarm_world == world
+	if prewarmed then state.prewarm_world = nil end
 
 	for owner, entry in pairs(state.entries) do
 		if entry.world == world then
@@ -434,7 +497,7 @@ mod._release_warlock_crystal_flame_world = function (world)
 		forget(owners[i])
 	end
 
-	if #owners > 0 or state.unknown_worlds[world] or state.creating_worlds[world] or pending_in_world then
+	if #owners > 0 or state.unknown_worlds[world] or state.creating_worlds[world] or pending_in_world or prewarmed then
 		state.releasing_worlds[world] = true
 	end
 

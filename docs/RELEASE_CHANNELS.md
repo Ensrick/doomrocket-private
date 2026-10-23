@@ -23,16 +23,20 @@ synchronization exception for an unchanged base name.
 
 The user explicitly ruled that the local launch requirement does not apply
 here because Vermintide 2 is not installed, and authorized uploading
-v0.1.94-dev to TEST for Crunch to test. This scoped exception supersedes the
-earlier October 20 handoff hold. Canonical VMB source plus receipt authority,
-hosted QA and fresh Workshop transaction verification remain mandatory.
+v0.1.94-dev to TEST for Crunch to test. The October 23 request authorizes the
+next TEST with the first-spawn, gem-flame and hose fixes. This scoped exception
+supersedes the earlier October 20 handoff hold. Canonical VMB source plus receipt
+authority, hosted QA and fresh Workshop transaction verification remain mandatory.
 
-Published TEST v0.1.93-dev has a confirmed repeatable ordinary-spawn crash
-[#65](https://github.com/Ensrick/doomrocket-private/issues/65). v0.1.94-dev is
-the fix candidate until its publication is verified. Then restore concrete
-TEST and #53 rehearsal instructions and ready-for-testing/testing labels for
-issues with a useful test and no other blocker. Historical publication
-receipts remain valid evidence of delivery only.
+Published v0.1.94-dev has verified delivery, and Crunch accepted its
+ordinary-spawn fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65),
+now closed. The current source candidate is v0.1.95-dev for first-spawn loading
+[#69](https://github.com/Ensrick/doomrocket-private/issues/69), gem flame #15 and
+hose #3. Keep v0.1.94-dev as the last verified publication until the fresh
+v0.1.95-dev transaction is verified. Then update concrete remaining instructions
+and ready-for-testing/testing labels where no other blocker remains. Do not
+repeat accepted #65 as a mandatory gate. Historical publication receipts remain
+valid evidence of delivery only.
 
 Game manifest `552500`, game executables and game bundles are absent locally;
 the installed SDK oracle fails before Lua boot. Record that native startup and
@@ -111,15 +115,40 @@ Use the same approved launcher executable and existing VMB project settings in
 both phases. The adapter creates a private settings copy for launcher children.
 
 ```powershell
-$env:VT2_SHIP_SESSION_ID = "warlock-<yyyymmdd>"   # same value for every step below
-$env:VT2_SHIP_VMB_LAUNCHER = $launcher            # approved standalone 0.6.4 build
-./tools/ship/claim.ps1 -Mod doomrocket -RepoRoot $PWD
-./tools/ship/ship.ps1 -BuildOnly -LauncherPath $launcher -ConfigPath $config
-# Commit source plus .build-receipt.json, push, pass hosted qa-gate, merge,
-# and update this checkout to the clean live default HEAD.
-# The user authorized publication-only TEST under the October 20 local-launch exception.
-./tools/ship/ship.ps1 -AllowPublic -PublicationOnly -LauncherPath $launcher -ConfigPath $config
+# Use this same session identity in every separate claim/build/ship child.
+$warlockChildSettings = @{
+    VT2_SHIP_SESSION_ID = "warlock-<yyyymmdd>"
+    VT2_SHIP_VMB_LAUNCHER = $launcher  # approved standalone 0.6.4 build
+    DOTNET_ADD_GLOBAL_TOOLS_TO_PATH = "false"
+    DOTNET_GENERATE_ASPNET_CERTIFICATE = "false"
+}
+$warlockSavedSettings = @{}
+foreach ($name in $warlockChildSettings.Keys) {
+    $warlockSavedSettings[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+}
+try {
+    foreach ($name in $warlockChildSettings.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $warlockChildSettings[$name], "Process")
+    }
+    & ./tools/ship/claim.ps1 -Mod doomrocket -RepoRoot $PWD
+    & ./tools/ship/ship.ps1 -Mod doomrocket -BuildOnly -LauncherPath $launcher -ConfigPath $config
+    # Commit source plus .build-receipt.json, push, pass hosted qa-gate, merge,
+    # and update this checkout to the clean live default HEAD before shipping.
+    # The user authorized publication-only TEST under the local-launch exception.
+    & ./tools/ship/ship.ps1 -Mod doomrocket -AllowPublic -PublicationOnly -LauncherPath $launcher -ConfigPath $config
+} finally {
+    foreach ($name in $warlockSavedSettings.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $warlockSavedSettings[$name], "Process")
+    }
+}
 ```
+
+Run these scripts normally, never by dot-sourcing. Temporary settings above are
+process-only and restored, including an originally absent value. A copied child
+environment is also valid. Every `dotnet` child using an isolated
+`DOTNET_CLI_HOME` must explicitly inherit the two `false` flags above; do not rely
+on first-use defaults. Never use persistent environment, registry, profile or
+global package-manager changes, and preserve the user's existing PATH and caches.
 
 Use publication-only mode because the game is not installed, as explicitly
 authorized by the user on October 20. The adapter refuses the public-alpha item
@@ -147,9 +176,10 @@ failed attempts on v0.1.68-dev. Each item names the failure it prevents.
    (`_doomrocket_vmb`), so in this standalone layout a path-derived identity
    never matches and the launcher refuses the upload (`[claim-gate] REFUSING
    publication: live claim belongs to ...`). Always set
-   `$env:VT2_SHIP_SESSION_ID` to a fixed value before `claim.ps1`, BuildOnly and
-   the ship; the adapter now fails closed without one. A claim left by another
-   agent is released under that identity (`-Release`) and re-allocated; never
+   `VT2_SHIP_SESSION_ID` to a fixed value in each child environment before
+   `claim.ps1`, BuildOnly and the ship; the adapter fails closed without one.
+   A claim left by another agent is released under that identity (`-Release`)
+   and re-allocated; never
    edit the claim file. Claim BEFORE bumping: the broker reads the current
    `MOD_VERSION` and allocates the next patch.
 4. **Steamworks registration.** VMB 0.6.3+ refuses to upload (exit 3) when

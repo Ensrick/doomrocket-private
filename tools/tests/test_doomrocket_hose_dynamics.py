@@ -83,7 +83,7 @@ end
 function moving(fps)
     local s,f,a,b=new(-9.81)
     local rest_a,rest_b=pose(a),pose(b)
-    local max_links,max_frames,held_speed=0,0,0
+    local max_links,max_frames,held_speed,held_peak_displacement=0,0,0,0
     local held_positions,checkpoints={},{}
     for frame=1,8*fps do
         local t=frame/fps
@@ -98,6 +98,12 @@ function moving(fps)
         max_links=math.max(max_links,s:length_error(s.rx,s.ry,s.rz))
         max_frames=math.max(max_frames,check_frames(f))
         if frame==2*fps then held_speed=velocity(s); for i=1,s.n do held_positions[i]={s.rx[i],s.ry[i],s.rz[i]} end end
+        if frame>2*fps then
+            for i=2,s.n-1 do
+                held_peak_displacement=math.max(held_peak_displacement,sqrt((s.rx[i]-held_positions[i][1])^2+
+                    (s.ry[i]-held_positions[i][2])^2+(s.rz[i]-held_positions[i][3])^2))
+            end
+        end
         if frame%(fps/6)==0 then
             local points={}; for i=1,s.n do points[i]={s.rx[i],s.ry[i],s.rz[i]} end
             checkpoints[#checkpoints+1]=points
@@ -108,7 +114,8 @@ function moving(fps)
     local points={}
     for i=1,s.n do points[i]={s.rx[i],s.ry[i],s.rz[i]} end
     return {points=points,checkpoints=checkpoints,held_speed=held_speed,end_speed=velocity(s),held_displacement=displacement,
-        links=max_links,frames=max_frames,resets=s.resets,render_resets=s.render_resets,shape_error=shape_error(s)}
+        links=max_links,frames=max_frames,resets=s.resets,render_resets=s.render_resets,shape_error=shape_error(s),
+        held_peak_displacement=held_peak_displacement}
 end
 function frame_rigid_motion()
     local s,f,a,b=new(0)
@@ -171,6 +178,79 @@ function relative_rotation(fps)
     end
     return s.resets,s.render_resets,maximum,frame_error,max_axis_step
 end
+function walking(fps,cadence)
+    local s,f,a,b=new(-9.81)
+    local rest_a,rest_b=pose(a),pose(b)
+    for step=1,2*fps do tick(s,f,a,b,1/fps) end
+    local sums,squares,previous={}, {}, {}
+    for i=2,s.n-1 do
+        sums[i]={0,0,0}; squares[i]={0,0,0}
+        previous[i]={s.rx[i]-s.shape_x[i],s.ry[i]-s.shape_y[i],s.rz[i]-s.shape_z[i]}
+    end
+    local count,velocity_squares,max_velocity,max_error,max_links,max_frames=0,0,0,0,0,0
+    local checkpoints={}
+    for step=1,8*fps do
+        local t=step/fps
+        local phase=2*math.pi*(cadence or 1.8)*t
+        local envelope=1-math.exp(-3*t)
+        -- Walking-scale carrier translation, bob and roll; the weapon has a
+        -- separate 4 cm swing rather than both ends being a rigid copy.
+        local dx=1.4*(t-envelope/3)
+        local dy=.025*sin(phase)*envelope
+        local dz=.02*(1-cos(phase))*envelope
+        local roll=.025*sin(phase)*envelope
+        a=transformed(rest_a,0,roll,dx,dy,dz)
+        b=transformed(rest_b,0,roll,dx,dy,dz)
+        b.position[2]=b.position[2]+.04*sin(phase+.5)*envelope
+        tick(s,f,a,b,1/fps)
+        assert(s.resets==1,'walking reset masks instability')
+        max_links=math.max(max_links,s:length_error(s.rx,s.ry,s.rz))
+        max_frames=math.max(max_frames,check_frames(f))
+        if t>2 then
+            count=count+1
+            max_error=math.max(max_error,shape_error(s))
+        end
+        for i=2,s.n-1 do
+            local offsets={s.rx[i]-s.shape_x[i],s.ry[i]-s.shape_y[i],s.rz[i]-s.shape_z[i]}
+            local speed2=0
+            for j=1,3 do
+                if t>2 then
+                    sums[i][j]=sums[i][j]+offsets[j]
+                    squares[i][j]=squares[i][j]+offsets[j]^2
+                    speed2=speed2+((offsets[j]-previous[i][j])*fps)^2
+                end
+                previous[i][j]=offsets[j]
+            end
+            if t>2 then
+                velocity_squares=velocity_squares+speed2
+                max_velocity=math.max(max_velocity,sqrt(speed2))
+            end
+        end
+        if step%(fps/6)==0 then
+            local points={}; for i=1,s.n do points[i]={s.rx[i],s.ry[i],s.rz[i]} end
+            checkpoints[#checkpoints+1]=points
+        end
+    end
+    local variance=0
+    for i=2,s.n-1 do for j=1,3 do
+        variance=variance+math.max(0,squares[i][j]/count-(sums[i][j]/count)^2)
+    end end
+    return {flap_rms=sqrt(variance/(s.n-2)),relative_speed_rms=sqrt(velocity_squares/(count*(s.n-2))),
+        max_relative_speed=max_velocity,max_shape_error=max_error,links=max_links,frames=max_frames,
+        resets=s.resets,render_resets=s.render_resets,checkpoints=checkpoints}
+end
+function steady_translation(fps)
+    local s,f,a,b=new(0)
+    local rest_a,rest_b=pose(a),pose(b)
+    for step=1,6*fps do
+        local t=step/fps
+        a=transformed(rest_a,0,0,1.4*t,0,0)
+        b=transformed(rest_b,0,0,1.4*t,0,0)
+        tick(s,f,a,b,1/fps)
+        assert(s.resets==1,'translation reset masks drift')
+    end
+    return shape_error(s),s.resets,s.render_resets
+end
 function benchmark(count,frames)
     local list={}
     for i=1,count do local s,f,a,b=new(-9.81); list[i]={s=s,f=f,a=a,b=b} end
@@ -228,7 +308,10 @@ class HoseDynamicsTests(unittest.TestCase):
             with self.subTest(fps=fps):
                 result = runtime().globals().moving(fps)
                 self.assertGreater(result.held_speed, .02)
-                self.assertGreater(result.held_displacement, .004)
+                # The stopped pose can be close to eventual equilibrium. Check
+                # its largest subsequent movement, rather than just the final
+                # net offset, so returning to rest cannot hide real inertia.
+                self.assertGreater(result.held_peak_displacement, .004)
                 self.assertLess(result.end_speed, .002)
                 self.assertLess(result.shape_error, .07)
                 self.assertLess(result.links, .02)
@@ -241,6 +324,54 @@ class HoseDynamicsTests(unittest.TestCase):
         moving_maximum = max(math.dist(a, b) for fps in (30, 144)
                              for one, two in zip(checkpoints[60], checkpoints[fps]) for a, b in zip(one, two))
         self.assertLess(moving_maximum, .004)
+
+    def test_walking_damps_relative_flapping_without_rigid_copy_or_reset_masking(self):
+        checkpoints = {}
+        for fps in (30, 60, 144):
+            with self.subTest(fps=fps):
+                result = runtime().globals().walking(fps)
+                # Production v0.1.94 measured 32.73–33.50 mm RMS flex and
+                # .369–.382 m/s relative speed on this same walking input.
+                # Retain measurable secondary flex while rejecting that excess.
+                self.assertGreater(result.flap_rms, .010)
+                self.assertLess(result.flap_rms, .018)
+                self.assertLess(result.relative_speed_rms, .20)
+                self.assertLess(result.max_relative_speed, .42)
+                self.assertLess(result.max_shape_error, .067)
+                self.assertLess(result.links, .002)
+                self.assertLess(result.frames, 2e-6)
+                self.assertEqual(result.resets, 1)
+                self.assertEqual(result.render_resets, 0)
+                checkpoints[fps] = [[[result.checkpoints[k][i][j] for j in range(1, 4)]
+                                     for i in range(1, 30)] for k in range(1, 49)]
+        maximum = max(math.dist(a, b) for fps in (30, 144)
+                      for one, two in zip(checkpoints[60], checkpoints[fps]) for a, b in zip(one, two))
+        self.assertLess(maximum, .002)
+
+    def test_walking_cadence_sweep_does_not_resonate_into_large_flaps(self):
+        # The 240 s^-2 spring's undamped natural frequency is about 2.47 Hz.
+        # Cover slow steps through that resonance and into a quick gait.
+        for cadence in (.8, 1.2, 2.4, 3):
+            with self.subTest(cadence=cadence):
+                result = runtime().globals().walking(60, cadence)
+                self.assertGreater(result.flap_rms, .001)
+                self.assertLess(result.flap_rms, .030)
+                self.assertLess(result.relative_speed_rms, .60)
+                self.assertLess(result.max_shape_error, .080)
+                self.assertLess(result.links, .002)
+                self.assertLess(result.frames, 2e-6)
+                self.assertEqual(result.resets, 1)
+                self.assertEqual(result.render_resets, 0)
+
+    def test_constant_carrier_velocity_does_not_create_world_drag(self):
+        # Include FPS above the physical 120 Hz rate: previous target velocity
+        # must span skipped solver frames, not just the last render interval.
+        for fps in (30, 60, 144, 240):
+            with self.subTest(fps=fps):
+                error, resets, render_resets = runtime().globals().steady_translation(fps)
+                self.assertLess(error, 1e-5)
+                self.assertEqual(resets, 1)
+                self.assertEqual(render_resets, 0)
 
     def test_frame_transport_is_rigid_rotation_translation_covariant(self):
         maximum, orthogonal = runtime().globals().frame_rigid_motion()
@@ -356,6 +487,15 @@ if __name__ == "__main__":
         for count in (1, 20):
             mean, p95, maximum, resets = runtime().globals().benchmark(count, 240)
             print(json.dumps({"hoses": count, "fps": 60, "mean_ms": mean, "p95_ms": p95, "max_ms": maximum, "unexpected_resets": resets}))
+    elif "--walking-metrics" in sys.argv:
+        for fps in (30, 60, 144):
+            lua = runtime()
+            result = lua.globals().walking(fps)
+            moving = lua.globals().moving(fps)
+            print(json.dumps({"fps": fps,
+                              **{key: value for key, value in result.items() if key != "checkpoints"},
+                              "steady_translation_error": lua.globals().steady_translation(fps)[0],
+                              "stop_peak_displacement": moving.held_peak_displacement}))
     elif "--metrics" in sys.argv:
         lua = runtime()
         for gravity in (0, -9.81):

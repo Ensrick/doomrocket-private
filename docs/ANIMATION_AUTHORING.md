@@ -15,31 +15,37 @@ and an in-game visual verdict are separate checks. Read the generated reports
 for their actual results; this guide does not claim native playback or an
 in-game pass.
 
-## Current controller crash fix and testing scope
+## Current testing scope
 
-Published v0.1.93-dev has the repeatable ordinary-spawn crash recorded in
-[#65](https://github.com/Ensrick/doomrocket-private/issues/65). v0.1.94-dev removes
-ordinary facing-clock queries and guards registered-controller reads against the
-zero-based single-layer contract. Existing tracks, transition durations and
-custom-pose ownership are preserved. Historical receipts keep their original
-source identities and do not establish a native runtime pass for the fix.
+Crunch accepted the ordinary-spawn fix on published v0.1.94-dev;
+[#65](https://github.com/Ensrick/doomrocket-private/issues/65) is closed. Its old
+crash reproduction is no longer a mandatory gate for the optional #53 rehearsal.
+The fix removes ordinary facing-clock queries and guards registered-controller
+reads against the zero-based single-layer contract. Existing tracks, transition
+durations and custom-pose ownership remain preserved. This accepted spawn result
+does not establish native custom-animation or localized-outfit acceptance.
+
+The v0.1.95-dev source candidate addresses effect loading, gem-flame appearance
+and hose motion, retaining the existing opt-in controller rehearsal unchanged.
+Its Workshop publication is pending; follow the v0.1.95-dev steps below only
+after [project status](../PROJECT_STATUS.md) records verified canonical VMB
+delivery. Historical receipts keep their original source identities.
 
 The user's October 20 clarification exempts this Warlock publication-only TEST
-release from the local launch rule because the game is absent. Crunch can test
-v0.1.94-dev after canonical VMB delivery is verified. First confirm ordinary
-spawning with rehearsal/probe off (#65), then optionally use the procedure below.
-This controller rehearsal uses stock idle; it does not establish acceptance of
-Arnaud's Blender export or localized coat/belt deformation. Arnaud can continue
-authoring with the published rig. No local deployment or game pass is claimed.
+from local launch because the game is absent; the next TEST is authorized.
+This controller rehearsal uses stock idle and does not accept Arnaud's Blender
+export or localized coat/belt deformation. Arnaud can continue authoring with
+the published rig. No local deployment or native animation pass is claimed.
 
 <a id="v0193-dev-runnable-native-controller-rehearsal"></a>
 
 ### v0.1.94-dev: runnable native controller rehearsal
 
-Use this procedure only after [verified v0.1.94-dev publication](../PROJECT_STATUS.md)
-and a successful ordinary-spawn check. A source candidate alone is not delivery.
+The heading records the rehearsal's introduction and retains existing links.
+The current steps below require [verified v0.1.95-dev publication](../PROJECT_STATUS.md);
+a source candidate alone is not delivery. The accepted #65 check needs no repeat.
 
-v0.1.94-dev retains an opt-in path to exercise the existing ownership
+The opt-in path introduced in v0.1.94-dev exercises the existing ownership
 controller, hidden sampler and mixed transitions inside the normal TEST package.
 It uses the unchanged stock body and existing `combat_idle` clip. Only this
 separate graph treats idle as authored and removes its visible aim constraint.
@@ -47,9 +53,9 @@ The stock graph, thirteen original clips, all 138 tracks and all 154 visible
 transition durations remain unchanged. This is a controller rehearsal, not a
 pass for a Blender export or localized garment deformation.
 
-Steps for verified TEST v0.1.94-dev:
+Steps for verified TEST v0.1.95-dev:
 
-1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.94-dev` in the new log.
+1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.95-dev` in the new log.
 2. Before a new Warlock spawns, enter `/warlock_animation_rehearsal on`, then
    `/warlock_animation_probe on`. Existing enemies are never rebound.
 3. Let a newly spawned Warlock idle, move, aim and return to idle in ordinary
@@ -62,7 +68,7 @@ Steps for verified TEST v0.1.94-dev:
 5. Attach the matching complete console log to #53. Engineering reads it with:
 
    ```powershell
-   py -3 tools/animation_rig/parse_animation_probe.py <console.log> --expected-version 0.1.94-dev --report <observations.json>
+   py -3 tools/animation_rig/parse_animation_probe.py <console.log> --expected-version 0.1.95-dev --report <observations.json>
    ```
 
 The probe is off by default and records final presentation observations for at

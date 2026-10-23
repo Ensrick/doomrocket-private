@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.1.95-dev - first-spawn loading, green gem flame and hose damping
+
+- **First-spawn hitch (#69):** prewarm effect dependencies asynchronously and
+  wait for residency before creating emitters. Remove synchronous effect-package
+  flushes from enemy attachment; preserve owned references and teardown guards.
+  The reported v0.1.94-dev log measured a 109 ms package flush inside a 348 ms
+  first-spawn frame. Offline checks do not establish the native improvement.
+- **Gem flame (#15):** reuse the existing native torch effect with green colour
+  and target dimensions 0.4 of the previous torch. Retain attachment compensation
+  and death/drop/world cleanup; no new production art is added. Crunch already
+  accepted that the correct torch is visible; the new colour and size need a
+  written verdict after verified TEST publication.
+- **Hose motion (#3):** damp motion relative to the moving rest shape, targeting
+  excessive flapping while walking. Retain secondary physics, inertia, gravity,
+  endpoint tracking and length constraints. Basic visibility and physics are
+  accepted; the new movement still requires an in-game observation.
+- Preserve original animation clips, tracks, visible transitions and custom-pose
+  ownership. The ordinary-spawn crash fix in v0.1.94-dev (#65) is accepted and
+  closed; the remaining hitch is tracked separately, with no mandatory repeat
+  of the old crash reproduction.
+
+This is the next source candidate for the authorized canonical VMB TEST process,
+not a publication record. Until its fresh upload is verified, v0.1.94-dev remains
+the last verified Workshop build. No local deployment, native game launch or
+alpha promotion is performed.
+
 ## v0.1.94-dev - native animation-layer crash fix
 
 - **Spawn crash (#65):** remove optional animation-clock queries from ordinary
