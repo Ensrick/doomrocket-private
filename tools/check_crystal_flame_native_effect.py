@@ -3,10 +3,11 @@
 
 Usage: py -3 tools/check_crystal_flame_native_effect.py --extracted-root PATH
 
-No game payload is copied, changed, packaged or executed. The small v68 particle
-reader below checks only this candidate's bounded cloud layout, initializer and
-simulator records, and billboard material slot. It does not decode renderer or
-colour curves. Full payload hashes bind all opaque bytes to the audited donor.
+The audit CLI copies, changes, packages and executes no game payload. Its v68
+reader checks the bounded cloud/component layout and billboard material slot.
+The separate numeric-derivative reader additionally decodes this torch's typed
+size/colour writer records and RGB gradient, grounded in the pinned SDK compiler.
+Full payload hashes bind all untouched bytes to the audited donor.
 Package membership and material references are offline evidence; they establish
 neither runtime residency nor visible size, colour, or in-game acceptance.
 """
@@ -17,6 +18,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import math
 from pathlib import Path, PurePosixPath
 import re
 import struct
@@ -197,6 +199,98 @@ def inspect_material(payload, expected, role):
     bindings = {f"{key:08X}": f"{value:016X}" for key, value in textures.items()}
     require(bindings == expected["texture_bindings"], role + " texture bindings differ")
     return {"parent_id": f"{parent:016X}", "texture_bindings": bindings}
+
+
+def inspect_editable_particle(payload, fixture):
+    """Read the bounded numeric edit contract for this exact native torch.
+
+    v68 writer type IDs, body sizes and curve layouts are recovered from the
+    installed SDK compiler listed in the fixture. Offsets come from the typed
+    cloud/simulator/writer records, never a search for matching float bytes.
+    Unknown layouts fail closed; the donor's full SHA remains a separate gate.
+    """
+    inspect_particle(payload, fixture["particle"])
+    expected = fixture["derivative"]
+    cloud = fixture["particle"]["cloud"]
+    base = PARTICLE_HEADER_SIZE
+    cursor = base + cloud["initializer_offset"]
+    initializers = []
+    for kind in cloud["initializer_types"]:
+        route, = struct.unpack_from("<I", payload, cursor + 4)
+        initializers.append((kind, route, cursor))
+        cursor += INITIALIZER_SIZES[kind]
+    require([(kind, route) for kind, route, _ in initializers] ==
+            [tuple(item) for item in expected["initializer_routes"]],
+            "Native initializer routing differs")
+    size = next(offset for kind, route, offset in initializers if kind == 1 and route == 40)
+    cylinder = next(offset for kind, route, offset in initializers if kind == 11 and route == 0)
+    require(list(struct.unpack_from("<2f", payload, size + 8)) == expected["source_size_range"],
+            "Native size initializer differs")
+    require(list(struct.unpack_from("<4f", payload, cylinder + 8)) ==
+            expected["source_cylinder_radius_height"], "Native cylinder dimensions differ")
+    require(struct.unpack_from("<3i", payload, cylinder + 32) == (-1, -1, -1),
+            "Native cylinder unexpectedly binds variables")
+    sim_base = base + cloud["simulator_offset"]
+    simulators = [struct.unpack_from("<BI", payload, sim_base + index * 5)
+                  for index in range(len(cloud["simulator_types"]))]
+    require(simulators == [tuple(item) for item in expected["simulator_routes"]],
+            "Native simulator routing differs")
+    constants = base + cloud["renderer_offset"]
+    acceleration = constants + next(route for kind, route in simulators if kind == 3)
+    require(acceleration + 16 <= base + cloud["visualizer_offset"],
+            "Native acceleration record exceeds simulator data")
+    require(struct.unpack_from("<I", payload, acceleration)[0] == 16 and
+            list(struct.unpack_from("<3f", payload, acceleration + 4)) ==
+            expected["source_acceleration"], "Native acceleration record differs")
+
+    visualizer = base + cloud["visualizer_offset"]
+    body = visualizer + 4  # billboard type precedes its 248-byte body header
+    stride, count, start, total = struct.unpack_from("<4I", payload, body + 228)
+    require((stride, count, start, total) == (36, 6, 248, 696),
+            "Native billboard writer-table header differs")
+    require(body + total == len(payload), "Native billboard writer table end differs")
+    writer_sizes = {0: 8, 3: 108, 4: 268, 5: 12, 18: 16}
+    cursor = body + start
+    writers = []
+    for _ in range(count):
+        require(cursor + 4 <= body + total, "Truncated native vertex writer")
+        kind, = struct.unpack_from("<I", payload, cursor)
+        require(kind in writer_sizes, "Unsupported native vertex-writer type")
+        record = cursor + 4
+        cursor = record + writer_sizes[kind]
+        require(cursor <= body + total, "Native vertex writer exceeds its table")
+        writers.append((kind, record))
+    require(cursor == body + total and [kind for kind, _ in writers] ==
+            expected["writer_types"], "Native vertex-writer topology differs")
+    size_writer = next(offset for kind, offset in writers if kind == 3)
+    require(struct.unpack_from("<4I", payload, size_writer) == (40, 32, 36, 16),
+            "Native size writer no longer reads the resized channel")
+    colour = next(offset for kind, offset in writers if kind == 4)
+    require(struct.unpack_from("<2I", payload, colour) == (32, 36) and
+            struct.unpack_from("<3I", payload, colour + 256) == (12, 0, 0),
+            "Native colour writer routing or luminance binding differs")
+    # A scalar curve is ten times, ten values, count. A vector3 gradient is
+    # ten times, ten packed RGB values, count. The two curves are independent.
+    opacity = colour + 8
+    gradient = opacity + 84
+    alpha_count, = struct.unpack_from("<I", payload, opacity + 80)
+    colour_count, = struct.unpack_from("<I", payload, gradient + 160)
+    require(alpha_count == colour_count == 3, "Native colour curve cardinality differs")
+    times = list(struct.unpack_from("<3f", payload, gradient))
+    values = [list(struct.unpack_from("<3f", payload, gradient + 40 + index * 12))
+              for index in range(colour_count)]
+    require(times == expected["source_gradient_times"] and
+            values == expected["source_gradient_rgb"], "Native RGB gradient differs")
+    require(all(math.isfinite(value) and 0 <= value <= 255
+                for row in values for value in row) and
+            0 <= times[0] < times[1] < times[2] <= 1,
+            "Invalid native RGB gradient")
+    return {"size_range_offset": size + 8, "cylinder_dimensions_offset": cylinder + 8,
+            "acceleration_vector_offset": acceleration + 4,
+            "gradient_rgb_offsets": [gradient + 40 + index * 12
+                                     for index in range(colour_count)],
+            "gradient_times": times, "gradient_rgb": values,
+            "writer_types": [kind for kind, _ in writers]}
 
 
 def audit(extracted_root, fixture):

@@ -72,15 +72,20 @@ checks do not establish an in-game pass or authorize alpha promotion.
 
 - The user explicitly ruled that the local launch requirement does not apply
   here because Vermintide 2 is not installed, and authorized uploading
-  v0.1.94-dev to TEST for Crunch to test. Use canonical VMB publication-only
-  mode; retain source plus receipt authority, hosted QA and fresh transaction
-  verification. This scoped ruling supersedes the earlier October 20 handoff
-  hold. No local or remote game deployment or alpha promotion is authorized.
-- Published TEST v0.1.93-dev has a confirmed repeatable ordinary-spawn crash,
-  [#65](https://github.com/Ensrick/doomrocket-private/issues/65). v0.1.94-dev is
-  the fix candidate until its upload is verified. Only then restore concrete
-  TEST instructions and accurate ready-for-testing/testing issue labels where
-  no other blocker remains. Preserve existing tracks and custom poses.
+  v0.1.94-dev to TEST for Crunch to test. The October 23 request authorizes
+  the next TEST with the first-spawn, gem flame and hose fixes. Use canonical
+  VMB publication-only mode; retain source plus receipt authority, hosted QA
+  and fresh transaction verification. This scoped ruling supersedes the earlier
+  October 20 handoff hold. No local or remote game deployment or alpha promotion
+  is authorized.
+- Crunch accepted the ordinary-spawn fix on published v0.1.94-dev;
+  [#65](https://github.com/Ensrick/doomrocket-private/issues/65) is closed. Do not
+  repeat that accepted check as a mandatory gate. The v0.1.95-dev source
+  candidate addresses first-spawn loading [#69](https://github.com/Ensrick/doomrocket-private/issues/69),
+  green/smaller gem flame #15 and reduced hose flapping #3. Retain the last
+  verified publication record until a fresh upload is verified, then set concrete
+  remaining tests and accurate ready-for-testing/testing labels. Preserve
+  existing tracks, custom poses and secondary hose physics.
 - No local manifest `552500`, game executable or game bundles are available;
   the installed SDK oracle fails before Lua boot. Record this coverage limit.
   Publication and offline checks establish no native startup, animation or
@@ -88,6 +93,17 @@ checks do not establish an in-game pass or authorize alpha promotion.
   Preserve current sessions and resource guards; do not invent launch flags,
   use GUI automation or install the game to satisfy an exempted local check.
 - Historical receipts and artist-rig links retain their original scope.
+
+## Build environment hygiene
+
+Keep temporary build settings in a copied child environment. If a PowerShell
+caller changes process `$env:` values, save and restore them in `try/finally`;
+never persist build settings, edit global PATH, dot-source a build launcher, or
+install build-only tools globally. Reuse compatible existing caches. Before every
+`dotnet` invocation with an isolated `DOTNET_CLI_HOME`, explicitly set
+`DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=false` and
+`DOTNET_GENERATE_ASPNET_CERTIFICATE=false` in that child environment. Preserve
+user/machine environment values and types; never restore a stale whole PATH.
 
 ## Evidence and release rules
 

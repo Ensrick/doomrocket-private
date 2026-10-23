@@ -1,34 +1,42 @@
 # Development TEST quickstart
 
-v0.1.94-dev addresses the repeatable ordinary-spawn crash in
-[#65](https://github.com/Ensrick/doomrocket-private/issues/65). Use it only after
-[project status](../PROJECT_STATUS.md) records verified canonical VMB publication
-for [TEST item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
-An uploaded source commit alone is not a Workshop update. v0.1.93-dev is the
-known crashing build; do not repeat its old instructions.
+The last verified Workshop TEST is **v0.1.94-dev**. Crunch accepted its
+ordinary-spawn crash fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65);
+that issue is closed and needs no repeat acceptance check.
+
+The current **v0.1.95-dev source candidate is not yet a verified Workshop update**.
+Use its three follow-up checks below only after [project status](../PROJECT_STATUS.md)
+records canonical VMB publication for [TEST item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
+A source commit or local build alone does not update the subscription.
 
 The user clarified on October 20 that the local launch rule does not apply to
 this Warlock publication-only TEST release because the game is absent here.
 Crunch's in-game feedback remains the runtime check. No local deployment,
 local game launch, alpha promotion or in-game acceptance is claimed by a build.
 
-## First check: ordinary spawning (#65)
+## After verified v0.1.95-dev publication
 
 1. Refresh the TEST subscription and restart Vermintide 2 in the Modded Realm.
    Enable Vermintide Mod Framework above TEST; disable public item 3771657344.
-2. Confirm `[doomrocket:LOAD] v0.1.94-dev` in the new console log. If it differs,
-   stop and report the mismatch.
-3. In a fresh keep, leave the animation rehearsal and probe off (their defaults).
-   Spawn a Warlock through Creature Spawner, matching the reported crash trigger.
-4. Report whether spawning succeeds. If it crashes, attach the complete matching
-   log and GUID/Crashify link; a written result is enough.
+2. Confirm `[doomrocket:LOAD] v0.1.95-dev` in the new console log. If it differs,
+   report the mismatch before judging these changes.
+3. [#69 first-spawn loading](https://github.com/Ensrick/doomrocket-private/issues/69):
+   in ordinary play, report whether the first Warlock still produces a noticeable
+   hitch and whether smoke/flame appear once loaded. The previous log measured a
+   blocking package flush; this is a performance check, not a repeat of #65.
+4. [#15 gem flame](https://github.com/Ensrick/doomrocket-private/issues/15): the
+   candidate targets a green torch at 40% of its previous dimensions. Report
+   colour, size, attachment and cleanup during normal play. The correct torch
+   being visible is already accepted; no tuning command is needed.
+5. [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): report whether
+   walking causes less airborne flapping while the tube retains natural flex.
+   Basic visibility and secondary physics are accepted; the new change damps
+   motion relative to the moving rest shape and keeps physics enabled.
 
-After that works, other ordinary-play checks can resume. There is no requirement
-to complete all issues in one session or repeat already accepted behavior.
+There is no requirement to complete all issues in one session or repeat
+already accepted behavior. Written observations and matching logs suffice.
 
-- [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): slight resting-curve adjustment while retaining natural flex. Visibility and secondary physics are already accepted.
 - [#6 rocket clearance](https://github.com/Ensrick/doomrocket-private/issues/6): close shots clearing the floor and reaching the aimed point.
-- [#15 crystal flame](https://github.com/Ensrick/doomrocket-private/issues/15): small native torch size, colour, attachment and cleanup. Do not repeat the retired size-command experiment.
 - [#28 launcher/hand alignment](https://github.com/Ensrick/doomrocket-private/issues/28): grip during ordinary movement, aim and reload.
 - [#35 Dutch Spice arena](https://github.com/Ensrick/doomrocket-private/issues/35): Into the Nest Stormvermin waves on Cataclysm. Dutch Spice's separate Legend breed-name typo is not fixed here.
 - [#44 lingering audio](https://github.com/Ensrick/doomrocket-private/issues/44): sounds stopping at death. Absence in a short session does not disprove a rare fault.
@@ -36,12 +44,14 @@ to complete all issues in one session or repeat already accepted behavior.
 
 [#53](https://github.com/Ensrick/doomrocket-private/issues/53) has a separate,
 optional [new-spawn controller rehearsal and passive probe](ANIMATION_AUTHORING.md#v0194-dev-runnable-native-controller-rehearsal).
-Run it after the ordinary-spawn check. It uses existing stock idle and does not
-establish final Blender-export or localized outfit acceptance. Original clips,
-tracks, visible transitions and custom-pose ownership remain preserved.
+It uses existing stock idle and does not establish final Blender-export or
+localized outfit acceptance. The accepted #65 spawn fix needs no repeat gate.
+Original clips, tracks, visible transitions and custom-pose ownership remain
+preserved.
 
-The 30% quieter audio in #5 can receive ordinary written loudness/cleanup
-feedback. Its full sound pass remains blocked on artist take/trigger selection
+Crunch heard the lower voice volume in v0.1.94-dev (#5). Further ordinary-play
+loudness/cleanup observations remain useful; no new volume reduction is included
+in v0.1.95-dev. The full sound pass remains blocked on artist take/trigger selection
 and flight/reload sources. Head readability #56 remains an artist decision.
 Crunch's accepted #33 balance plan and #30 portrait verdict need no repeat test.
 

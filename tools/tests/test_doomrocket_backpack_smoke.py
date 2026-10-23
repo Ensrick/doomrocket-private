@@ -22,6 +22,7 @@ from lupa.lua51 import LuaRuntime
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_backpack_smoke.lua"
 ANCHOR = ROOT / "scripts/mods/doomrocket/utils/doomrocket_chimney_anchor.lua"
+PACKAGE_HELPER = ROOT / "scripts/mods/doomrocket/utils/doomrocket_effect_package.lua"
 BOOTSTRAP = ROOT / "scripts/mods/doomrocket/doomrocket.lua"
 HOOKS = ROOT / "scripts/mods/doomrocket/utils/hooks.lua"
 DEATH_REACTIONS = ROOT / "scripts/mods/doomrocket/extensions/death_reactions.lua"
@@ -64,10 +65,17 @@ function pm:has_loaded(name,reference)
  assert(name==package_name)
  return loaded and (not reference or refs[reference] ~= nil)
 end
+function pm:reference_count(name,reference)
+ assert(name==package_name); return refs[reference] or 0
+end
+function pm:is_loading(name,reference)
+ assert(name==package_name); return not loaded and refs[reference] ~= nil
+end
 function pm:load(name,reference,callback,asynchronous)
  assert(name==package_name and reference==package_reference)
- assert(callback==nil and asynchronous==nil,'must load synchronously')
- refs[reference]=(refs[reference] or 0)+1; loaded=true; events.loads=events.loads+1
+ if not asynchronous then events.sync_loads=(events.sync_loads or 0)+1 end
+ assert(callback==nil and asynchronous==true,'cosmetic package must load asynchronously')
+ refs[reference]=(refs[reference] or 0)+1; loaded=not defer_loading; events.loads=events.loads+1
 end
 function pm:unload(name,reference)
  assert(name==package_name and reference==package_reference)
@@ -181,6 +189,7 @@ mod._start_warlock_crystal_flame=function() end
 mod._stop_warlock_crystal_flame=function() end
 mod._stop_warlock_crystal_flame_item=function() end
 mod._update_warlock_crystal_flame=function() end
+mod._prewarm_warlock_crystal_flame=function() end
 mod._reset_warlock_crystal_flame=function() end
 mod._release_warlock_crystal_flame_world=function() end
 function start(o,u) return mod._start_warlock_backpack_smoke(o or owner,u or outfit) end
@@ -207,6 +216,7 @@ class BackpackSmokeTests(unittest.TestCase):
     def setUp(self):
         self.lua = LuaRuntime(unpack_returned_tuples=True)
         self.lua.execute(HARNESS)
+        self.lua.globals().mod._warlock_effect_package = self.lua.execute(PACKAGE_HELPER.read_text(encoding="utf-8"))
         self.lua.globals().mod._doomrocket_chimney_anchor = self.lua.execute(ANCHOR.read_text(encoding="utf-8"))
         self.source = MODULE.read_text(encoding="utf-8")
         self.lua.execute(self.source)

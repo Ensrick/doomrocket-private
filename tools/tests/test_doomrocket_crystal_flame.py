@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "scripts/mods/doomrocket/extensions/doomrocket_crystal_flame.lua"
 ANCHOR = ROOT / "scripts/mods/doomrocket/utils/doomrocket_crystal_anchor.lua"
 FIXTURE = json.loads((ROOT / "tools/fixtures/warlock_crystal_anchor.json").read_text(encoding="utf-8"))
+PACKAGE_HELPER = ROOT / "scripts/mods/doomrocket/utils/doomrocket_effect_package.lua"
 BOOTSTRAP = ROOT / "scripts/mods/doomrocket/doomrocket.lua"
 HOOKS = ROOT / "scripts/mods/doomrocket/utils/hooks.lua"
 BUNDLE_ROOT = ROOT / "bundleV2"
@@ -91,7 +92,9 @@ package_name='resource_packages/pickups'
 legacy_package='resource_packages/breeds/skaven_warpfire_thrower'
 legacy_owned=false
 package_reference='doomrocket_crystal_flame'
-effect_name='fx/wpnfx_torch_local_space_3p'
+effect_name='fx/doomrocket/crystal_torch_green_small'
+variant_package='resource_packages/doomrocket/warlock_crystal'
+variant_refs={}; variant_loaded=true
 package_available=true; particles_available=true; loaded=true
 refs={global=3}
 pm={}
@@ -100,10 +103,18 @@ function pm:has_loaded(name,reference)
  assert(name==package_name)
  return loaded and (not reference or refs[reference] ~= nil)
 end
+function pm:reference_count(name,reference)
+ if name==legacy_package then return legacy_owned and 1 or 0 end
+ assert(name==package_name); return refs[reference] or 0
+end
+function pm:is_loading(name,reference)
+ assert(name==package_name); return not loaded and refs[reference] ~= nil
+end
 function pm:load(name,reference,callback,asynchronous)
  assert(name==package_name and reference==package_reference)
- assert(callback==nil and asynchronous==nil,'must load synchronously')
- refs[reference]=(refs[reference] or 0)+1; loaded=true; events.loads=events.loads+1
+ if not asynchronous then events.sync_loads=(events.sync_loads or 0)+1 end
+ assert(callback==nil and asynchronous==true,'cosmetic package must load asynchronously')
+ refs[reference]=(refs[reference] or 0)+1; loaded=not defer_loading; events.loads=events.loads+1
 end
 function pm:unload(name,reference)
  if name==legacy_package then
@@ -118,7 +129,10 @@ function pm:unload(name,reference)
 end
 Managers={world=wm,package=pm}
 Application={can_get=function(kind,name)
- if kind=='package' then assert(name==package_name); return package_available end
+ if kind=='package' then
+  assert(name~=variant_package,'mod package queried through global Application API')
+  assert(name==package_name); return package_available
+ end
  assert(kind=='particles' and name==effect_name)
  assert(refs[package_reference],'residency queried before own package load')
  return particles_available
@@ -158,6 +172,40 @@ World={
  end,
 }
 mod={commands={},echoes={}}
+function mod:package_status(name)
+ assert(name==variant_package)
+ if not variant_refs[package_reference] or variant_cancelled then return nil end
+ return variant_loaded and 'loaded' or 'loading'
+end
+function finish_variant()
+ variant_loaded=true
+ if variant_cancelled then
+  variant_refs[package_reference]=nil; variant_callback=nil; variant_cancelled=false
+  events.variant_cancelled_releases=(events.variant_cancelled_releases or 0)+1; return
+ end
+ if variant_refs[package_reference] and variant_callback then
+  local callback=variant_callback; variant_callback=nil; callback(variant_package)
+ end
+end
+function mod:load_package(name,callback,sync)
+ assert(name==variant_package and type(callback)=='function' and sync==false)
+ assert(pm:has_loaded(package_name,package_reference),'variant queued before native dependencies')
+ if variant_package_available==false then return end
+ if variant_cancelled then
+  variant_cancelled=false; variant_callback=callback
+  events.variant_revivals=(events.variant_revivals or 0)+1; return
+ end
+ assert(not variant_refs[package_reference],'duplicate VMF package request')
+ variant_refs[package_reference]=1; variant_loaded=not defer_variant_loading
+ events.variant_loads=(events.variant_loads or 0)+1
+ variant_callback=callback
+ if variant_loaded then finish_variant() end
+end
+function mod:unload_package(name)
+ assert(name==variant_package and self:package_status(name)=='loaded','premature VMF package unload')
+ variant_refs[package_reference]=nil; variant_callback=nil
+ events.variant_unloads=(events.variant_unloads or 0)+1
+end
 function mod:command(name,description,fn) self.commands[name]=fn end
 function mod:echo(message,...) self.echoes[#self.echoes+1]=string.format(message,...) end
 function get_mod(name) assert(name=='doomrocket'); return mod end
@@ -182,6 +230,7 @@ function start(o,inv) return mod._start_warlock_crystal_flame(o or owner,inv or 
 def runtime():
     lua = LuaRuntime(unpack_returned_tuples=True)
     lua.execute(HARNESS)
+    lua.globals().mod._warlock_effect_package = lua.execute(PACKAGE_HELPER.read_text(encoding="utf-8"))
     lua.execute("mod._doomrocket_crystal_anchor = (function()\n"
                 + ANCHOR.read_text(encoding="utf-8") + "\nend)()")
     lua.execute(MODULE.read_text(encoding="utf-8"))
@@ -308,8 +357,8 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             local scale=Matrix4x4.scale(global)
             assert(close(scale.x,1) and close(scale.y,1) and close(scale.z,1))
             assert(global.p.x==10+a.position[1]*100 and global.p.y==20+a.position[2]*100 and global.p.z==30+a.position[3]*100)
-            assert(logs[#logs]:find('profile=native_small_pickup_torch',1,true))
-            assert(logs[#logs]:find('colour=unverified rendered_size=unverified',1,true))
+            assert(logs[#logs]:find('profile=green_small_pickup_torch',1,true))
+            assert(logs[#logs]:find('native_scale=0.4 tint=green rendered_size=unverified',1,true))
         """)
 
     def test_stop_destroys_its_own_flame_and_releases_the_package_on_reset(self):
@@ -447,7 +496,7 @@ class CrystalFlameFailureTests(unittest.TestCase):
             assert(start() and events.created==1 and events.loads==2)
         """)
 
-    def test_unloaded_package_after_sync_load_skips_particle_access(self):
+    def test_unaccepted_async_request_skips_particle_access(self):
         lua = runtime()
         lua.execute("""
             pm.load=function() events.loads=events.loads+1 end

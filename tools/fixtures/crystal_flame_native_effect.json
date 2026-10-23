@@ -63,5 +63,125 @@
   "parent": {
     "parent_id": "0000000000000000",
     "texture_bindings": {}
+  },
+  "derivative": {
+    "effect": "fx/doomrocket/crystal_torch_green_small",
+    "package": "resource_packages/doomrocket/warlock_crystal",
+    "scale": 0.4,
+    "tint": [
+      0.25,
+      1.0,
+      0.1
+    ],
+    "initializer_routes": [
+      [
+        1,
+        40
+      ],
+      [
+        1,
+        44
+      ],
+      [
+        11,
+        0
+      ],
+      [
+        1,
+        48
+      ],
+      [
+        1,
+        36
+      ],
+      [
+        6,
+        16
+      ],
+      [
+        0,
+        32
+      ]
+    ],
+    "source_size_range": [
+      0.10000000149011612,
+      0.20000000298023224
+    ],
+    "source_cylinder_radius_height": [
+      0.0,
+      0.0,
+      -0.10000000149011612,
+      0.0
+    ],
+    "source_acceleration": [
+      0.0,
+      0.0,
+      0.5
+    ],
+    "simulator_routes": [
+      [
+        0,
+        0
+      ],
+      [
+        12,
+        8
+      ],
+      [
+        17,
+        108
+      ],
+      [
+        3,
+        128
+      ],
+      [
+        1,
+        144
+      ]
+    ],
+    "writer_types": [
+      3,
+      4,
+      5,
+      0,
+      18,
+      5
+    ],
+    "source_gradient_times": [
+      0.0,
+      0.7580921053886414,
+      1.0
+    ],
+    "source_gradient_rgb": [
+      [
+        255.0,
+        255.0,
+        255.0
+      ],
+      [
+        84.0,
+        35.0,
+        5.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "compiler_contract": {
+      "path": "bin/stingray_win64_dev_x64.exe",
+      "sha256": "721bc354a520510ea270147c57230c87cc7e07d93f78ca1a0763d5bdb74137de",
+      "vertex_writer_table_rva": "0xE30EA0",
+      "billboard_compile_rva": "0x382FAC",
+      "vertex_writer_compile_rva": "0x49E8C0",
+      "size_writer_compile_rva": "0x49DCD0",
+      "color_writer_compile_rva": "0x49C090",
+      "rgb_curve_compile_rva": "0x49A2B0",
+      "acceleration_compile_rva": "0x484D00",
+      "scope": "Installed SDK read-only table/disassembly establishes typed writer IDs, body sizes, separate opacity/RGB curves and acceleration layout; no runtime render pass."
+    },
+    "sha256": "ca442a01ad34150ecd8384955dc0b5a899b172a807a64faf668be7d50b70bde9"
   }
 }

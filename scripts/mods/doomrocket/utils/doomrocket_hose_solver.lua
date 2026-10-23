@@ -55,6 +55,7 @@ function Solver.new(length, segments, damping, gravity)
         rx={},ry={},rz={}, lambdas={}, nx={},ny={},nz={},
         diagonal={}, upper={}, rhs={}, delta_lambda={},
         shape_x={},shape_y={},shape_z={}, shape_previous_x={},shape_previous_y={},shape_previous_z={},
+        shape_step_x={},shape_step_y={},shape_step_z={}, shape_damping_ratio=.75,
         shape_stiffness=240, shape_acceleration_limit=40, shape_points={},shape_count=0}, Solver)
     -- All persistent numeric storage is allocated once, never per frame/substep.
     for i=1,self.n do
@@ -64,6 +65,7 @@ function Solver.new(length, segments, damping, gravity)
         self.rx[i],self.ry[i],self.rz[i]=0,0,0
         self.shape_x[i],self.shape_y[i],self.shape_z[i]=0,0,0
         self.shape_previous_x[i],self.shape_previous_y[i],self.shape_previous_z[i]=0,0,0
+        self.shape_step_x[i],self.shape_step_y[i],self.shape_step_z[i]=0,0,0
         if i<self.n then
             self.lambdas[i]=0
             self.rest_lengths[i]=authored_lengths and authored_lengths[i] or self.rest
@@ -78,8 +80,10 @@ end
 -- lengths or connecting the character/weapon physics actors. Targets are supplied
 -- in world metres by the measured authored-curve adapter, once per animation pass.
 -- Stiffness 240 means acceleration 240 * displacement (s^-2), clamped to
--- 40 m/s^2. Damping is exponential velocity decay in s^-1; the game controller
--- supplies 5, while the standalone solver retains its legacy default of 1.5.
+-- 40 m/s^2. Shape damping uses 75% of critical spring damping (23.24 s^-1 at
+-- this stiffness), relative to the moving authored target. This damps flex, not
+-- the owner's world-space walking velocity. Unshaped chains retain their original
+-- exponential world-space damping; explicit stronger damping remains respected.
 function Solver:set_shape_point(i,x,y,z)
     if not finite(i) or i~=floor(i) or i<1 or i>self.n
         or not finite(x) or not finite(y) or not finite(z)
@@ -94,6 +98,11 @@ end
 
 function Solver:enable_shape()
     if self.shape_count~=self.n then return false end
+    if not self.shape_ready then
+        for i=1,self.n do
+            self.shape_step_x[i],self.shape_step_y[i],self.shape_step_z[i]=self.shape_x[i],self.shape_y[i],self.shape_z[i]
+        end
+    end
     self.shape_ready=true
     return true
 end
@@ -112,6 +121,7 @@ function Solver:finish_reset(ax,ay,az,bx,by,bz,reason)
         self.rx[i],self.ry[i],self.rz[i]=x,y,z
         if self.shape_ready then
             self.shape_previous_x[i],self.shape_previous_y[i],self.shape_previous_z[i]=self.shape_x[i],self.shape_y[i],self.shape_z[i]
+            self.shape_step_x[i],self.shape_step_y[i],self.shape_step_z[i]=self.shape_x[i],self.shape_y[i],self.shape_z[i]
         end
     end
     self.ax,self.ay,self.az,self.bx,self.by,self.bz=ax,ay,az,bx,by,bz
@@ -261,25 +271,38 @@ end
 
 function Solver:step(ax,ay,az,bx,by,bz,shape_fraction)
     local x,y,z=self.x,self.y,self.z
-    local retention=exp(-self.damping*self.h)
+    local rate=self.damping
+    if self.shape_ready then rate=math.max(rate,2*sqrt(self.shape_stiffness)*self.shape_damping_ratio) end
+    local retention=exp(-rate*self.h)
     for i=1,self.n do
         self.before_x[i],self.before_y[i],self.before_z[i]=x[i],y[i],z[i]
         if i>1 and i<self.n then
-            local sx,sy,sz=0,0,0
+            local sx,sy,sz,tx,ty,tz=0,0,0,0,0,0
             if self.shape_ready then
                 local f=shape_fraction or 1
-                sx=(self.shape_previous_x[i]+(self.shape_x[i]-self.shape_previous_x[i])*f-x[i])*self.shape_stiffness
-                sy=(self.shape_previous_y[i]+(self.shape_y[i]-self.shape_previous_y[i])*f-y[i])*self.shape_stiffness
-                sz=(self.shape_previous_z[i]+(self.shape_z[i]-self.shape_previous_z[i])*f-z[i])*self.shape_stiffness
+                local qx=self.shape_previous_x[i]+(self.shape_x[i]-self.shape_previous_x[i])*f
+                local qy=self.shape_previous_y[i]+(self.shape_y[i]-self.shape_previous_y[i])*f
+                local qz=self.shape_previous_z[i]+(self.shape_z[i]-self.shape_previous_z[i])*f
+                -- Keep the previous PHYSICAL sample: at >120 FPS a render frame
+                -- may not step. A per-render target delta would undercount its
+                -- motion and reintroduce frame-rate-dependent drag and flapping.
+                tx,ty,tz=qx-self.shape_step_x[i],qy-self.shape_step_y[i],qz-self.shape_step_z[i]
+                self.shape_step_x[i],self.shape_step_y[i],self.shape_step_z[i]=qx,qy,qz
+                -- Force is evaluated at the old physical time, just like x.
+                -- A next-time target would add an artificial 1-step lead even
+                -- after a constant carrier velocity has been fully acquired.
+                sx=(qx-tx-x[i])*self.shape_stiffness
+                sy=(qy-ty-y[i])*self.shape_stiffness
+                sz=(qz-tz-z[i])*self.shape_stiffness
                 local a=sqrt(sx*sx+sy*sy+sz*sz)
                 if a>self.shape_acceleration_limit then
                     local scale=self.shape_acceleration_limit/a
                     sx,sy,sz=sx*scale,sy*scale,sz*scale
                 end
             end
-            x[i]=x[i]+(x[i]-self.px[i])*retention+sx*self.h*self.h
-            y[i]=y[i]+(y[i]-self.py[i])*retention+sy*self.h*self.h
-            z[i]=z[i]+(z[i]-self.pz[i])*retention+(self.gravity+sz)*self.h*self.h
+            x[i]=x[i]+(x[i]-self.px[i])*retention+tx*(1-retention)+sx*self.h*self.h
+            y[i]=y[i]+(y[i]-self.py[i])*retention+ty*(1-retention)+sy*self.h*self.h
+            z[i]=z[i]+(z[i]-self.pz[i])*retention+tz*(1-retention)+(self.gravity+sz)*self.h*self.h
         end
     end
     x[1],y[1],z[1]=ax,ay,az; x[self.n],y[self.n],z[self.n]=bx,by,bz

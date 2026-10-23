@@ -101,7 +101,7 @@ if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("kill-feed portrait source/compiled regression suite failed (exit $LASTEXITCODE)")
 }
 foreach ($smokeRegression in @('test_doomrocket_chimney_anchor.py', 'test_doomrocket_backpack_smoke.py', 'test_doomrocket_crystal_flame.py',
-        'test_crystal_flame_native_effect.py')) {
+        'test_doomrocket_effect_package.py', 'test_crystal_flame_native_effect.py')) {
     & py -3 (Join-Path $PSScriptRoot "tests\$smokeRegression")
     if ($LASTEXITCODE -ne 0) {
         [void]$failures.Add("$smokeRegression failed (exit $LASTEXITCODE)")

@@ -19,6 +19,8 @@ import unittest
 TOOLS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS))
 import check_crystal_flame_native_effect as contract
+import build_crystal_flame_native_effect as builder
+from splice_bundle_resource import write_bundle, VT2X_FORMAT
 
 
 # Known resource-type IDs; the fixture constructor does not call the checker.
@@ -327,6 +329,184 @@ class OptionalLocalExtraction(unittest.TestCase):
         self.assertEqual(report["status"], "native-effect-direct-dependencies-verified")
         for field in ("runtime_verified", "color_verified", "rendered_size_verified"):
             self.assertIs(report[field], False)
+
+
+class NativeTorchNumericDerivative(unittest.TestCase):
+    """Generated typed records independently exercise the native edit boundary."""
+
+    def setUp(self):
+        self.fixture = copy.deepcopy(contract.load_fixture())
+        recipe = self.fixture["derivative"]
+        source = bytearray(particle_payload(self.fixture["particle"]))
+        # Construct the compiler's seven typed initializer records by hand.
+        initializers = [
+            struct.pack("<II2f", 1, 40, .1, .2),
+            struct.pack("<II2f", 1, 44, 0, 6.2831854820251465),
+            struct.pack("<II6f3i", 11, 0, 0, 0, -.1, 0, 0, 6.2831854820251465, -1, -1, -1),
+            struct.pack("<II2f", 1, 48, 0, 1),
+            struct.pack("<II2f", 1, 36, .5, 1),
+            struct.pack("<II", 6, 16), struct.pack("<III", 0, 32, 4),
+        ]
+        source[248:376] = b"".join(initializers)
+        source[376:401] = b"".join(struct.pack("<BI", *record) for record in
+                                  [(0, 0), (12, 8), (17, 108), (3, 128), (1, 144)])
+        struct.pack_into("<I3f", source, 529, 16, 0, 0, .5)
+        # The billboard type is outside its fixed 248-byte header. Header
+        # offsets are relative to its body, as serialized by the SDK compiler.
+        struct.pack_into("<4I", source, 785, 36, 6, 248, 696)
+        size_curve = struct.pack("<20fI", *([0, .25, .5, .75, 1] + [10050] * 5),
+                                 *([1] * 10), 5)
+        opacity = struct.pack("<20fI", *([0, .125, 1] + [10030] * 7),
+                              *([0, 1, 0] + [0] * 7), 3)
+        times = recipe["source_gradient_times"] + [10030] * 7
+        rgb = sum(recipe["source_gradient_rgb"], []) + [0] * 21
+        gradient = struct.pack("<40fI", *times, *rgb, 3)
+        writers = [
+            struct.pack("<5I", 3, 40, 32, 36, 16) + size_curve + struct.pack("<2I", 0, 2),
+            struct.pack("<3I", 4, 32, 36) + opacity + gradient + struct.pack("<3I", 12, 0, 0),
+            struct.pack("<4I", 5, 48, 28, 0), struct.pack("<3I", 0, 0, 0),
+            struct.pack("<5I", 18, 32, 0, 32, 36), struct.pack("<4I", 5, 44, 24, 0),
+        ]
+        source[805:] = b"".join(writers)
+        self.source = bytes(source)
+        expected = bytearray(self.source)
+        # Golden output is generated independently at fixed fixture positions;
+        # production discovers these fields through typed records and routing.
+        for offset, count in ((256, 2), (288, 4), (533, 3)):
+            values = struct.unpack_from("<" + "f" * count, expected, offset)
+            struct.pack_into("<" + "f" * count, expected, offset,
+                             *(value * .4 for value in values))
+        for index, values in enumerate(((63.75, 255, 25.5), (21, 84, 8.4), (0, 0, 0))):
+            struct.pack_into("<3f", expected, 1053 + 12 * index, *values)
+        self.expected = bytes(expected)
+        self.fixture["resources"]["effect"]["sha256"] = hashlib.sha256(self.source).hexdigest()
+        self.fixture["derivative"]["sha256"] = hashlib.sha256(self.expected).hexdigest()
+
+    def changed(self, offset, packing, *values):
+        payload = bytearray(self.source)
+        struct.pack_into(packing, payload, offset, *values)
+        self.fixture["resources"]["effect"]["sha256"] = hashlib.sha256(payload).hexdigest()
+        return bytes(payload)
+
+    def test_exact_size_colour_and_preserved_lifetime_opacity_shape(self):
+        result = builder.derive(self.source, self.fixture)
+        self.assertEqual(result, self.expected)
+        self.assertAlmostEqual(struct.unpack_from("<f", result, 256)[0], .04, places=7)
+        self.assertAlmostEqual(struct.unpack_from("<f", result, 260)[0], .08, places=7)
+        self.assertAlmostEqual(struct.unpack_from("<f", result, 296)[0], -.04, places=7)
+        self.assertAlmostEqual(struct.unpack_from("<f", result, 541)[0], .2, places=7)
+        self.assertEqual(result[929:1053], self.source[929:1053])  # opacity and RGB times
+        self.assertEqual(result[825:917], self.source[825:917])  # size-over-life shape
+        self.assertEqual(result[4:248], self.source[4:248])  # lifetime and channel table
+        self.assertEqual(result[565:573], self.source[565:573])  # native material identity
+
+    def test_changed_donor_without_repin_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            builder.derive(self.source[:-1] + b"\x01", self.fixture)
+
+    def test_wrong_numeric_route_curve_or_writer_fails_before_output_hash(self):
+        mutations = [(252, "<I", 44), (284, "<I", 4), (312, "<i", 0),
+                     (387, "<I", 107), (529, "<I", 20), (541, "<f", float("nan")),
+                     (785, "<I", 40), (789, "<I", 7), (793, "<I", 252),
+                     (797, "<I", 692), (805, "<I", 255), (809, "<I", 44),
+                     (917, "<I", 20), (921, "<I", 48), (1009, "<I", 11),
+                     (1017, "<f", float("inf")), (1053, "<f", 256),
+                     (1173, "<I", 4), (1181, "<I", 1)]
+        for offset, packing, value in mutations:
+            with self.subTest(offset=offset):
+                with self.assertRaises(ValueError) as error:
+                    builder.derive(self.changed(offset, packing, value), self.fixture)
+                self.assertNotIn("Derived crystal torch SHA-256", str(error.exception))
+
+    def test_opaque_mutation_cannot_be_smuggled_into_output(self):
+        with self.assertRaisesRegex(ValueError, "Derived crystal torch SHA-256"):
+            builder.derive(self.changed(700, "<B", 1), self.fixture)
+
+    def test_reversed_or_arbitrary_recipe_rejected(self):
+        for key, value in (("scale", 2.5), ("tint", [1, 0, 0]),
+                           ("effect", "fx/wpnfx_torch_local_space_3p")):
+            with self.subTest(key=key):
+                fixture = copy.deepcopy(self.fixture)
+                fixture["derivative"][key] = value
+                with self.assertRaisesRegex(ValueError, "recipe"):
+                    builder.derive(self.source, fixture)
+
+    def write_bundle(self, root, resources, name=None):
+        entries = b"".join(struct.pack("<QQII", kind, name, 0, len(payload))
+                           for kind, name, payload in resources)
+        records = b"".join(struct.pack("<QQIIIII", kind, name, 1, 0, 0, len(payload), 0) + payload
+                           for kind, name, payload in resources)
+        image = struct.pack("<I", len(resources)) + bytes(256) + entries + records
+        name = name or (f'{contract.murmur64a(self.fixture["derivative"]["package"].encode()):016x}'
+                        + ".mod_bundle")
+        write_bundle(root / name, VT2X_FORMAT, bytes(4), image)
+
+    def test_packaged_derivative_and_delayed_membership_are_read_back(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            particle = (TYPE_IDS["particles"], contract.murmur64a(
+                self.fixture["derivative"]["effect"].encode()), self.expected)
+            boot_mod = root / "doomrocket.mod"
+            boot_mod.write_text('return { packages = { "resource_packages/doomrocket/doomrocket" } }')
+            # SDK delayed package membership is this hashed container's typed
+            # index, not a second embedded native-style package payload.
+            self.write_bundle(root, [particle])
+            self.assertEqual(builder.verify_bundles(root, self.expected, self.fixture)
+                             ["particle"]["sha256"], hashlib.sha256(self.expected).hexdigest())
+            corruptions = [
+                [particle, (contract.murmur64a(b"package"), 0x1234,
+                            package_payload([(particle[0], particle[1])]))],
+                [(0x101, particle[1], particle[2])],
+                [(particle[0], particle[1], self.source)],
+                [particle, particle], [],
+            ]
+            for resources in corruptions:
+                with self.subTest(count=len(resources)):
+                    self.write_bundle(root, resources)
+                    with self.assertRaises(ValueError):
+                        builder.verify_bundles(root, self.expected, self.fixture)
+            self.write_bundle(root, [particle])
+            self.write_bundle(root, [particle], "boot.mod_bundle")
+            with self.assertRaises(ValueError):
+                builder.verify_bundles(root, self.expected, self.fixture)
+            (root / "boot.mod_bundle").unlink()
+            self.write_bundle(root, [(contract.murmur64a(b"package"), 0x1234,
+                                     package_payload([(particle[0], particle[1])]))],
+                              "boot.mod_bundle")
+            with self.assertRaisesRegex(ValueError, "embedded boot package"):
+                builder.verify_bundles(root, self.expected, self.fixture)
+            self.write_bundle(root, [(contract.murmur64a(b"package"), 0x1234,
+                                     package_payload([(contract.murmur64a(b"package"),
+                                         contract.murmur64a(self.fixture["derivative"]["package"].encode()))]))],
+                              "boot.mod_bundle")
+            with self.assertRaisesRegex(ValueError, "embedded boot package"):
+                builder.verify_bundles(root, self.expected, self.fixture)
+            (root / "boot.mod_bundle").unlink()
+            boot_mod.write_text('return { packages = { "resource_packages/doomrocket/warlock_crystal" } }')
+            with self.assertRaisesRegex(ValueError, "boot-loaded"):
+                builder.verify_bundles(root, self.expected, self.fixture)
+
+    def test_boot_package_reader_rejects_nonliteral_or_duplicate_tables(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "doomrocket.mod"
+            for source in ('return {}', 'packages = { a_function() }',
+                           'packages = { "one", "one" }',
+                           'packages = { "one" } packages = { "two" }'):
+                with self.subTest(source=source):
+                    path.write_text(source)
+                    with self.assertRaises(ValueError):
+                        builder.boot_packages(path)
+
+    def test_local_native_derivative_matches_exact_gold_pin(self):
+        root = Path(os.environ.get("WARLOCK_EXTRACTED_GAME_ROOT",
+                        "D:/Game Mods/Vermintide 2 modding/VT2 Bundle Extract"))
+        if not root.is_dir():
+            self.skipTest("No local native extraction; generated typed gold remains active")
+        fixture = contract.load_fixture()
+        donor = contract.read_pinned(root, fixture["resources"]["effect"])
+        derivative = builder.derive(donor, fixture)
+        self.assertEqual(hashlib.sha256(derivative).hexdigest(),
+                         "ca442a01ad34150ecd8384955dc0b5a899b172a807a64faf668be7d50b70bde9")
 
 
 if __name__ == "__main__":

@@ -160,6 +160,9 @@ jobs:
       - name: Run crystal flame lifecycle tests
         run: python tools/tests/test_doomrocket_crystal_flame.py
 
+      - name: Run asynchronous cosmetic package ownership tests
+        run: python tools/tests/test_doomrocket_effect_package.py
+
       - name: Run native small-flame dependency guards
         run: python tools/tests/test_crystal_flame_native_effect.py
 
