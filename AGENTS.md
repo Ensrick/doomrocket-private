@@ -80,7 +80,7 @@ checks do not establish an in-game pass or authorize alpha promotion.
   is authorized.
 - Crunch accepted the ordinary-spawn fix on published v0.1.94-dev;
   [#65](https://github.com/Ensrick/doomrocket-private/issues/65) is closed. Do not
-  repeat that accepted check as a mandatory gate. The v0.1.95-dev source
+  repeat that accepted check as a mandatory gate. The v0.1.96-dev source
   candidate addresses first-spawn loading [#69](https://github.com/Ensrick/doomrocket-private/issues/69),
   green/smaller gem flame #15 and reduced hose flapping #3. Retain the last
   verified publication record until a fresh upload is verified, then set concrete
@@ -92,6 +92,12 @@ checks do not establish an in-game pass or authorize alpha promotion.
   visual pass. Accept Crunch's written runtime feedback and matching logs.
   Preserve current sessions and resource guards; do not invent launch flags,
   use GUI automation or install the game to satisfy an exempted local check.
+- v0.1.95-dev's October 23 upload failed with native `invalid param` (0x8).
+  Its 8,050-byte UTF-8 description exceeded the SDK's 8,000-byte limit; the
+  existing GitHub tag remains at `7d18132ef967e8fa51d083c1527945333a9ce8d2`.
+  Do not call it a verified Workshop release or reuse/rebind that version.
+  v0.1.96-dev retains the runtime fixes with shorter metadata and a preflight
+  byte-length guard. Keep comfortable space below the native description limit.
 - Historical receipts and artist-rig links retain their original scope.
 
 ## Build environment hygiene

@@ -25,10 +25,12 @@ reads against the zero-based single-layer contract. Existing tracks, transition
 durations and custom-pose ownership remain preserved. This accepted spawn result
 does not establish native custom-animation or localized-outfit acceptance.
 
-The v0.1.95-dev source candidate addresses effect loading, gem-flame appearance
+The v0.1.96-dev source candidate addresses effect loading, gem-flame appearance
 and hose motion, retaining the existing opt-in controller rehearsal unchanged.
-Its Workshop publication is pending; follow the v0.1.95-dev steps below only
+Its Workshop publication is pending; follow the v0.1.96-dev steps below only
 after [project status](../PROJECT_STATUS.md) records verified canonical VMB
+delivery. The v0.1.95-dev upload failed metadata validation and never gained a
+verified-publication record; its GitHub release does not establish Workshop
 delivery. Historical receipts keep their original source identities.
 
 The user's October 20 clarification exempts this Warlock publication-only TEST
@@ -42,7 +44,7 @@ the published rig. No local deployment or native animation pass is claimed.
 ### v0.1.94-dev: runnable native controller rehearsal
 
 The heading records the rehearsal's introduction and retains existing links.
-The current steps below require [verified v0.1.95-dev publication](../PROJECT_STATUS.md);
+The current steps below require [verified v0.1.96-dev publication](../PROJECT_STATUS.md);
 a source candidate alone is not delivery. The accepted #65 check needs no repeat.
 
 The opt-in path introduced in v0.1.94-dev exercises the existing ownership
@@ -53,9 +55,9 @@ The stock graph, thirteen original clips, all 138 tracks and all 154 visible
 transition durations remain unchanged. This is a controller rehearsal, not a
 pass for a Blender export or localized garment deformation.
 
-Steps for verified TEST v0.1.95-dev:
+Steps for verified TEST v0.1.96-dev:
 
-1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.95-dev` in the new log.
+1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.96-dev` in the new log.
 2. Before a new Warlock spawns, enter `/warlock_animation_rehearsal on`, then
    `/warlock_animation_probe on`. Existing enemies are never rebound.
 3. Let a newly spawned Warlock idle, move, aim and return to idle in ordinary
