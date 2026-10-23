@@ -5,7 +5,7 @@ is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
 | --- | --- |
-| Current source candidate | v0.1.95-dev addresses first-spawn blocking loads [#69](https://github.com/Ensrick/doomrocket-private/issues/69), green/smaller gem flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15), and excessive hose flapping [#3](https://github.com/Ensrick/doomrocket-private/issues/3). Publication is pending; the last verified TEST remains v0.1.94-dev. Original tracks, custom poses and hose physics are preserved. |
+| Current source candidate | v0.1.96-dev addresses first-spawn blocking loads [#69](https://github.com/Ensrick/doomrocket-private/issues/69), green/smaller gem flame [#15](https://github.com/Ensrick/doomrocket-private/issues/15), and excessive hose flapping [#3](https://github.com/Ensrick/doomrocket-private/issues/3). Publication is pending; the last verified TEST remains v0.1.94-dev. Original tracks, custom poses and hose physics are preserved. |
 | Animation verification | The v0.1.94-dev ordinary-spawn fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65) is accepted and closed. The optional [#53 controller rehearsal](https://github.com/Ensrick/doomrocket-private/issues/53) remains available on published TEST; it is separate from final Blender-export and localized outfit acceptance. The existing animator rig remains available. |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Warlock Engineer TEST v0.1.94-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified `2026-10-20T16:11:38.4744345Z` (96,168,525 bytes; content handle `92402439203489806`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.94-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/02a12bd248994d9e712ed0461715be0497a1ba47) ([PR #67](https://github.com/Ensrick/doomrocket-private/pull/67), crash fix [PR #66](https://github.com/Ensrick/doomrocket-private/pull/66)). |
@@ -14,12 +14,26 @@ is the live work queue; this page is a short re-entry map.
 | v0.1.92 offline animation evidence | [Strict join report](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.92-dev/WarlockEngineer_AnimationEvidence_v0.1.92-dev.json) and [reviewed source binding](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.92-dev/WarlockEngineer_AnimationEvidence_v0.1.92-dev.source.json). Complete anonymous downloads verified against their SHA-256 values. The existing v0.1.91 measurements and receipts are preserved; this supplement closes offline provenance, with zero new native captures or in-game acceptance. |
 | Previous TEST changes | Published v0.1.90-dev combines the gem/audio/hose changes prepared for the unpublished v0.1.89-dev with guarded aiming and facing diagnostics [#55](https://github.com/Ensrick/doomrocket-private/issues/55), plus the sampler parent-frame and teardown fixes [#53](https://github.com/Ensrick/doomrocket-private/issues/53). Publication provides candidates for written in-game verdicts; no alpha promotion has occurred. |
 | Previous flame/runtime changes | Published v0.1.91-dev replaces the rejected gem effect with the small native pickup torch [#15](https://github.com/Ensrick/doomrocket-private/issues/15) and deduplicates skeleton validation within the staged legacy blend callback [#53](https://github.com/Ensrick/doomrocket-private/issues/53). Native flame colour/size and custom-animation playback remain unverified. |
-| Remaining work | Build and verify canonical VMB publication of v0.1.95-dev before asking for its #69/#15/#3 verdicts. Other outstanding TEST observations remain clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), audio cleanup [#44](https://github.com/Ensrick/doomrocket-private/issues/44), facing [#55](https://github.com/Ensrick/doomrocket-private/issues/55), and animation [#53](https://github.com/Ensrick/doomrocket-private/issues/53). No accepted check needs repeating. Full sound sources [#5](https://github.com/Ensrick/doomrocket-private/issues/5), head art [#56](https://github.com/Ensrick/doomrocket-private/issues/56), and alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) retain their specific prerequisites. |
+| Remaining work | Build and verify canonical VMB publication of v0.1.96-dev before asking for its #69/#15/#3 verdicts. Other outstanding TEST observations remain clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), audio cleanup [#44](https://github.com/Ensrick/doomrocket-private/issues/44), facing [#55](https://github.com/Ensrick/doomrocket-private/issues/55), and animation [#53](https://github.com/Ensrick/doomrocket-private/issues/53). No accepted check needs repeating. Full sound sources [#5](https://github.com/Ensrick/doomrocket-private/issues/5), head art [#56](https://github.com/Ensrick/doomrocket-private/issues/56), and alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) retain their specific prerequisites. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current publication and testing plan
+
+**v0.1.95-dev was not verified on Workshop.** Its October 23 upload ended at
+`14:31:45` in the publisher's native log with `Upload Failed: "invalid param",
+(0x8)` and uploader exit 1. The description contained 8,050 UTF-8 bytes, exceeding
+the SDK's 8,000-byte description limit. A content-outcome line alone does not
+prove publication without the matching finish-OK transaction and metadata.
+No v0.1.95-dev verified-publication record was produced. Its existing GitHub
+release/tag remains bound to source `7d18132ef967e8fa51d083c1527945333a9ce8d2`;
+it is historical build evidence, not a verified Workshop release, and is not
+retagged. The v0.1.96-dev candidate shortens the description and adds a preflight
+UTF-8 length guard, carrying the same three runtime fixes forward unchanged.
+Fresh Steam metadata still matches the v0.1.94-dev title, content handle and
+byte size recorded below; the failed attempt did not replace that publication.
+The last verified TEST remains v0.1.94-dev until a new upload is verified.
 
 Canonical VMB verified TEST v0.1.94-dev on `2026-10-20T16:11:38.4744345Z` from
 `02a12bd248994d9e712ed0461715be0497a1ba47`. The fresh item-specific Workshop transaction and
@@ -39,7 +53,7 @@ That separate performance issue is tracked in [#69](https://github.com/Ensrick/d
 The terminal crash is a missing loadout-menu GUI material; it is not the old
 animation-layer signature, and this log does not establish a Warlock cause.
 
-The v0.1.95-dev source candidate makes effect-package requests asynchronous and
+The v0.1.96-dev source candidate makes effect-package requests asynchronous and
 prewarms them before first spawn. Effects wait for residency instead of forcing
 a spawn-time flush. It reuses an existing native torch effect, targeting green
 and 0.4 of the previous dimensions (#15), and damps hose motion relative to its
@@ -52,7 +66,7 @@ The user's October 20 exception permits canonical VMB publication-only TEST
 without installing or launching the absent game. The October 23 request
 authorizes these three fixes and the next TEST. No deployment or alpha promotion
 is authorized. The source candidate is not a new Workshop release: keep the
-v0.1.94-dev transaction above authoritative until v0.1.95-dev is verified.
+v0.1.94-dev transaction above authoritative until v0.1.96-dev is verified.
 
 The optional #53 fresh-spawn controller rehearsal remains a separate pending
 observation. Do not repeat the accepted #65 reproduction as a mandatory gate.
@@ -83,7 +97,7 @@ and leaves the game's global reference alone. Native emitter dimensions replace
 the rejected ground-fire size experiment. Colour, rendered size, attachment and
 cleanup were not accepted by the v0.1.91 evidence. Crunch's v0.1.94-dev verdict
 confirms the correct torch is visible but requests green and 2.5-times smaller.
-Those remaining appearance changes are in the v0.1.95-dev candidate.
+Those remaining appearance changes are in the v0.1.96-dev candidate.
 
 The v0.1.91 animation change scopes shared validation to one synchronous legacy
 blend application, retaining full entry and pre-commit skeleton checks. The
@@ -313,7 +327,7 @@ result in [#1](https://github.com/Ensrick/doomrocket-private/issues/1) is also
 accepted. Their issue records retain the supporting observations and logs.
 
 The #65 ordinary-spawn result is accepted and closed. After canonical VMB
-publication of v0.1.95-dev is verified, use the current #69/#15/#3 instructions
+publication of v0.1.96-dev is verified, use the current #69/#15/#3 instructions
 for the remaining changes. For the authorized publication-only release,
 `ready-for-testing` identifies concrete remaining acceptance steps;
 `testing` records the pending in-game verdict. `blocked` names a missing prerequisite: engineering, publication,

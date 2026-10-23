@@ -4,21 +4,23 @@ The last verified Workshop TEST is **v0.1.94-dev**. Crunch accepted its
 ordinary-spawn crash fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65);
 that issue is closed and needs no repeat acceptance check.
 
-The current **v0.1.95-dev source candidate is not yet a verified Workshop update**.
+The current **v0.1.96-dev source candidate is not yet a verified Workshop update**.
 Use its three follow-up checks below only after [project status](../PROJECT_STATUS.md)
 records canonical VMB publication for [TEST item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
 A source commit or local build alone does not update the subscription.
+The v0.1.95-dev upload failed metadata validation; its GitHub release is not a
+verified Workshop update. Do not judge these three fixes from that release alone.
 
 The user clarified on October 20 that the local launch rule does not apply to
 this Warlock publication-only TEST release because the game is absent here.
 Crunch's in-game feedback remains the runtime check. No local deployment,
 local game launch, alpha promotion or in-game acceptance is claimed by a build.
 
-## After verified v0.1.95-dev publication
+## After verified v0.1.96-dev publication
 
 1. Refresh the TEST subscription and restart Vermintide 2 in the Modded Realm.
    Enable Vermintide Mod Framework above TEST; disable public item 3771657344.
-2. Confirm `[doomrocket:LOAD] v0.1.95-dev` in the new console log. If it differs,
+2. Confirm `[doomrocket:LOAD] v0.1.96-dev` in the new console log. If it differs,
    report the mismatch before judging these changes.
 3. [#69 first-spawn loading](https://github.com/Ensrick/doomrocket-private/issues/69):
    in ordinary play, report whether the first Warlock still produces a noticeable
@@ -51,7 +53,7 @@ preserved.
 
 Crunch heard the lower voice volume in v0.1.94-dev (#5). Further ordinary-play
 loudness/cleanup observations remain useful; no new volume reduction is included
-in v0.1.95-dev. The full sound pass remains blocked on artist take/trigger selection
+in v0.1.96-dev. The full sound pass remains blocked on artist take/trigger selection
 and flight/reload sources. Head readability #56 remains an artist decision.
 Crunch's accepted #33 balance plan and #30 portrait verdict need no repeat test.
 

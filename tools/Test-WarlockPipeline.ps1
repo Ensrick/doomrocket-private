@@ -6,6 +6,11 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $failures = New-Object System.Collections.Generic.List[string]
 
+& py -3 (Join-Path $PSScriptRoot 'tests\test_workshop_metadata_limits.py')
+if ($LASTEXITCODE -ne 0) {
+    [void]$failures.Add("Workshop metadata byte-limit regressions failed (exit $LASTEXITCODE)")
+}
+
 function Assert-True {
     param([bool]$Condition, [string]$Message)
     if (-not $Condition) { $failures.Add($Message) }

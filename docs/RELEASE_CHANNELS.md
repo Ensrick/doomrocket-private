@@ -30,13 +30,22 @@ authority, hosted QA and fresh Workshop transaction verification remain mandator
 
 Published v0.1.94-dev has verified delivery, and Crunch accepted its
 ordinary-spawn fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65),
-now closed. The current source candidate is v0.1.95-dev for first-spawn loading
+now closed. The current source candidate is v0.1.96-dev for first-spawn loading
 [#69](https://github.com/Ensrick/doomrocket-private/issues/69), gem flame #15 and
 hose #3. Keep v0.1.94-dev as the last verified publication until the fresh
-v0.1.95-dev transaction is verified. Then update concrete remaining instructions
+v0.1.96-dev transaction is verified. Then update concrete remaining instructions
 and ready-for-testing/testing labels where no other blocker remains. Do not
 repeat accepted #65 as a mandatory gate. Historical publication receipts remain
 valid evidence of delivery only.
+
+The v0.1.95-dev attempt ended October 23 at `14:31:45` in the native uploader
+log with `invalid param` (0x8), exit 1. Its description was 8,050 UTF-8 bytes;
+the SDK limit is 8,000 bytes. No verified-publication record was produced.
+The existing GitHub release/tag stays at `7d18132ef967e8fa51d083c1527945333a9ce8d2`;
+its presence or a content-outcome line alone does not establish Workshop delivery.
+The v0.1.96-dev retry carries the runtime fixes forward, shortens metadata with
+headroom, and adds a preflight UTF-8 byte-length guard. Validate encoded metadata
+before building; do not infer size from character count or change a tagged version.
 
 Game manifest `552500`, game executables and game bundles are absent locally;
 the installed SDK oracle fails before Lua boot. Record that native startup and

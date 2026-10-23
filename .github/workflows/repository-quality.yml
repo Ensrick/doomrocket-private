@@ -38,6 +38,9 @@ jobs:
       - name: Check development-channel metadata
         run: python tools/check_repository.py --channel development
 
+      - name: Guard Workshop metadata UTF-8 byte limits
+        run: python tools/tests/test_workshop_metadata_limits.py
+
       - name: Verify standalone publication commit paths
         shell: pwsh
         run: ./tools/tests/Test-WarlockPublicationLayout.ps1

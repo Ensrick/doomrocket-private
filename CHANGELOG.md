@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.96-dev - Workshop metadata limit and retained runtime fixes
+
+- Shorten the TEST description with headroom below the SDK's 8,000-byte UTF-8
+  limit and validate its encoded byte length before publication. Keep the TEST
+  warning, identity, mechanics, requirements, credits and remaining test steps.
+- Carry forward v0.1.95-dev's asynchronous effect loading (#69), green native
+  torch at 0.4 dimensions (#15), and hose damping relative to its moving rest
+  shape (#3). The three runtime fixes are unchanged by this metadata retry;
+  original animation tracks, custom poses and secondary physics remain preserved.
+- The October 23 v0.1.95-dev upload failed at `14:31:45` in the native uploader
+  log with `invalid param` (0x8), exit 1. Its 8,050-byte description exceeded the
+  SDK limit. No verified Workshop publication record was produced. Its GitHub
+  release/tag remains bound to `7d18132ef967e8fa51d083c1527945333a9ce8d2`;
+  that historical tag and its source/receipt are not changed.
+
+This is the next source candidate for the authorized canonical VMB TEST process.
+The last verified Workshop TEST remains v0.1.94-dev until a fresh transaction
+and matching metadata verify v0.1.96-dev. No native performance or appearance
+pass, local game launch, deployment or alpha promotion is claimed.
+
 ## v0.1.95-dev - first-spawn loading, green gem flame and hose damping
 
 - **First-spawn hitch (#69):** prewarm effect dependencies asynchronously and
@@ -21,10 +41,11 @@
   closed; the remaining hitch is tracked separately, with no mandatory repeat
   of the old crash reproduction.
 
-This is the next source candidate for the authorized canonical VMB TEST process,
-not a publication record. Until its fresh upload is verified, v0.1.94-dev remains
-the last verified Workshop build. No local deployment, native game launch or
-alpha promotion is performed.
+Historical v0.1.95-dev source/build candidate: the October 23 Workshop upload
+failed with `invalid param` (0x8); no verified Workshop publication is claimed.
+Its GitHub tag stays at `7d18132ef967e8fa51d083c1527945333a9ce8d2`.
+The next metadata-corrected candidate is v0.1.96-dev. No local deployment,
+native game launch or alpha promotion occurred.
 
 ## v0.1.94-dev - native animation-layer crash fix
 
