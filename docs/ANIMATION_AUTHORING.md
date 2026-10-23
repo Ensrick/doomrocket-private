@@ -25,13 +25,13 @@ reads against the zero-based single-layer contract. Existing tracks, transition
 durations and custom-pose ownership remain preserved. This accepted spawn result
 does not establish native custom-animation or localized-outfit acceptance.
 
-The v0.1.96-dev source candidate addresses effect loading, gem-flame appearance
-and hose motion, retaining the existing opt-in controller rehearsal unchanged.
-Its Workshop publication is pending; follow the v0.1.96-dev steps below only
-after [project status](../PROJECT_STATUS.md) records verified canonical VMB
-delivery. The v0.1.95-dev upload failed metadata validation and never gained a
-verified-publication record; its GitHub release does not establish Workshop
-delivery. Historical receipts keep their original source identities.
+Published v0.1.96-dev addresses effect loading, gem-flame appearance and hose
+motion, retaining the existing opt-in controller rehearsal unchanged.
+[Project status](../PROJECT_STATUS.md) records verified canonical VMB delivery.
+The optional v0.1.96-dev procedure below is available; its native animation
+verdict remains pending. The earlier v0.1.95-dev metadata failure never gained a
+verified-publication record; its GitHub release remains historical build evidence.
+Historical receipts keep their original source identities.
 
 The user's October 20 clarification exempts this Warlock publication-only TEST
 from local launch because the game is absent; the next TEST is authorized.
@@ -44,8 +44,8 @@ the published rig. No local deployment or native animation pass is claimed.
 ### v0.1.94-dev: runnable native controller rehearsal
 
 The heading records the rehearsal's introduction and retains existing links.
-The current steps below require [verified v0.1.96-dev publication](../PROJECT_STATUS.md);
-a source candidate alone is not delivery. The accepted #65 check needs no repeat.
+The current steps use [verified TEST v0.1.96-dev](../PROJECT_STATUS.md).
+The accepted #65 check needs no repeat; this separate rehearsal remains optional.
 
 The opt-in path introduced in v0.1.94-dev exercises the existing ownership
 controller, hidden sampler and mixed transitions inside the normal TEST package.

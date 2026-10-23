@@ -30,11 +30,11 @@ authority, hosted QA and fresh Workshop transaction verification remain mandator
 
 Published v0.1.94-dev has verified delivery, and Crunch accepted its
 ordinary-spawn fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65),
-now closed. The current source candidate is v0.1.96-dev for first-spawn loading
+now closed. Published v0.1.96-dev supplies the next candidates for first-spawn loading
 [#69](https://github.com/Ensrick/doomrocket-private/issues/69), gem flame #15 and
-hose #3. Keep v0.1.94-dev as the last verified publication until the fresh
-v0.1.96-dev transaction is verified. Then update concrete remaining instructions
-and ready-for-testing/testing labels where no other blocker remains. Do not
+hose #3. Its canonical VMB transaction is verified in [project status](../PROJECT_STATUS.md),
+which retains the exact source, time, content handle and bytes. Keep concrete
+remaining instructions and ready-for-testing/testing labels where no blocker remains. Do not
 repeat accepted #65 as a mandatory gate. Historical publication receipts remain
 valid evidence of delivery only.
 

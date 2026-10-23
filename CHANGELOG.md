@@ -15,10 +15,10 @@
   release/tag remains bound to `7d18132ef967e8fa51d083c1527945333a9ce8d2`;
   that historical tag and its source/receipt are not changed.
 
-This is the next source candidate for the authorized canonical VMB TEST process.
-The last verified Workshop TEST remains v0.1.94-dev until a fresh transaction
-and matching metadata verify v0.1.96-dev. No native performance or appearance
-pass, local game launch, deployment or alpha promotion is claimed.
+Canonical VMB TEST publication is verified; [project status](PROJECT_STATUS.md)
+records the exact reviewed source and transaction. Native performance and
+rendered appearance still need written in-game verdicts. No local deployment,
+native game launch or alpha promotion was performed.
 
 ## v0.1.95-dev - first-spawn loading, green gem flame and hose damping
 

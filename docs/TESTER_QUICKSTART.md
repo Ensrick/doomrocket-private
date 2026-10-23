@@ -1,13 +1,13 @@
 # Development TEST quickstart
 
-The last verified Workshop TEST is **v0.1.94-dev**. Crunch accepted its
-ordinary-spawn crash fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65);
+The current verified Workshop TEST is **v0.1.96-dev**. Crunch accepted the
+v0.1.94-dev ordinary-spawn crash fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65);
 that issue is closed and needs no repeat acceptance check.
 
-The current **v0.1.96-dev source candidate is not yet a verified Workshop update**.
-Use its three follow-up checks below only after [project status](../PROJECT_STATUS.md)
-records canonical VMB publication for [TEST item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
-A source commit or local build alone does not update the subscription.
+[Project status](../PROJECT_STATUS.md) records verified canonical VMB publication
+for [TEST item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
+The three remaining checks below are available on this release; delivery does
+not establish their performance or visual result.
 The v0.1.95-dev upload failed metadata validation; its GitHub release is not a
 verified Workshop update. Do not judge these three fixes from that release alone.
 
@@ -16,7 +16,7 @@ this Warlock publication-only TEST release because the game is absent here.
 Crunch's in-game feedback remains the runtime check. No local deployment,
 local game launch, alpha promotion or in-game acceptance is claimed by a build.
 
-## After verified v0.1.96-dev publication
+## Current v0.1.96-dev follow-up
 
 1. Refresh the TEST subscription and restart Vermintide 2 in the Modded Realm.
    Enable Vermintide Mod Framework above TEST; disable public item 3771657344.

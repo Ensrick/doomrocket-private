@@ -80,11 +80,11 @@ checks do not establish an in-game pass or authorize alpha promotion.
   is authorized.
 - Crunch accepted the ordinary-spawn fix on published v0.1.94-dev;
   [#65](https://github.com/Ensrick/doomrocket-private/issues/65) is closed. Do not
-  repeat that accepted check as a mandatory gate. The v0.1.96-dev source
-  candidate addresses first-spawn loading [#69](https://github.com/Ensrick/doomrocket-private/issues/69),
-  green/smaller gem flame #15 and reduced hose flapping #3. Retain the last
-  verified publication record until a fresh upload is verified, then set concrete
-  remaining tests and accurate ready-for-testing/testing labels. Preserve
+  repeat that accepted check as a mandatory gate. Published v0.1.96-dev
+  addresses first-spawn loading [#69](https://github.com/Ensrick/doomrocket-private/issues/69),
+  green/smaller gem flame #15 and reduced hose flapping #3. Its canonical
+  publication is verified; #69/#15/#3 still need their in-game verdicts. Keep
+  concrete remaining tests and accurate ready-for-testing/testing labels. Preserve
   existing tracks, custom poses and secondary hose physics.
 - No local manifest `552500`, game executable or game bundles are available;
   the installed SDK oracle fails before Lua boot. Record this coverage limit.
