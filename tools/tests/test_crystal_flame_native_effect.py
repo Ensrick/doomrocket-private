@@ -375,8 +375,8 @@ class NativeTorchNumericDerivative(unittest.TestCase):
         for offset, count in ((256, 2), (288, 4), (533, 3)):
             values = struct.unpack_from("<" + "f" * count, expected, offset)
             struct.pack_into("<" + "f" * count, expected, offset,
-                             *(value * .4 for value in values))
-        for index, values in enumerate(((63.75, 255, 25.5), (21, 84, 8.4), (0, 0, 0))):
+                             *(value * .6 for value in values))
+        for index, values in enumerate(((255 * .12, 255, 255 * .06), (84 * .12, 84, 84 * .06), (0, 0, 0))):
             struct.pack_into("<3f", expected, 1053 + 12 * index, *values)
         self.expected = bytes(expected)
         self.fixture["resources"]["effect"]["sha256"] = hashlib.sha256(self.source).hexdigest()
@@ -391,10 +391,10 @@ class NativeTorchNumericDerivative(unittest.TestCase):
     def test_exact_size_colour_and_preserved_lifetime_opacity_shape(self):
         result = builder.derive(self.source, self.fixture)
         self.assertEqual(result, self.expected)
-        self.assertAlmostEqual(struct.unpack_from("<f", result, 256)[0], .04, places=7)
-        self.assertAlmostEqual(struct.unpack_from("<f", result, 260)[0], .08, places=7)
-        self.assertAlmostEqual(struct.unpack_from("<f", result, 296)[0], -.04, places=7)
-        self.assertAlmostEqual(struct.unpack_from("<f", result, 541)[0], .2, places=7)
+        self.assertAlmostEqual(struct.unpack_from("<f", result, 256)[0], .06, places=7)
+        self.assertAlmostEqual(struct.unpack_from("<f", result, 260)[0], .12, places=7)
+        self.assertAlmostEqual(struct.unpack_from("<f", result, 296)[0], -.06, places=7)
+        self.assertAlmostEqual(struct.unpack_from("<f", result, 541)[0], .3, places=7)
         self.assertEqual(result[929:1053], self.source[929:1053])  # opacity and RGB times
         self.assertEqual(result[825:917], self.source[825:917])  # size-over-life shape
         self.assertEqual(result[4:248], self.source[4:248])  # lifetime and channel table
@@ -506,7 +506,7 @@ class NativeTorchNumericDerivative(unittest.TestCase):
         donor = contract.read_pinned(root, fixture["resources"]["effect"])
         derivative = builder.derive(donor, fixture)
         self.assertEqual(hashlib.sha256(derivative).hexdigest(),
-                         "ca442a01ad34150ecd8384955dc0b5a899b172a807a64faf668be7d50b70bde9")
+                         "ec6ff22debdde907be3f396e3064586b914f2aa84228534d2b189a36774c4e51")
 
 
 if __name__ == "__main__":

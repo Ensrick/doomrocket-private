@@ -1,14 +1,19 @@
 local mod = get_mod("doomrocket")
 
 -- #15 TEST candidate: a mod-only copy of the native local-space pickup torch.
--- The deterministic material splice scales its size/rise initializers to 0.4
--- and tints the active gradient green. Native materials/textures are unchanged;
--- colour and rendered appearance still require a written in-game verdict.
+-- The deterministic material splice scales its size/rise initializers to 0.6
+-- and tints the active gradient green. Overlapping additive particles clip red
+-- and green together, which read as yellow at the first 0.25 red tint, so red is
+-- now 0.12. Native materials/textures are unchanged; colour and rendered
+-- appearance still require a written in-game verdict.
 local EFFECT = "fx/doomrocket/crystal_torch_green_small"
 local PACKAGE = "resource_packages/pickups"
 local EFFECT_PACKAGE = "resource_packages/doomrocket/warlock_crystal"
 local PACKAGE_REFERENCE = "doomrocket_crystal_flame"
 local WEAPON = "units/rocket/pRocketLauncher"
+-- Metres from the measured crystal tip toward its mount. With the effect's 0.06 m
+-- spawn column below the anchor, the flame starts at the crystal's base.
+local BASE_OFFSET = 0.02
 
 -- Dispose through the OLD owner before replacing its functions on a Lua reload.
 if mod._reset_warlock_crystal_flame then
@@ -172,10 +177,14 @@ local function anchor_pose(anchor)
 	Matrix4x4.set_x(pose, Vector3(unpack(anchor.y_axis)))
 	Matrix4x4.set_y(pose, Vector3(unpack(anchor.z_axis)))
 	Matrix4x4.set_z(pose, Vector3(unpack(anchor.x_axis)))
-	Matrix4x4.set_translation(pose, Vector3(unpack(anchor.position)))
+	-- Anchor axes are unit-length in world space, so this offset is in metres.
+	Matrix4x4.set_translation(pose, Vector3(
+		anchor.position[1] - x[1] * BASE_OFFSET,
+		anchor.position[2] - x[2] * BASE_OFFSET,
+		anchor.position[3] - x[3] * BASE_OFFSET))
 	-- Keep only the measured inverse-node compensation: its 0.01 axes cancel
 	-- the launcher's scale-100 mesh wrapper. The mod-only particle's native
-	-- initializers carry the 0.4 adjustment; no link-pose size trick is applied.
+	-- initializers carry the 0.6 adjustment; no link-pose size trick is applied.
 	return pose
 end
 
@@ -342,7 +351,7 @@ local function attempt_start(entry, pose)
 	entry.id = id
 	state.entries[entry.owner] = entry
 	state.weapons[entry.weapon] = entry.owner
-	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s profile=green_small_pickup_torch native_scale=0.4 tint=green rendered_size=unverified",
+	printf("[doomrocket:CRYSTAL] phase=start effect=%s node=%s profile=green_small_pickup_torch native_scale=0.6 tint=green rendered_size=unverified",
 		EFFECT, mod._doomrocket_crystal_anchor.node)
 	return true
 end
@@ -467,8 +476,8 @@ mod._set_warlock_crystal_flame_size = function ()
 	return false, "native_effect"
 end
 
-mod:command("warlock_crystal_flame", "Describe the green 40-percent crystal-flame TEST candidate; size tuning is retired", function ()
-	mod:echo("Crystal flame TEST candidate: green pickup torch at 40 percent native dimensions. Numeric size tuning is retired; colour and rendered appearance await in-game testing.")
+mod:command("warlock_crystal_flame", "Describe the green 60-percent crystal-flame TEST candidate; size tuning is retired", function ()
+	mod:echo("Crystal flame TEST candidate: green pickup torch at 60 percent native dimensions, started at the crystal's base. Numeric size tuning is retired; colour and rendered appearance await in-game testing.")
 end)
 
 mod._release_warlock_crystal_flame_world = function (world)

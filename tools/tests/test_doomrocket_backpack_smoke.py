@@ -190,6 +190,7 @@ mod._stop_warlock_crystal_flame=function() end
 mod._stop_warlock_crystal_flame_item=function() end
 mod._update_warlock_crystal_flame=function() end
 mod._prewarm_warlock_crystal_flame=function() end
+mod._prewarm_warlock_child_materials=function() end
 mod._reset_warlock_crystal_flame=function() end
 mod._release_warlock_crystal_flame_world=function() end
 function start(o,u) return mod._start_warlock_backpack_smoke(o or owner,u or outfit) end

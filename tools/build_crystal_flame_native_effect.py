@@ -31,7 +31,7 @@ def derive(payload, fixture):
     contract = inspect_editable_particle(payload, fixture)
     recipe = fixture["derivative"]
     require(recipe["effect"] == "fx/doomrocket/crystal_torch_green_small" and
-            recipe["scale"] == 0.4 and recipe["tint"] == [0.25, 1.0, 0.1],
+            recipe["scale"] == 0.6 and recipe["tint"] == [0.12, 1.0, 0.06],
             "Unsupported crystal flame transform recipe")
     output = bytearray(payload)
     allowed = set()
@@ -169,7 +169,8 @@ def main():
                   "package": fixture["derivative"]["package"],
                   "donor_sha256": fixture["resources"]["effect"]["sha256"],
                   "sha256": hashlib.sha256(derived).hexdigest(), "size": len(derived),
-                  "native_scale": 0.4, "rgb_tint": fixture["derivative"]["tint"],
+                  "native_scale": fixture["derivative"]["scale"],
+                  "rgb_tint": fixture["derivative"]["tint"],
                   "dependency_fixture_sha256": donor_report["fixture_content_sha256"],
                   "runtime_verified": False, "rendered_size_verified": False,
                   "rendered_color_verified": False}

@@ -16,24 +16,24 @@ this Warlock publication-only TEST release because the game is absent here.
 Crunch's in-game feedback remains the runtime check. No local deployment,
 local game launch, alpha promotion or in-game acceptance is claimed by a build.
 
-## Current v0.1.96-dev follow-up
+## Current v0.1.97-dev follow-up
 
 1. Refresh the TEST subscription and restart Vermintide 2 in the Modded Realm.
    Enable Vermintide Mod Framework above TEST; disable public item 3771657344.
-2. Confirm `[doomrocket:LOAD] v0.1.96-dev` in the new console log. If it differs,
+2. Confirm `[doomrocket:LOAD] v0.1.97-dev` in the new console log. If it differs,
    report the mismatch before judging these changes.
 3. [#69 first-spawn loading](https://github.com/Ensrick/doomrocket-private/issues/69):
-   in ordinary play, report whether the first Warlock still produces a noticeable
-   hitch and whether smoke/flame appear once loaded. The previous log measured a
-   blocking package flush; this is a performance check, not a repeat of #65.
+   spawn one Warlock and say whether you notice a hitch, then attach the log. The
+   log has the timing, so nothing else is needed. The v0.1.96-dev log measured a
+   216 ms blocking material-package load on the first spawn; this build loads it at
+   level start.
 4. [#15 gem flame](https://github.com/Ensrick/doomrocket-private/issues/15): the
-   candidate targets a green torch at 40% of its previous dimensions. Report
-   colour, size, attachment and cleanup during normal play. The correct torch
-   being visible is already accepted; no tuning command is needed.
+   flame is greener, 50% larger than v0.1.96-dev and starts at the crystal's base.
+   Report colour, size and position. No tuning command is needed.
 5. [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): report whether
-   walking causes less airborne flapping while the tube retains natural flex.
-   Basic visibility and secondary physics are accepted; the new change damps
-   motion relative to the moving rest shape and keeps physics enabled.
+   the section that deformed in your video is gone, and whether the motion now sits
+   between v0.1.94-dev (too light) and v0.1.96-dev (stiff). The log's
+   `[doomrocket:HOSE]` lines now include span and peak bend.
 
 There is no requirement to complete all issues in one session or repeat
 already accepted behavior. Written observations and matching logs suffice.

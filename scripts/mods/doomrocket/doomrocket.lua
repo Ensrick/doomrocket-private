@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.96-dev"
+local MOD_VERSION = "0.1.97-dev"
 mod._doomrocket_version = MOD_VERSION
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
@@ -336,6 +336,7 @@ mod.projectiles = {}
 function mod.update(dt)
 	-- Retain one asynchronous cosmetic-package lease per active world. Starting
 	-- before ordinary emitter updates keeps first spawn out of sync-read/flush.
+	mod._prewarm_warlock_child_materials()
 	mod._prewarm_warlock_backpack_smoke()
 	mod._prewarm_warlock_crystal_flame()
 

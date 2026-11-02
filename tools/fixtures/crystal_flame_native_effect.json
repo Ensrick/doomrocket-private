@@ -67,11 +67,11 @@
   "derivative": {
     "effect": "fx/doomrocket/crystal_torch_green_small",
     "package": "resource_packages/doomrocket/warlock_crystal",
-    "scale": 0.4,
+    "scale": 0.6,
     "tint": [
-      0.25,
+      0.12,
       1.0,
-      0.1
+      0.06
     ],
     "initializer_routes": [
       [
@@ -182,6 +182,6 @@
       "acceleration_compile_rva": "0x484D00",
       "scope": "Installed SDK read-only table/disassembly establishes typed writer IDs, body sizes, separate opacity/RGB curves and acceleration layout; no runtime render pass."
     },
-    "sha256": "ca442a01ad34150ecd8384955dc0b5a899b172a807a64faf668be7d50b70bde9"
+    "sha256": "ec6ff22debdde907be3f396e3064586b914f2aa84228534d2b189a36774c4e51"
   }
 }

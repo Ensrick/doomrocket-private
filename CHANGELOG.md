@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.1.97-dev - hose fold and pinch, last first-spawn stall, greener gem flame
+
+Addresses Crunch's October 25 v0.1.96-dev reports. Rendered appearance and native
+performance still need his written in-game verdicts.
+
+- **Hose fold and pinch (#3):** his log puts the hose ends 0.347 m apart in play,
+  against a 1.45 m bind chord. The squeezed rest curve was 0.52 m shorter than the
+  2.32 m hose and doubled back on itself, and bones were turned independently of
+  their neighbours. Replaying that span offline on the v0.1.96-dev code gives
+  140 degree joints and 42 degrees of extra twist between neighbouring bones. Below
+  the bind chord the target is now a smooth arc of the hose's full length, on the
+  authored bow's side and biased downward. Bones follow a rotation-minimizing frame
+  from the outlet, with any launcher roll spread along the hose. The same replay
+  now gives 21 degree joints and 5 degrees of twist. The curve is unchanged at the
+  authored chord.
+- **Hose motion (#3):** he called v0.1.94-dev too light and v0.1.96-dev stiff.
+  Spring 240 to 140 s^-2 and damping 75% to 60% of critical put walking flex at
+  22 mm RMS, between 12 mm and 33 mm. Target error now spreads to neighbouring
+  links, and the links beside each fitting are up to four times stiffer, so sag and
+  sway fade out instead of kinking at a pinned end. The hose log now reports span
+  range, peak bend and twist, so the next log measures this in play.
+- **First-spawn hitch (#69):** v0.1.95-dev removed the effect flushes, but his
+  v0.1.96-dev log still shows a synchronous load of `#ID[f5283f95]`, the Warlock's
+  child-material package, taking 216 ms of a 227 ms frame on the first spawn. It
+  now loads asynchronously once a level world exists. A spawn that beats that load
+  still finishes it immediately so the Warlock never appears without materials.
+- **Gem flame (#15):** his screenshot's brightest flame pixels measure 244, 249,
+  146: overlapping additive particles clip red and green together, which reads as
+  yellow. Tint 0.25, 1, 0.1 becomes 0.12, 1, 0.06. Native dimensions go from 0.4 to
+  0.6, and the anchor moves 2 cm toward the mount, so the 6 cm spawn column starts
+  at the crystal's base. The crystal measures 8 cm mount to tip.
+
+No local deployment, native game launch or alpha promotion occurred.
+
 ## v0.1.96-dev - Workshop metadata limit and retained runtime fixes
 
 - Shorten the TEST description with headroom below the SDK's 8,000-byte UTF-8
