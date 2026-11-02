@@ -267,4 +267,4 @@ if ($flameBundles.Count -ne 1) {
     throw "expected $flameResource in exactly 1 bundle, spliced into $($flameBundles.Count)"
 }
 Invoke-Py @($flameTool, "--extracted-root", $NativeEffectRoot, "--verify-bundle-root", $bundleRoot)
-Write-Host "[splice] OK - native green 0.4-scale torch and delayed package verified"
+Write-Host "[splice] OK - native green 0.6-scale torch and delayed package verified"

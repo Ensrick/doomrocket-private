@@ -239,6 +239,62 @@ function walking(fps,cadence)
         max_relative_speed=max_velocity,max_shape_error=max_error,links=max_links,frames=max_frames,
         resets=s.resets,render_resets=s.render_resets,checkpoints=checkpoints}
 end
+-- Carried pose from the v0.1.96 log: 0.347 m between the hose ends, 0.214 m
+-- forward and 0.273 m up from the pack, against a 1.45 m bind chord.
+function carried(fps,sway)
+    local s=Solver.new(Profile.lengths,nil,5,-9.81)
+    local f=Frames.new(Profile)
+    local rest_a,rest_b=pose(Profile.controls[1].rest),pose(Profile.controls[29].rest)
+    local a,b=pose(rest_a),pose(rest_b)
+    local base={a.position[1],a.position[2]+.214,a.position[3]+.273}
+    b.position=vec(base)
+    assert(f:shape(s,a,b))
+    assert(s:frame(0,a.position[1],a.position[2],a.position[3],b.position[1],b.position[2],b.position[3]))
+    assert(f:update(s,a,b,true))
+    local target=0
+    for i=1,s.n-1 do
+        target=target+sqrt((s.shape_x[i+1]-s.shape_x[i])^2+(s.shape_y[i+1]-s.shape_y[i])^2+(s.shape_z[i+1]-s.shape_z[i])^2)
+    end
+    local function dot3(u,v) return u[1]*v[1]+u[2]*v[2]+u[3]*v[3] end
+    local function cross3(u,v) return {u[2]*v[3]-u[3]*v[2],u[3]*v[1]-u[1]*v[3],u[1]*v[2]-u[2]*v[1]} end
+    local function unit(u) local l=sqrt(dot3(u,u)); return {u[1]/l,u[2]/l,u[3]/l} end
+    -- Roll about q's long axis after removing the bend from p to q: the motion
+    -- that collapses a skinned tube rather than curving it.
+    local function roll(p,q)
+        local from,to,x=unit(p.y_axis),unit(q.y_axis),unit(p.x_axis)
+        local c=dot3(from,to)
+        local k=cross3(from,to)
+        local w=cross3(k,x)
+        local w2=cross3(k,w)
+        local moved=c>-.9999 and unit({x[1]+w[1]+w2[1]/(1+c),x[2]+w[2]+w2[2]/(1+c),x[3]+w[3]+w2[3]/(1+c)}) or x
+        local target=unit(q.x_axis)
+        return math.deg(math.atan2(dot3(cross3(moved,target),to),dot3(moved,target)))
+    end
+    local rest_roll={}
+    for i=2,s.n do rest_roll[i]=roll(Profile.controls[i-1].rest,Profile.controls[i].rest) end
+    local peak,twist=0,0
+    for step=1,6*fps do
+        local t=step/fps
+        local phase=2*math.pi*1.8*t
+        local envelope=1-math.exp(-2*t)
+        local dx,dz=1.4*(t-envelope/2),.02*(1-cos(phase))*envelope
+        a=pose(rest_a); b=pose(rest_b); b.position=vec(base)
+        a.position[1]=a.position[1]+dx; a.position[3]=a.position[3]+dz
+        b.position[1]=b.position[1]+dx+sway*sin(phase)*envelope
+        b.position[2]=b.position[2]+sway*sin(phase+.6)*envelope
+        b.position[3]=b.position[3]+dz+sway*sin(phase+1.2)*envelope
+        tick(s,f,a,b,1/fps)
+        if t>2 then
+            peak=math.max(peak,(s:peak_bend()))
+            for i=2,s.n do
+                local difference=(roll(f.poses[i-1],f.poses[i])-rest_roll[i]+180)%360-180
+                twist=math.max(twist,abs(difference))
+            end
+        end
+    end
+    return {target=target,length=s.length,peak=peak,twist=twist,resets=s.resets,render_resets=s.render_resets,
+        links=s:length_error(s.rx,s.ry,s.rz),frames=check_frames(f)}
+end
 function steady_translation(fps)
     local s,f,a,b=new(0)
     local rest_a,rest_b=pose(a),pose(b)
@@ -293,10 +349,9 @@ class HoseDynamicsTests(unittest.TestCase):
 
     def test_gravity_deflects_but_springs_preserve_semi_rigid_rest_shape(self):
         result = runtime().globals().static(-9.81, 8)
-        # The small rest-shape adjustment should reduce the previous 5.85 cm
-        # deflection without becoming a rigid copy of the authored target.
-        self.assertGreater(result.final, .045)
-        self.assertLess(result.final, .053)
+        # A visible sag from the softer spring, without losing the rest shape.
+        self.assertGreater(result.final, .055)
+        self.assertLess(result.final, .070)
         self.assertLess(result.speed, .001)
         self.assertLess(result.links, .02)
         self.assertEqual(result.resets, 1)
@@ -331,13 +386,14 @@ class HoseDynamicsTests(unittest.TestCase):
             with self.subTest(fps=fps):
                 result = runtime().globals().walking(fps)
                 # Production v0.1.94 measured 32.73–33.50 mm RMS flex and
-                # .369–.382 m/s relative speed on this same walking input.
-                # Retain measurable secondary flex while rejecting that excess.
-                self.assertGreater(result.flap_rms, .010)
-                self.assertLess(result.flap_rms, .018)
-                self.assertLess(result.relative_speed_rms, .20)
-                self.assertLess(result.max_relative_speed, .42)
-                self.assertLess(result.max_shape_error, .067)
+                # .369–.382 m/s relative speed on this same walking input, and
+                # Crunch reported it flapping. v0.1.96 measured about 12.4 mm and
+                # .14 m/s and he reported it stiff (#3). Stay between the two.
+                self.assertGreater(result.flap_rms, .017)
+                self.assertLess(result.flap_rms, .028)
+                self.assertLess(result.relative_speed_rms, .30)
+                self.assertLess(result.max_relative_speed, .55)
+                self.assertLess(result.max_shape_error, .085)
                 self.assertLess(result.links, .002)
                 self.assertLess(result.frames, 2e-6)
                 self.assertEqual(result.resets, 1)
@@ -348,16 +404,32 @@ class HoseDynamicsTests(unittest.TestCase):
                       for one, two in zip(checkpoints[60], checkpoints[fps]) for a, b in zip(one, two))
         self.assertLess(maximum, .002)
 
+    def test_carried_short_chord_neither_folds_nor_twists_the_hose(self):
+        # v0.1.96 on this input: target 0.52 m shorter than the hose, 138 degree
+        # joints and 44 degrees of extra twist between neighbouring bones, the
+        # section Crunch filmed deforming. The worst case stays free of folds too.
+        for fps in (30, 60, 144):
+            for sway, bend in ((.05, 30), (.15, 75)):
+                with self.subTest(fps=fps, sway=sway):
+                    result = runtime().globals().carried(fps, sway)
+                    self.assertLess(abs(result.target - result.length), .006)
+                    self.assertLess(result.peak, bend)
+                    self.assertLess(result.twist, 12)
+                    self.assertLess(result.links, .02)
+                    self.assertLess(result.frames, 2e-6)
+                    self.assertEqual(result.resets, 1)
+                    self.assertEqual(result.render_resets, 0)
+
     def test_walking_cadence_sweep_does_not_resonate_into_large_flaps(self):
-        # The 240 s^-2 spring's undamped natural frequency is about 2.47 Hz.
+        # The 140 s^-2 spring's undamped natural frequency is about 1.88 Hz.
         # Cover slow steps through that resonance and into a quick gait.
         for cadence in (.8, 1.2, 2.4, 3):
             with self.subTest(cadence=cadence):
                 result = runtime().globals().walking(60, cadence)
                 self.assertGreater(result.flap_rms, .001)
-                self.assertLess(result.flap_rms, .030)
-                self.assertLess(result.relative_speed_rms, .60)
-                self.assertLess(result.max_shape_error, .080)
+                self.assertLess(result.flap_rms, .045)
+                self.assertLess(result.relative_speed_rms, .80)
+                self.assertLess(result.max_shape_error, .100)
                 self.assertLess(result.links, .002)
                 self.assertLess(result.frames, 2e-6)
                 self.assertEqual(result.resets, 1)
@@ -408,7 +480,9 @@ class HoseDynamicsTests(unittest.TestCase):
             collectgarbage('restart')
             return delta
         ''')
-        self.assertLess(allocated, .1)
+        # The full collect shrinks the Lua stack, so its one regrowth (under 2 KB)
+        # lands here. One small table per frame would be over 100 KB of this.
+        self.assertLess(allocated, 4)
 
     def test_valid_fully_extended_and_nearly_extended_targets_do_not_reset_loop(self):
         lua = runtime()

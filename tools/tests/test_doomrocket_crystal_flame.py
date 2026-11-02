@@ -352,13 +352,16 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             local function close(a,b) return math.abs(a-b)<1e-12 end
             assert(close(p.z.x,a.x_axis[1]) and close(p.z.y,a.x_axis[2]))
             assert(close(p.x.x,a.y_axis[1]) and close(p.y.x,a.z_axis[1]))
-            assert(p.p.x==a.position[1] and p.p.y==a.position[2] and p.p.z==a.position[3])
+            -- The measured crystal tip, moved 2 cm along the crystal toward its mount.
+            local base={}
+            for i=1,3 do base[i]=a.position[i]-a.x_axis[i]*.02 end
+            assert(close(p.p.x,base[1]) and close(p.p.y,base[2]) and close(p.p.z,base[3]))
             local global=particles_pose(1)
             local scale=Matrix4x4.scale(global)
             assert(close(scale.x,1) and close(scale.y,1) and close(scale.z,1))
-            assert(global.p.x==10+a.position[1]*100 and global.p.y==20+a.position[2]*100 and global.p.z==30+a.position[3]*100)
+            assert(close(global.p.x,10+base[1]*100) and close(global.p.y,20+base[2]*100) and close(global.p.z,30+base[3]*100))
             assert(logs[#logs]:find('profile=green_small_pickup_torch',1,true))
-            assert(logs[#logs]:find('native_scale=0.4 tint=green rendered_size=unverified',1,true))
+            assert(logs[#logs]:find('native_scale=0.6 tint=green rendered_size=unverified',1,true))
         """)
 
     def test_stop_destroys_its_own_flame_and_releases_the_package_on_reset(self):
@@ -471,7 +474,8 @@ class CrystalFlameLifecycleTests(unittest.TestCase):
             mod._update_warlock_crystal_flame()
             local pose,a=particles_pose(events.latest_id),mod._doomrocket_crystal_anchor
             assert(events.created==1 and events.linked==1)
-            assert(pose.p.x==50-a.position[2]*100 and pose.p.y==60+a.position[1]*100)
+            local base={a.position[1]-a.x_axis[1]*.02,a.position[2]-a.x_axis[2]*.02}
+            assert(math.abs(pose.p.x-(50-base[2]*100))<1e-9 and math.abs(pose.p.y-(60+base[1]*100))<1e-9)
             assert(math.abs(pose.z.x+a.x_axis[2]*100)<1e-12)
             assert(math.abs(pose.z.y-a.x_axis[1]*100)<1e-12)
             local scale=Matrix4x4.scale(pose)

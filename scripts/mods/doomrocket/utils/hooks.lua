@@ -1074,6 +1074,25 @@ mod._update_warlock_death_pose = function(data)
 	-- expensive pose transfer and a later physics wake resumes it.
 end
 
+-- The v0.1.96 log still stalled 216 ms on the first spawn loading this package
+-- synchronously (#ID[f5283f95], #69). Request it once a level world exists, ahead
+-- of any spawn, without forcing a flush. Its native donors are resident by then.
+mod._prewarm_warlock_child_materials = function()
+	if warlock_child_package_requested or DEDICATED_SERVER or not mod.load_package or not mod.package_status then
+		return
+	end
+	local world_manager = Managers.world
+	if not world_manager or not world_manager:has_world("level_world") or not Managers.package
+			or not Managers.package:has_loaded(WARLOCK_ARMOR_DONOR_PACKAGE, "global")
+			or not Managers.package:has_loaded(WARLOCK_NATIVE_BODY_PACKAGE, "global") then
+		return
+	end
+	warlock_child_package_requested = true
+	if not mod:package_status(WARLOCK_CHILD_PACKAGE) then
+		mod:load_package(WARLOCK_CHILD_PACKAGE)
+	end
+end
+
 mod._apply_warlock_child_materials = function(outfit_unit)
 	if not Managers.package:has_loaded(WARLOCK_ARMOR_DONOR_PACKAGE, "global") or
 			not Managers.package:has_loaded(WARLOCK_NATIVE_BODY_PACKAGE, "global") then
@@ -1086,7 +1105,9 @@ mod._apply_warlock_child_materials = function(outfit_unit)
 		return
 	end
 
-	if not warlock_child_package_requested then
+	-- The update prewarm normally finished long ago. A spawn that beat it still
+	-- needs its materials now, so only that rare case blocks to complete the load.
+	if mod:package_status(WARLOCK_CHILD_PACKAGE) ~= "loaded" then
 		warlock_child_package_requested = true
 		mod:load_package(WARLOCK_CHILD_PACKAGE, nil, true)
 	end

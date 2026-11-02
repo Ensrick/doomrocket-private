@@ -37,6 +37,10 @@ restoring acceleration is capped at **40 m/s²**, and
 the controller supplies exponential velocity damping **5 s^-1**.
 The existing 120 Hz fixed step/eight-substep maximum and 2% length-error guard
 remain. No segment rest length is stretched to accommodate an impossible span.
+v0.1.97-dev uses **140 s^-2** with damping at 60% of critical, relative to the
+moving target, because Crunch called 240 s^-2 at 75% stiff (#3). Target error also
+diffuses to neighbouring links, and links beside each fitting are up to four times
+stiffer, so sag and sway fade out rather than kink at a pinned end.
 
 Near full extension, an unchanged curved target would contradict the length
 constraints. The target bend therefore scales by
@@ -44,6 +48,13 @@ constraints. The target bend therefore scales by
 lower bound. Crunch's curve is unchanged at its authored span and relaxes
 smoothly under tension. This fixed an actual 99.99%-extension reset loop;
 the regression forbids resets rather than accepting them as success.
+
+Crunch's curve is authored at a 1.45 m chord, but the v0.1.96-dev log measures the
+carried ends at 0.347 m. Squeezing the curve that far left a target 0.52 m shorter
+than the hose, which doubled back and folded it. Below 75% of the authored chord
+the target is therefore a circular arc of the hose's full length, blending back to
+the authored curve at its own chord. Bones use a rotation-minimizing frame from the
+outlet; the launcher's roll difference is spread along the whole hose.
 
 Frame transport preserves the original dense-curve tangent offset at each
 control and follows owner rotation before transporting along the new tangent.
