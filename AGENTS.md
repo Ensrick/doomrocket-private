@@ -80,9 +80,9 @@ checks do not establish an in-game pass or authorize alpha promotion.
   is authorized.
 - Crunch accepted the ordinary-spawn fix on published v0.1.94-dev;
   [#65](https://github.com/Ensrick/doomrocket-private/issues/65) is closed. Do not
-  repeat that accepted check as a mandatory gate. Published v0.1.96-dev
-  addresses first-spawn loading [#69](https://github.com/Ensrick/doomrocket-private/issues/69),
-  green/smaller gem flame #15 and reduced hose flapping #3. Its canonical
+  repeat that accepted check as a mandatory gate. Published v0.1.97-dev
+  follows the October 25 feedback on remaining first-spawn material loading [#69](https://github.com/Ensrick/doomrocket-private/issues/69),
+  greener/larger/lower gem flame #15 and hose fold/stiffness #3. Its canonical
   publication is verified; #69/#15/#3 still need their in-game verdicts. Keep
   concrete remaining tests and accurate ready-for-testing/testing labels. Preserve
   existing tracks, custom poses and secondary hose physics.
@@ -98,6 +98,11 @@ checks do not establish an in-game pass or authorize alpha promotion.
   Do not call it a verified Workshop release or reuse/rebind that version.
   v0.1.96-dev retains the runtime fixes with shorter metadata and a preflight
   byte-length guard. Keep comfortable space below the native description limit.
+- Crunch's November 2 vaulting-animation failure in #53 is accepted. Its loaded
+  version is not established by a matching log. Track engineering diagnosis and
+  a relevant correction; v0.1.97-dev does not claim to fix vaulting. Do not use
+  the stock-idle rehearsal as proof of vaulting or request another failure
+  demonstration, video or arranged lobby to accept this written report.
 - Historical receipts and artist-rig links retain their original scope.
 
 ## Build environment hygiene

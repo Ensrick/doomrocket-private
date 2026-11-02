@@ -1,6 +1,6 @@
 # Development TEST quickstart
 
-The current verified Workshop TEST is **v0.1.96-dev**. Crunch accepted the
+The current verified Workshop TEST is **v0.1.97-dev**. Crunch accepted the
 v0.1.94-dev ordinary-spawn crash fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65);
 that issue is closed and needs no repeat acceptance check.
 
@@ -28,7 +28,8 @@ local game launch, alpha promotion or in-game acceptance is claimed by a build.
    216 ms blocking material-package load on the first spawn; this build loads it at
    level start.
 4. [#15 gem flame](https://github.com/Ensrick/doomrocket-private/issues/15): the
-   flame is greener, 50% larger than v0.1.96-dev and starts at the crystal's base.
+   candidate uses greener tint, 50% larger native dimensions than v0.1.96-dev and
+   a lower anchor toward the crystal's base.
    Report colour, size and position. No tuning command is needed.
 5. [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): report whether
    the section that deformed in your video is gone, and whether the motion now sits
@@ -49,11 +50,13 @@ optional [new-spawn controller rehearsal and passive probe](ANIMATION_AUTHORING.
 It uses existing stock idle and does not establish final Blender-export or
 localized outfit acceptance. The accepted #65 spawn fix needs no repeat gate.
 Original clips, tracks, visible transitions and custom-pose ownership remain
-preserved.
+preserved. Crunch's November 2 vaulting failure in #53 is accepted and awaits
+engineering diagnosis. This release does not claim a vaulting fix; no repeat
+demonstration or recording is requested for that known failure.
 
 Crunch heard the lower voice volume in v0.1.94-dev (#5). Further ordinary-play
 loudness/cleanup observations remain useful; no new volume reduction is included
-in v0.1.96-dev. The full sound pass remains blocked on artist take/trigger selection
+in v0.1.97-dev. The full sound pass remains blocked on artist take/trigger selection
 and flight/reload sources. Head readability #56 remains an artist decision.
 Crunch's accepted #33 balance plan and #30 portrait verdict need no repeat test.
 
