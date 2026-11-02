@@ -2,6 +2,8 @@
 
 ## v0.1.97-dev - hose fold and pinch, last first-spawn stall, greener gem flame
 
+Canonical VMB publication verified `2026-11-02T21:07:11.7149681Z` from `67fdf3dbfb11f4857069b542ea742efa95fba9ea`; [project status](PROJECT_STATUS.md) records the transaction. Native in-game verdicts remain pending.
+
 Addresses Crunch's October 25 v0.1.96-dev reports. Rendered appearance and native
 performance still need his written in-game verdicts.
 

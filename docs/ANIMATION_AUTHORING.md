@@ -17,6 +17,12 @@ in-game pass.
 
 ## Current testing scope
 
+[Crunch reported broken vaulting on November 2](https://github.com/Ensrick/doomrocket-private/issues/53#issuecomment-6588004240).
+The written failure is accepted. Its build and exact transition are not established
+by a matching log, and engineering diagnosis is pending. v0.1.97-dev does not
+claim a vaulting fix. The stock-idle rehearsal below cannot establish vaulting
+acceptance; no repeat failure demonstration or recording is requested.
+
 Crunch accepted the ordinary-spawn fix on published v0.1.94-dev;
 [#65](https://github.com/Ensrick/doomrocket-private/issues/65) is closed. Its old
 crash reproduction is no longer a mandatory gate for the optional #53 rehearsal.
@@ -25,10 +31,10 @@ reads against the zero-based single-layer contract. Existing tracks, transition
 durations and custom-pose ownership remain preserved. This accepted spawn result
 does not establish native custom-animation or localized-outfit acceptance.
 
-Published v0.1.96-dev addresses effect loading, gem-flame appearance and hose
+Published v0.1.97-dev follows Crunch's October 25 feedback on effect loading, gem-flame appearance and hose
 motion, retaining the existing opt-in controller rehearsal unchanged.
 [Project status](../PROJECT_STATUS.md) records verified canonical VMB delivery.
-The optional v0.1.96-dev procedure below is available; its native animation
+The optional v0.1.97-dev procedure below is available; its native animation
 verdict remains pending. The earlier v0.1.95-dev metadata failure never gained a
 verified-publication record; its GitHub release remains historical build evidence.
 Historical receipts keep their original source identities.
@@ -44,7 +50,7 @@ the published rig. No local deployment or native animation pass is claimed.
 ### v0.1.94-dev: runnable native controller rehearsal
 
 The heading records the rehearsal's introduction and retains existing links.
-The current steps use [verified TEST v0.1.96-dev](../PROJECT_STATUS.md).
+The current steps use [verified TEST v0.1.97-dev](../PROJECT_STATUS.md).
 The accepted #65 check needs no repeat; this separate rehearsal remains optional.
 
 The opt-in path introduced in v0.1.94-dev exercises the existing ownership
@@ -55,9 +61,9 @@ The stock graph, thirteen original clips, all 138 tracks and all 154 visible
 transition durations remain unchanged. This is a controller rehearsal, not a
 pass for a Blender export or localized garment deformation.
 
-Steps for verified TEST v0.1.96-dev:
+Steps for verified TEST v0.1.97-dev:
 
-1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.96-dev` in the new log.
+1. Load TEST alone and confirm `[doomrocket:LOAD] v0.1.97-dev` in the new log.
 2. Before a new Warlock spawns, enter `/warlock_animation_rehearsal on`, then
    `/warlock_animation_probe on`. Existing enemies are never rebound.
 3. Let a newly spawned Warlock idle, move, aim and return to idle in ordinary
@@ -70,7 +76,7 @@ Steps for verified TEST v0.1.96-dev:
 5. Attach the matching complete console log to #53. Engineering reads it with:
 
    ```powershell
-   py -3 tools/animation_rig/parse_animation_probe.py <console.log> --expected-version 0.1.95-dev --report <observations.json>
+   py -3 tools/animation_rig/parse_animation_probe.py <console.log> --expected-version 0.1.97-dev --report <observations.json>
    ```
 
 The probe is off by default and records final presentation observations for at
