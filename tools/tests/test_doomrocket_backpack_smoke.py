@@ -555,8 +555,10 @@ class BackpackSmokeRootIntegrationTests(unittest.TestCase):
                 self.lua.globals().expected_reason = reason
                 self.lua.globals().expected_unload = unload
                 self.lua.execute("""
+                    mod._reset_warlock_traversal_pose=function() events.traversal_reset=true end
                     mod._shutdown_doomrocket_audio=function(reason,unload)
                         assert(reason==expected_reason and unload==expected_unload)
+                        assert(events.traversal_reset)
                         assert(record_count()==0 and events.destroyed==1 and events.unloads==1)
                         events.audio_reset=true
                     end

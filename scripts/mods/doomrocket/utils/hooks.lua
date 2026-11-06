@@ -331,6 +331,7 @@ mod:hook(Unit, "animation_event", function(func, unit, event, ...)
 			end
 			mod._note_warlock_weapon_pose_event(unit, event, mirrored)
 			mod._note_warlock_grip_alignment_event(unit, event, mirrored)
+			if mod._note_warlock_traversal_event then mod._note_warlock_traversal_event(unit, event, mirrored) end
 		else
 			mod._warlock_outfit_owners[outfit] = nil
 			mod._warlock_outfits[unit] = nil
@@ -811,6 +812,9 @@ end
 local function finish_warlock_animation_update(world, dt, ...)
 	mod:pcall(queue_warlock_death_drivers_for_world, world)
 	mod:pcall(mod._queue_warlock_grip_alignment, world, dt)
+	-- The traversal bridge follows compositor/grip ownership, then the hose and
+	-- passive probes consume its final whole-body pose in this same world pass.
+	if mod._queue_warlock_traversal_pose then mod:pcall(mod._queue_warlock_traversal_pose, world, dt) end
 	mod:pcall(mod._queue_warlock_hose, world, dt)
 	mod:pcall(mod._queue_warlock_weapon_pose_probe, world, dt)
 	-- Observe after the existing presentation callbacks; never evaluate a second
@@ -847,6 +851,7 @@ mod._reset_warlock_death_drivers = function()
 end
 
 mod._prepare_warlock_death = function(owner_unit, source)
+	if mod._stop_warlock_traversal_pose then mod._stop_warlock_traversal_pose(owner_unit) end
 	mod._stop_warlock_grip_alignment(owner_unit)
 	mod._stop_warlock_animation_ownership(owner_unit)
 	mod._stop_warlock_locomotion_animation(owner_unit)
@@ -1188,6 +1193,7 @@ mod:hook(AIInventoryExtension, "_setup_configuration", function (func, self, uni
 				end
 				mod._start_warlock_locomotion_animation(unit, outfit_unit)
 				mod:pcall(mod._start_warlock_grip_alignment, unit, outfit_unit, self)
+				if mod._start_warlock_traversal_pose then mod:pcall(mod._start_warlock_traversal_pose, unit, outfit_unit) end
 				wearing_warlock_body = true
 				mod._apply_warlock_child_materials(outfit_unit)
 				-- This runs on the authoritative unit and every husk, including hot-joins, so
@@ -1231,6 +1237,7 @@ end)
 
 -- Stop before native inventory teardown unlinks/deletes the parent outfit.
 mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
+	if mod._stop_warlock_traversal_pose then mod._stop_warlock_traversal_pose(self.unit) end
 	local owner = self.unit
 	local outfit = mod._warlock_outfits and mod._warlock_outfits[owner]
 	mod._stop_warlock_grip_alignment(self.unit)
@@ -1256,6 +1263,7 @@ mod:hook(AIInventoryExtension, "destroy", function(func, self, ...)
 end)
 
 mod:hook(AIInventoryExtension, "freeze", function(func, self, ...)
+	if mod._stop_warlock_traversal_pose then mod._stop_warlock_traversal_pose(self.unit) end
 	mod._stop_warlock_grip_alignment(self.unit)
 	mod._stop_warlock_animation_ownership(self.unit)
 	mod._stop_warlock_outfit_correction(self.unit, true)
@@ -1335,6 +1343,7 @@ end)
 -- here; a later reset must never operate on a recycled particle/world handle.
 mod:hook(Application, "release_world", function(func, world, ...)
 	if mod._release_warlock_animation_probe_world then mod._release_warlock_animation_probe_world(world) end
+	if mod._release_warlock_traversal_world then mod._release_warlock_traversal_world(world) end
 	mod._release_warlock_grip_alignment_world(world)
 	mod._release_warlock_animation_ownership_world(world)
 	mod._release_warlock_outfit_correction_world(world)

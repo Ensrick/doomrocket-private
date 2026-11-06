@@ -17,11 +17,20 @@ in-game pass.
 
 ## Current testing scope
 
-[Crunch reported broken vaulting on November 2](https://github.com/Ensrick/doomrocket-private/issues/53#issuecomment-6588004240).
-The written failure is accepted. Its build and exact transition are not established
-by a matching log, and engineering diagnosis is pending. v0.1.97-dev does not
-claim a vaulting fix. The stock-idle rehearsal below cannot establish vaulting
-acceptance; no repeat failure demonstration or recording is requested.
+[Crunch's November 4 vaulting follow-up](https://github.com/Ensrick/doomrocket-private/issues/53#issuecomment-6624560390)
+supplies a matching v0.1.97-dev log. The written failure remains accepted;
+`jump_up_5m` and `jump_down_land` are recorded as unsupported by the visible
+outfit. Its shipping controller has no traversal clips, while the native carrier
+still traverses. v0.1.97-dev has no vaulting correction.
+
+**v0.1.98-dev is in preparation, not published.** Engineering is preparing a
+legacy traversal-pose bridge using the native carrier during unsupported
+traversal. Its scope must preserve the existing clip/track bytes and yield to
+marked authored/custom ownership. It does not add a production animation set or
+accept a custom Blender export. Fresh code review, regression results and
+canonical publication are pending. The stock-idle rehearsal below remains a
+separate check and cannot establish traversal acceptance. No repeated failure
+demonstration or recording is requested.
 
 Crunch accepted the ordinary-spawn fix on published v0.1.94-dev;
 [#65](https://github.com/Ensrick/doomrocket-private/issues/65) is closed. Its old
@@ -34,6 +43,8 @@ does not establish native custom-animation or localized-outfit acceptance.
 Published v0.1.97-dev follows Crunch's October 25 feedback on effect loading, gem-flame appearance and hose
 motion, retaining the existing opt-in controller rehearsal unchanged.
 [Project status](../PROJECT_STATUS.md) records verified canonical VMB delivery.
+Crunch's November 4 feedback accepts its flame colour/size and hose sway; the
+remaining W-shape work for v0.1.98-dev must keep those accepted sway settings.
 The optional v0.1.97-dev procedure below is available; its native animation
 verdict remains pending. The earlier v0.1.95-dev metadata failure never gained a
 verified-publication record; its GitHub release remains historical build evidence.

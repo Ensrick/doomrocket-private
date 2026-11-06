@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.98-dev - preserve the hose W shape and bridge legacy traversal (2026-11-05)
+
+- **Hose (#3):** preserve the authored resting bends at short backpack-to-launcher
+  spans instead of replacing them completely with a circular arc. Keep the
+  accepted 140 s^-2 stiffness, 0.6 damping ratio and secondary physics.
+- **Vaulting (#53):** bridge unsupported legacy jump and landing events from the
+  native actor onto the visible body, with blended entry and recovery. Preserve
+  target scales, checked bone correspondence and custom-animation ownership.
+  Existing animation sources, tracks and controller transitions are unchanged.
+- Crunch's November 4 log confirms v0.1.97-dev. His flame colour/size and hose
+  sway verdicts are accepted. No repeat of those accepted checks is requested.
+
+Canonical build validation and TEST publication are pending. The game is absent
+locally; offline checks and publication do not establish a native visual pass.
+Public alpha is unchanged.
+
 ## v0.1.97-dev - hose fold and pinch, last first-spawn stall, greener gem flame
 
 Canonical VMB publication verified `2026-11-02T21:07:11.7149681Z` from `67fdf3dbfb11f4857069b542ea742efa95fba9ea`; [project status](PROJECT_STATUS.md) records the transaction. Native in-game verdicts remain pending.

@@ -2,7 +2,7 @@ local mod = get_mod("doomrocket")
 -- Your mod code goes here.
 -- https://vmf-docs.verminti.de
 
-local MOD_VERSION = "0.1.97-dev"
+local MOD_VERSION = "0.1.98-dev"
 mod._doomrocket_version = MOD_VERSION
 printf("[doomrocket:LOAD] v%s", MOD_VERSION)
 
@@ -46,6 +46,7 @@ mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_ownership")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_outfit_correction")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_locomotion_animation")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_grip_alignment")
+mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_traversal_pose")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_blend")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_animation_probe")
 mod:dofile("scripts/mods/doomrocket/extensions/doomrocket_weapon_pose_probe")
@@ -360,6 +361,7 @@ local function reset_warlock_runtime_state(reason, unload_bank)
 	mod._reset_warlock_animation_rehearsal()
 	mod._reset_warlock_locomotion_animation()
 	mod._reset_warlock_grip_alignment()
+	mod._reset_warlock_traversal_pose()
 	mod._reset_warlock_animation_ownership()
 	mod._reset_warlock_outfit_correction()
 	mod._reset_warlock_hose(reason or "runtime_reset")

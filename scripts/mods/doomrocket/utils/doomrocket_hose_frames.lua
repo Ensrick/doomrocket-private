@@ -39,9 +39,10 @@ local function rotate(v,from,to,radial,out,k,work)
     end
 end
 
--- Half-angle of the circular arc of chord/length ratio r: sin(a)/a = r. The hose
--- only uses this below its authored chord (r <= 0.62), where the curve is smooth.
-local ARC_STEPS=64
+-- The circular reference accommodates the carried hose's short endpoint span.
+-- Retain the complete artist-curve residual: a circle by itself erases the two
+-- changes of bend direction which give the hose its W-shaped silhouette (#3).
+local ARC_STEPS=128
 local ARC_HALF_ANGLE={}
 for step=0,ARC_STEPS do
     local ratio,low,high=step/ARC_STEPS,0,math.pi
@@ -51,14 +52,56 @@ for step=0,ARC_STEPS do
     end
     ARC_HALF_ANGLE[step]=(low+high)/2
 end
--- At or above this fraction of the authored chord the authored curve is exact.
-local ARC_BLEND_START=.75
+local function half_angle(span,length)
+    local position=math.min(span/length,1)*ARC_STEPS
+    local step=math.min(math.floor(position),ARC_STEPS-1)
+    return ARC_HALF_ANGLE[step]+(ARC_HALF_ANGLE[step+1]-ARC_HALF_ANGLE[step])*(position-step)
+end
+-- Fit the already-resampled curve, not just its dense reference. Cutting across
+-- a curved segment during resampling shortens it; ignoring this makes the
+-- distance solver fold the short target to absorb the missing hose length.
+-- Reuse all numeric buffers; trial fitting never mutates the physical solver.
+local function resampled_length(self,scale)
+    local n=self.n
+    local x,y,z=self.raw_x,self.raw_y,self.raw_z
+    local distance=self.target_distance
+    local total=0
+    for i=1,n do
+        local along=self.along[i]
+        x[i]=along*self.current_chord[1]+scale*self.target_x[i]
+        y[i]=along*self.current_chord[2]+scale*self.target_y[i]
+        z[i]=along*self.current_chord[3]+scale*self.target_z[i]
+        if i>1 then
+            local dx,dy,dz=x[i]-x[i-1],y[i]-y[i-1],z[i]-z[i-1]
+            total=total+sqrt(dx*dx+dy*dy+dz*dz)
+        end
+        distance[i]=total
+    end
+    local segment,length=1,0
+    local sx,sy,sz=self.sample_x,self.sample_y,self.sample_z
+    for i=1,n do
+        local wanted=self.fractions[i]*total
+        while segment<n-1 and distance[segment+1]<wanted do segment=segment+1 end
+        local edge=distance[segment+1]-distance[segment]
+        local t=edge>1e-10 and (wanted-distance[segment])/edge or 0
+        sx[i]=x[segment]+t*(x[segment+1]-x[segment])
+        sy[i]=y[segment]+t*(y[segment+1]-y[segment])
+        sz[i]=z[segment]+t*(z[segment+1]-z[segment])
+        if i>1 then
+            local dx,dy,dz=sx[i]-sx[i-1],sy[i]-sy[i-1],sz[i]-sz[i-1]
+            length=length+sqrt(dx*dx+dy*dy+dz*dz)
+        end
+    end
+    return length
+end
 
 function Frames.new(profile)
     local n=#profile.controls
     local self=setmetatable({n=n,poses={},offsets={},fractions={},radials={},tangents={},coarse_tangents={},
         chord={},current_chord={},radial={},offset={},rotated={},k={},work={},scratch={},
-        bow={0,0,0},sag={0,0,0},frame_x={},frame_y={},frame_z={},roll_x={},roll_y={},twist=0},Frames)
+        bow={0,0,0},sag={0,0,0},residuals={},along={},target_x={},target_y={},target_z={},
+        raw_x={},raw_y={},raw_z={},sample_x={},sample_y={},sample_z={},target_distance={},
+        frame_x={},frame_y={},frame_z={},roll_x={},roll_y={},twist=0},Frames)
     local first,last=profile.controls[1].rest,profile.controls[n].rest
     local chord={last.position[1]-first.position[1],last.position[2]-first.position[2],last.position[3]-first.position[3]}
     self.rest_chord=local_direction(first,chord)
@@ -83,8 +126,27 @@ function Frames.new(profile)
         self.coarse_tangents[i]=local_direction(first,tangent)
         self.fractions[i]=fraction
         self.poses[i]=new_pose()
+        self.residuals[i]={0,0,0}
+        self.along[i],self.target_x[i],self.target_y[i],self.target_z[i]=0,0,0,0
+        self.raw_x[i],self.raw_y[i],self.raw_z[i],self.target_distance[i]=0,0,0,0
+        self.sample_x[i],self.sample_y[i],self.sample_z[i]=0,0,0
         for j=1,3 do self.bow[j]=self.bow[j]+self.offsets[i][j]/n end
         if i<n then travelled=travelled+profile.lengths[i] end
+    end
+    local direction=local_direction(first,chord)
+    normalize(direction)
+    local projection=dot(self.bow,direction)
+    for j=1,3 do self.sag[j]=self.bow[j]-projection*direction[j] end
+    assert(normalize(self.sag),'authored hose has no reference bow')
+    local half=half_angle(self.rest_span,self.length)
+    local radius=self.length/(2*half)
+    for i=2,n-1 do
+        local t=self.fractions[i]
+        local along=math.sin(half*(2*t-1))*radius
+        local bulge=(math.cos(half*(2*t-1))-math.cos(half))*radius
+        for j=1,3 do
+            self.residuals[i][j]=self.offsets[i][j]+(t-.5)*self.rest_chord[j]-along*direction[j]-bulge*self.sag[j]
+        end
     end
     -- Record each authored bone against the rotation-minimizing frame of the rest
     -- curve, so the live frame reproduces the rest pose and its authored roll.
@@ -111,15 +173,6 @@ function Frames:shape(solver,pack,weapon)
     if not normalize(self.chord) then return false end
     for j=1,3 do self.current_chord[j]=weapon.position[j]-pack.position[j] end
     local span=sqrt(dot(self.current_chord,self.current_chord))
-    -- A nearly straight hose cannot retain the full rest bend under tension.
-    -- Relax its curvature target continuously using available chord slack;
-    -- rest shape is unchanged at its authored chord, and no segment rest length
-    -- changes. Full extension has a straight, feasible target.
-    local rest_slack=self.length*self.length-self.rest_span*self.rest_span
-    local curvature_scale=1
-    if span>self.rest_span and rest_slack>1e-10 then
-        curvature_scale=math.sqrt(math.max(0,(self.length*self.length-span*span)/rest_slack))
-    end
     if not normalize(self.current_chord) then copy(self.chord,self.current_chord) end
     copy(pack.x_axis,self.radial)
     local projection=dot(self.radial,self.chord)
@@ -130,42 +183,78 @@ function Frames:shape(solver,pack,weapon)
         for j=1,3 do self.radial[j]=self.radial[j]-projection*self.chord[j] end
         if not normalize(self.radial) then return false end
     end
-    -- In game the ends sit about 0.35 m apart against a 1.45 m bind chord. The
-    -- squeezed authored curve is then 0.5 m shorter than the hose and doubles back
-    -- on itself, folding the chain (#3). Below the authored chord, lead into a
-    -- circular arc of the hose's full length, hanging on the authored bow's side.
-    local arc=1-math.min(1,math.max(0,(span/self.rest_span-ARC_BLEND_START)/(1-ARC_BLEND_START)))
-    arc=arc*arc*(3-2*arc)
-    local half,curve,cos_half=0,0,0
-    if arc>0 then
-        local position=math.min(span/self.length,1)*ARC_STEPS
-        local step=math.min(math.floor(position),ARC_STEPS-1)
-        half=ARC_HALF_ANGLE[step]+(ARC_HALF_ANGLE[step+1]-ARC_HALF_ANGLE[step])*(position-step)
-        curve=self.length/(2*half)
-        cos_half=math.cos(half)
-        world_direction(pack,self.bow,self.offset)
-        rotate(self.offset,self.chord,self.current_chord,self.radial,self.sag,self.k,self.work)
-        if not normalize(self.sag) then copy(self.radial,self.sag) end
-        self.sag[3]=self.sag[3]-.5
-        projection=dot(self.sag,self.current_chord)
-        for j=1,3 do self.sag[j]=self.sag[j]-projection*self.current_chord[j] end
-        if not normalize(self.sag) then
-            rotate(self.radial,self.chord,self.current_chord,self.radial,self.sag,self.k,self.work)
-            if not normalize(self.sag) then return false end
+    -- Keep the previously accepted stretched/rest target unchanged. Only the
+    -- short-span path, which discarded the artist's W bends, needs correction.
+    if span>=self.rest_span then
+        local rest_slack=self.length*self.length-self.rest_span*self.rest_span
+        local scale=rest_slack>1e-10 and sqrt(math.max(0,(self.length*self.length-span*span)/rest_slack)) or 1
+        for i=1,self.n do
+            world_direction(pack,self.offsets[i],self.offset)
+            rotate(self.offset,self.chord,self.current_chord,self.radial,self.rotated,self.k,self.work)
+            local t=self.fractions[i]
+            if not solver:set_shape_point(i,pack.position[1]+t*span*self.current_chord[1]+scale*self.rotated[1],
+                pack.position[2]+t*span*self.current_chord[2]+scale*self.rotated[2],
+                pack.position[3]+t*span*self.current_chord[3]+scale*self.rotated[3]) then return false end
+        end
+        return solver:enable_shape()
+    end
+    world_direction(pack,self.sag,self.offset)
+    rotate(self.offset,self.chord,self.current_chord,self.radial,self.rotated,self.k,self.work)
+    copy(self.rotated,self.scratch)
+    local half=half_angle(span,self.length)
+    local radius=self.length/(2*half)
+    local n=self.n
+    for i=1,n do
+        local t=self.fractions[i]
+        world_direction(pack,self.residuals[i],self.offset)
+        rotate(self.offset,self.chord,self.current_chord,self.radial,self.rotated,self.k,self.work)
+        local along=math.sin(half*(2*t-1))*radius
+        local bulge=(math.cos(half*(2*t-1))-math.cos(half))*radius
+        for j=1,3 do self.rotated[j]=(.5*span+along)*self.current_chord[j]+bulge*self.scratch[j]+self.rotated[j] end
+        along=dot(self.rotated,self.current_chord)
+        self.along[i]=along
+        self.target_x[i]=self.rotated[1]-along*self.current_chord[1]
+        self.target_y[i]=self.rotated[2]-along*self.current_chord[2]
+        self.target_z[i]=self.rotated[3]-along*self.current_chord[3]
+    end
+    -- LUT interpolation and decoded float bases must never move either fitting.
+    self.along[1],self.along[n]=0,span
+    self.target_x[1],self.target_y[1],self.target_z[1]=0,0,0
+    self.target_x[n],self.target_y[n],self.target_z[n]=0,0,0
+    local scale=self.fit_scale or 1
+    local error=resampled_length(self,scale)-self.length
+    if abs(error)>1e-6 then
+        -- Warm-start in the previous solution's neighbourhood. The fit depends
+        -- on endpoint span, not world translation or roll; ordinary walking
+        -- normally converges in a few evaluations instead of a per-frame sweep.
+        local low,high=math.max(0,scale*.97),scale*1.03
+        local below,above=resampled_length(self,low)-self.length,resampled_length(self,high)-self.length
+        if below>0 then low=0;below=resampled_length(self,low)-self.length end
+        while above<0 and high<64 do high=high*2;above=resampled_length(self,high)-self.length end
+        if above<0 then return false end
+        local replaced=0
+        for iteration=1,30 do
+            -- Illinois regula falsi avoids a stalled endpoint on a curved
+            -- length function. A final bounded bisection phase is fail-safe.
+            if iteration>12 or above-below<1e-12 then scale=(low+high)/2
+            else scale=(low*above-high*below)/(above-below) end
+            error=resampled_length(self,scale)-self.length
+            if abs(error)<=1e-6 then break end
+            if error<0 then
+                low,below=scale,error
+                if replaced==-1 then above=above*.5 end
+                replaced=-1
+            else
+                high,above=scale,error
+                if replaced==1 then below=below*.5 end
+                replaced=1
+            end
         end
     end
-    for i=1,self.n do
-        world_direction(pack,self.offsets[i],self.offset)
-        rotate(self.offset,self.chord,self.current_chord,self.radial,self.rotated,self.k,self.work)
-        local t=self.fractions[i]
-        local angle=half*(2*t-1)
-        local along,bulge=math.sin(angle)*curve,(math.cos(angle)-cos_half)*curve
-        for j=1,3 do
-            local authored=pack.position[j]+t*(weapon.position[j]-pack.position[j])+curvature_scale*self.rotated[j]
-            local bowed=(pack.position[j]+weapon.position[j])/2+along*self.current_chord[j]+bulge*self.sag[j]
-            self.scratch[j]=authored+(bowed-authored)*arc
-        end
-        if not solver:set_shape_point(i,self.scratch[1],self.scratch[2],self.scratch[3]) then return false end
+    if abs(error)>2e-5 then return false end
+    self.fit_scale=scale
+    for i=1,n do
+        if not solver:set_shape_point(i,pack.position[1]+self.sample_x[i],pack.position[2]+self.sample_y[i],pack.position[3]+self.sample_z[i]) then return false end
     end
     return solver:enable_shape()
 end
