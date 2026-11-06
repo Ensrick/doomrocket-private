@@ -12,7 +12,7 @@
 - Crunch's November 4 log confirms v0.1.97-dev. His flame colour/size and hose
   sway verdicts are accepted. No repeat of those accepted checks is requested.
 
-Canonical build validation and TEST publication are pending. The game is absent
+Canonical VMB verified TEST v0.1.98-dev at `2026-11-06T04:43:23.0702456Z` from `e865b41768348e980e0b1cb80f0e5c68b0c397c6` (PR #75): item 3794172730, content handle `4811280844651333429`, 96,189,752 bytes. Fresh native `UPLOADED`/finish-OK evidence, the committed source/build receipt, hosted QA, remote tag and public metadata agree. The release tag stays at that runtime source; this later journal does not rebuild, retag or republish. No local game launch, deployment, native visual pass or alpha promotion is claimed. The game is absent
 locally; offline checks and publication do not establish a native visual pass.
 Public alpha is unchanged.
 

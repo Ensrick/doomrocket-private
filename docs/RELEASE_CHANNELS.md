@@ -41,9 +41,9 @@ valid evidence of delivery only.
 The November 4 feedback and matching v0.1.97-dev log accept flame colour/size
 #15 and hose sway #3. Remaining W-shape and unsupported vault/landing events
 #53 are engineering work. The user authorized those corrections and the next
-TEST upload on November 5. Broker-allocated **v0.1.98-dev is in preparation**;
-v0.1.97-dev remains the verified Workshop publication until a fresh canonical
-transaction proves otherwise. Preserve the accepted hose dynamics, existing
+TEST upload on November 5. **v0.1.98-dev is canonically published**; [project status](../PROJECT_STATUS.md)
+records its fresh source-bound transaction. v0.1.97-dev keeps its historical
+publication binding. Preserve the accepted hose dynamics, existing
 animation tracks and authored/custom ownership. No accepted flame, sway or #65
 check becomes a mandatory retest. This authorization uses the same
 publication-only process and does not authorize alpha promotion.
