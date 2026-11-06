@@ -87,7 +87,7 @@ foreach ($integrationRegression in @('test_doomrocket_hose_lifecycle.py', 'test_
         'test_doomrocket_animation_callbacks.py', 'test_doomrocket_weapon_pose_probe.py',
         'test_doomrocket_animation_clock.py', 'test_doomrocket_animation_probe.py',
         'test_doomrocket_animation_rehearsal.py',
-        'test_doomrocket_grip_alignment.py', 'test_doomrocket_authored_weapon.py', 'test_doomrocket_animation_ownership.py',
+        'test_doomrocket_grip_alignment.py', 'test_doomrocket_authored_weapon.py', 'test_doomrocket_traversal_pose.py', 'test_doomrocket_animation_ownership.py',
         'test_doomrocket_animation_dispatch.py', 'test_doomrocket_animation_blend.py',
         'test_doomrocket_inventory_animation_links.py',
         'test_doomrocket_outfit_correction.py', 'test_stage_integration.py',
@@ -106,7 +106,7 @@ if ($LASTEXITCODE -ne 0) {
     [void]$failures.Add("kill-feed portrait source/compiled regression suite failed (exit $LASTEXITCODE)")
 }
 foreach ($smokeRegression in @('test_doomrocket_chimney_anchor.py', 'test_doomrocket_backpack_smoke.py', 'test_doomrocket_crystal_flame.py',
-        'test_doomrocket_effect_package.py', 'test_crystal_flame_native_effect.py')) {
+        'test_doomrocket_effect_package.py', 'test_doomrocket_child_material_prewarm.py', 'test_crystal_flame_native_effect.py')) {
     & py -3 (Join-Path $PSScriptRoot "tests\$smokeRegression")
     if ($LASTEXITCODE -ne 0) {
         [void]$failures.Add("$smokeRegression failed (exit $LASTEXITCODE)")

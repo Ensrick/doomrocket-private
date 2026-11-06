@@ -83,9 +83,16 @@ checks do not establish an in-game pass or authorize alpha promotion.
   repeat that accepted check as a mandatory gate. Published v0.1.97-dev
   follows the October 25 feedback on remaining first-spawn material loading [#69](https://github.com/Ensrick/doomrocket-private/issues/69),
   greener/larger/lower gem flame #15 and hose fold/stiffness #3. Its canonical
-  publication is verified; #69/#15/#3 still need their in-game verdicts. Keep
-  concrete remaining tests and accurate ready-for-testing/testing labels. Preserve
-  existing tracks, custom poses and secondary hose physics.
+  publication is verified. Crunch's November 4 log confirms v0.1.97-dev;
+  flame colour/size #15 and hose sway #3 are accepted. The hose still loses its
+  W shape, and first-spawn hitch #69 has no new written verdict. Preserve these
+  accepted results when defining remaining tests and readiness labels.
+- The user authorized the hose-shape and vaulting corrections and the next TEST
+  upload on November 5. Broker-allocated v0.1.98-dev is in preparation and is
+  not a verified publication. Its candidate scope is W-curve preservation with
+  the accepted sway settings and a legacy traversal-pose bridge. Preserve all
+  existing animation tracks, authored/custom poses and secondary hose physics;
+  report fresh checks and canonical delivery before marking it ready.
 - No local manifest `552500`, game executable or game bundles are available;
   the installed SDK oracle fails before Lua boot. Record this coverage limit.
   Publication and offline checks establish no native startup, animation or
@@ -98,11 +105,12 @@ checks do not establish an in-game pass or authorize alpha promotion.
   Do not call it a verified Workshop release or reuse/rebind that version.
   v0.1.96-dev retains the runtime fixes with shorter metadata and a preflight
   byte-length guard. Keep comfortable space below the native description limit.
-- Crunch's November 2 vaulting-animation failure in #53 is accepted. Its loaded
-  version is not established by a matching log. Track engineering diagnosis and
-  a relevant correction; v0.1.97-dev does not claim to fix vaulting. Do not use
-  the stock-idle rehearsal as proof of vaulting or request another failure
-  demonstration, video or arranged lobby to accept this written report.
+- Crunch's November 2 vaulting-animation failure in #53 is accepted. His
+  November 4 follow-up supplies a v0.1.97-dev log with `jump_up_5m` and
+  `jump_down_land` marked unsupported by the visible outfit. v0.1.97-dev has no
+  vaulting fix; the v0.1.98-dev correction remains in preparation. Keep the
+  stock-idle rehearsal separate from traversal and custom-export acceptance.
+  No repeated failure demonstration, video or arranged lobby is required.
 - Historical receipts and artist-rig links retain their original scope.
 
 ## Build environment hygiene

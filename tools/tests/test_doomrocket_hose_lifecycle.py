@@ -1047,11 +1047,15 @@ class HoseHookIntegrationTests(unittest.TestCase):
                     mod._reset_warlock_backpack_smoke=function() end
                     mod._shutdown_doomrocket_audio=function() end
                     mod._reset_warlock_death_drivers=function() end
+                    mod._reset_warlock_traversal_pose=function()
+                        events.traversal_reset=(events.traversal_reset or 0)+1
+                    end
                 ''')
                 self.lua.execute(self.extract_one(
                     BOOTSTRAP, r'^mod\.anim_emitters = \{\}.*?(?=^mod\.doom = true)'))
                 self.lua.execute('assert(start());tick();queue();' + callback + '''
                     drain();assert(record_count()==0 and events.destroyed==1)
+                    assert(events.traversal_reset==1)
                 ''')
 
 

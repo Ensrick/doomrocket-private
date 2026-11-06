@@ -295,6 +295,98 @@ function carried(fps,sway)
     return {target=target,length=s.length,peak=peak,twist=twist,resets=s.resets,render_resets=s.render_resets,
         links=s:length_error(s.rx,s.ry,s.rz),frames=check_frames(f)}
 end
+-- Only the longitudinal endpoint axes were logged. Reconstruct an orthonormal
+-- frame around each measured axis and sweep the unknown roll independently;
+-- these cases are not claimed to reproduce an unrecorded full native frame.
+function orient_logged_y(p,y,roll)
+    local function dot(a,b) return a[1]*b[1]+a[2]*b[2]+a[3]*b[3] end
+    local length=sqrt(dot(y,y))
+    p.y_axis={y[1]/length,y[2]/length,y[3]/length}
+    local d=dot(p.x_axis,p.y_axis)
+    local x={p.x_axis[1]-d*p.y_axis[1],p.x_axis[2]-d*p.y_axis[2],p.x_axis[3]-d*p.y_axis[3]}
+    length=sqrt(dot(x,x))
+    for j=1,3 do x[j]=x[j]/length end
+    local z={x[2]*p.y_axis[3]-x[3]*p.y_axis[2],x[3]*p.y_axis[1]-x[1]*p.y_axis[3],x[1]*p.y_axis[2]-x[2]*p.y_axis[1]}
+    p.x_axis={}; p.z_axis={}
+    for j=1,3 do
+        p.x_axis[j]=x[j]*cos(roll)-z[j]*sin(roll)
+        p.z_axis[j]=z[j]*cos(roll)+x[j]*sin(roll)
+    end
+end
+function logged_carried(case,fps,roll,pack_roll)
+    local s=Solver.new(Profile.lengths,nil,5,-9.81)
+    local f=Frames.new(Profile)
+    local a,b=pose(Profile.controls[1].rest),pose(Profile.controls[29].rest)
+    a.position=vec(case.pack); b.position=vec(case.weapon)
+    orient_logged_y(a,case.pack_y,pack_roll or 0)
+    orient_logged_y(b,case.weapon_y,roll)
+    assert(f:shape(s,a,b))
+    local target={}; for i=1,s.n do target[i]={s.shape_x[i],s.shape_y[i],s.shape_z[i]} end
+    assert(s:frame(0,a.position[1],a.position[2],a.position[3],b.position[1],b.position[2],b.position[3]))
+    assert(f:update(s,a,b,true))
+    local peak,links,frames,axis_step,max_twist=0,0,0,0,0
+    local axes={}; for i=1,s.n do axes[i]=vec(f.poses[i].x_axis) end
+    for step=1,4*fps do
+        local t=step/fps
+        local phase=2*math.pi*1.8*t
+        local envelope=1-math.exp(-2*t)
+        a.position={case.pack[1]+1.4*t,case.pack[2],case.pack[3]+.02*(1-cos(phase))*envelope}
+        b.position={case.weapon[1]+1.4*t+.05*sin(phase)*envelope,
+            case.weapon[2]+.05*sin(phase+.6)*envelope,
+            case.weapon[3]+.02*(1-cos(phase))*envelope+.05*sin(phase+1.2)*envelope}
+        tick(s,f,a,b,1/fps)
+        links=math.max(links,s:length_error(s.rx,s.ry,s.rz))
+        frames=math.max(frames,check_frames(f))
+        if t>1 then
+            peak=math.max(peak,(s:peak_bend()))
+            for i=2,s.n-1 do
+                local x=f.poses[i].x_axis
+                axis_step=math.max(axis_step,sqrt((x[1]-axes[i][1])^2+(x[2]-axes[i][2])^2+(x[3]-axes[i][3])^2))
+            end
+        end
+        for i=1,s.n do axes[i]=vec(f.poses[i].x_axis) end
+        max_twist=math.max(max_twist,abs(math.deg(f.twist)))
+    end
+    local points={}; for i=1,s.n do points[i]={s.rx[i],s.ry[i],s.rz[i]} end
+    return {target=target,points=points,resets=s.resets,render_resets=s.render_resets,
+        peak=peak,links=links,frames=frames,axis_step=axis_step,max_total_twist=max_twist}
+end
+function short_span_shape(span)
+    local s=Solver.new(Profile.lengths,nil,5,0)
+    local f=Frames.new(Profile)
+    local a,b=pose(Profile.controls[1].rest),pose(Profile.controls[29].rest)
+    local dx,dy,dz=b.position[1]-a.position[1],b.position[2]-a.position[2],b.position[3]-a.position[3]
+    local length=sqrt(dx*dx+dy*dy+dz*dz)
+    b.position={a.position[1]+span*dx/length,a.position[2]+span*dy/length,a.position[3]+span*dz/length}
+    assert(f:shape(s,a,b))
+    local points={};for i=1,s.n do points[i]={s.shape_x[i],s.shape_y[i],s.shape_z[i]} end
+    return points,a.position,b.position
+end
+function compressed_benchmark(count,frames)
+    local list={}
+    for i=1,count do
+        local s=Solver.new(Profile.lengths,nil,5,-9.81)
+        local f=Frames.new(Profile)
+        local a,b=pose(Profile.controls[1].rest),pose(Profile.controls[29].rest)
+        b.position={a.position[1],a.position[2]+.214,a.position[3]+.273}
+        list[i]={s=s,f=f,a=a,b=b}
+    end
+    local cold=os.clock()
+    for _,v in ipairs(list) do tick(v.s,v.f,v.a,v.b,0) end
+    cold=(os.clock()-cold)*1000
+    local times,total,worst={},0,0
+    for step=1,frames+30 do
+        local start=os.clock()
+        for _,v in ipairs(list) do
+            v.b.position[1]=v.a.position[1]+.05*sin(step*.1)
+            tick(v.s,v.f,v.a,v.b,1/60)
+        end
+        local elapsed=(os.clock()-start)*1000
+        if step>30 then times[#times+1]=elapsed;total=total+elapsed;worst=math.max(worst,elapsed) end
+    end
+    table.sort(times)
+    return cold,total/frames,times[math.ceil(.95*frames)],worst
+end
 function steady_translation(fps)
     local s,f,a,b=new(0)
     local rest_a,rest_b=pose(a),pose(b)
@@ -335,6 +427,46 @@ def runtime():
         lua.globals()[name] = lua.execute((UTILS / filename).read_text(encoding="utf-8"))
     lua.execute(HARNESS)
     return lua
+
+
+def lua_points(points):
+    return [[points[i][j] for j in range(1, 4)] for i in range(1, len(points) + 1)]
+
+
+def polyline_length(points):
+    return sum(math.dist(a, b) for a, b in zip(points, points[1:]))
+
+
+def projected_turns(points):
+    # Area-weighted polygon normal independently finds the hose's dominant
+    # silhouette plane. It does not read the production curve/frame buffers.
+    def cross(a, b):
+        return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+    def dot(a, b):
+        return sum(x * y for x, y in zip(a, b))
+    relative = [[p[j] - points[0][j] for j in range(3)] for p in points]
+    normal = [0, 0, 0]
+    for a, b in zip(relative, relative[1:]):
+        area = cross(a, b)
+        normal = [x + y for x, y in zip(normal, area)]
+    norm = math.sqrt(dot(normal, normal))
+    normal = [x / norm for x in normal]
+    edges = [[b[j] - a[j] for j in range(3)] for a, b in zip(points, points[1:])]
+    turns = [math.degrees(math.atan2(dot(cross(a, b), normal), dot(a, b) - dot(a, normal) * dot(b, normal)))
+             for a, b in zip(edges, edges[1:])]
+    # Select a stable sign convention: the large outer lobes bend negatively.
+    return [-x for x in turns] if sum(turns) > 0 else turns
+
+
+def turn_sign_runs(turns):
+    signs = []
+    for angle in turns:
+        if abs(angle) < .3:
+            continue
+        sign = 1 if angle > 0 else -1
+        if not signs or signs[-1] != sign:
+            signs.append(sign)
+    return signs
 
 
 class HoseDynamicsTests(unittest.TestCase):
@@ -409,7 +541,9 @@ class HoseDynamicsTests(unittest.TestCase):
         # joints and 44 degrees of extra twist between neighbouring bones, the
         # section Crunch filmed deforming. The worst case stays free of folds too.
         for fps in (30, 60, 144):
-            for sway, bend in ((.05, 30), (.15, 75)):
+            # A W has a reversing bend, unlike the retired uniform circle.
+            # Preserve that feature with smooth joints, far below a folded link.
+            for sway, bend in ((.05, 50), (.15, 75)):
                 with self.subTest(fps=fps, sway=sway):
                     result = runtime().globals().carried(fps, sway)
                     self.assertLess(abs(result.target - result.length), .006)
@@ -419,6 +553,83 @@ class HoseDynamicsTests(unittest.TestCase):
                     self.assertLess(result.frames, 2e-6)
                     self.assertEqual(result.resets, 1)
                     self.assertEqual(result.render_resets, 0)
+
+    def test_compressed_target_preserves_the_authored_w_bend_directions_and_length(self):
+        lua = runtime()
+        rest_span = lua.globals().Frames.new(lua.globals().Profile).rest_span
+        length = sum(lua.globals().Profile.lengths.values())
+        for span in (1e-6, .05, .347, .894, .972, .75 * rest_span, rest_span):
+            with self.subTest(span=span):
+                raw, start, end = lua.globals().short_span_shape(span)
+                points = lua_points(raw)
+                self.assertLess(math.dist(points[0], list(start.values())), 1e-7)
+                self.assertLess(math.dist(points[-1], list(end.values())), 1e-7)
+                self.assertLess(abs(polyline_length(points) - length), 2e-5)
+                turns = projected_turns(points)
+                self.assertEqual(turn_sign_runs(turns), [-1, 1, -1])
+                self.assertGreater(max(turns), 2)
+                self.assertLess(max(map(abs, turns)), 55)
+
+    def test_short_target_has_no_discontinuity_at_the_old_arc_boundary_or_rest_span(self):
+        lua = runtime()
+        rest_span = lua.globals().Frames.new(lua.globals().Profile).rest_span
+        for boundary in (.75 * rest_span, rest_span):
+            before = lua_points(lua.globals().short_span_shape(boundary - 1e-7)[0])
+            after = lua_points(lua.globals().short_span_shape(boundary + 1e-7)[0])
+            self.assertLess(max(map(math.dist, before, after)), 2e-5)
+
+    def test_logged_endpoint_positions_and_axes_keep_w_shape_without_fold_or_reset(self):
+        # Log v0.1.97-dev, 2026-11-03 19:11:18/46 and 19:12:09. It records
+        # y axes only, so unknown roll is swept instead of being called native
+        # full-pose evidence. These are ordinary 5 cm walking perturbations.
+        cases = [
+            {"pack": [-123.532585, -43.745716, -4.991587],
+             "weapon": [-123.737129, -43.674507, -4.720704],
+             "pack_y": [-.126, .207, -.970], "weapon_y": [-.047, -.229, .972]},
+            {"pack": [-127.529732, -47.564442, -5.920027],
+             "weapon": [-127.407257, -47.381378, -5.652126],
+             "pack_y": [.224, .059, -.973], "weapon_y": [-.202, .113, .973]},
+            {"pack": [-118.572098, -58.330685, -10.988973],
+             "weapon": [-118.727859, -58.180218, -10.718066],
+             "pack_y": [-.027, .241, -.970], "weapon_y": [-.138, -.188, .972]},
+        ]
+        for index, case in enumerate(cases):
+            for fps in (30, 60, 144):
+                rolls = [(0, -math.pi), (0, 0), (0, math.pi / 2)]
+                if fps == 60:
+                    rolls += [(-math.pi / 2, 0), (math.pi / 2, 0)]
+                for pack_roll, roll in rolls:
+                    with self.subTest(case=index, fps=fps, pack_roll=pack_roll, roll=roll):
+                        lua = runtime()
+                        native_case = lua.table_from({key: lua.table_from(value) for key, value in case.items()})
+                        result = lua.globals().logged_carried(native_case, fps, roll, pack_roll)
+                        self.assertEqual(turn_sign_runs(projected_turns(lua_points(result.target))), [-1, 1, -1])
+                        self.assertEqual(turn_sign_runs(projected_turns(lua_points(result.points))), [-1, 1, -1])
+                        self.assertLess(result.peak, 75)
+                        self.assertLess(result.links, .002)
+                        self.assertLess(result.frames, 2e-6)
+                        self.assertLess(result.axis_step, .75)
+                        self.assertEqual(result.resets, 1)
+                        self.assertEqual(result.render_resets, 0)
+
+    def test_short_span_fitting_reuses_all_buffers_without_per_frame_tables(self):
+        lua = runtime()
+        allocated = lua.execute('''
+            local s,f,a,b=new(-9.81)
+            b.position={a.position[1],a.position[2]+.214,a.position[3]+.273}
+            assert(f:shape(s,a,b));assert(s:reset(a.position[1],a.position[2],a.position[3],unpack(b.position)))
+            for i=1,100 do tick(s,f,a,b,1/60) end
+            collectgarbage('collect'); collectgarbage('stop')
+            local before=collectgarbage('count')
+            for i=1,2000 do
+                b.position[1]=a.position[1]+.05*math.sin(i*.1)
+                tick(s,f,a,b,1/60)
+            end
+            local delta=collectgarbage('count')-before
+            collectgarbage('restart')
+            return delta
+        ''')
+        self.assertLess(allocated, 4)
 
     def test_walking_cadence_sweep_does_not_resonate_into_large_flaps(self):
         # The 140 s^-2 spring's undamped natural frequency is about 1.88 Hz.

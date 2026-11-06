@@ -101,6 +101,9 @@ jobs:
           python tools/tests/test_doomrocket_grip_alignment.py
           python tools/tests/test_doomrocket_authored_weapon.py
 
+      - name: Run legacy traversal and custom-pose ownership regressions
+        run: python tools/tests/test_doomrocket_traversal_pose.py
+
       - name: Run authored animation ownership and dispatch regressions
         run: |
           python tools/tests/test_doomrocket_animation_ownership.py
@@ -164,7 +167,9 @@ jobs:
         run: python tools/tests/test_doomrocket_crystal_flame.py
 
       - name: Run asynchronous cosmetic package ownership tests
-        run: python tools/tests/test_doomrocket_effect_package.py
+        run: |
+          python tools/tests/test_doomrocket_effect_package.py
+          python tools/tests/test_doomrocket_child_material_prewarm.py
 
       - name: Run native small-flame dependency guards
         run: python tools/tests/test_crystal_flame_native_effect.py

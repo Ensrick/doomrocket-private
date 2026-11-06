@@ -1,12 +1,12 @@
 # Project status
 
-Updated 2026-11-02 (America/Chicago). [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
+Updated 2026-11-05 (America/Chicago). [GitHub Issues](https://github.com/Ensrick/doomrocket-private/issues)
 is the live work queue; this page is a short re-entry map.
 
 | Question | Current answer |
 | --- | --- |
-| Latest maintenance release | Published v0.1.97-dev follows Crunch's October 25 feedback: hose fold/stiffness #3, remaining first-spawn material load #69 and greener/larger/lower gem flame #15. Canonical delivery is verified; written in-game verdicts remain pending. Existing tracks, custom poses and hose physics are preserved. |
-| Animation verification | Crunch's November 2 [vaulting-animation failure](https://github.com/Ensrick/doomrocket-private/issues/53#issuecomment-6588004240) is accepted and awaits engineering diagnosis. No vaulting fix is claimed in v0.1.97-dev. The limited stock-idle rehearsal and artist rig remain available; they do not establish vaulting, custom-export or outfit acceptance. #65 remains accepted and closed. |
+| Latest maintenance release | Published v0.1.97-dev is verified. Crunch's November 4 feedback accepts flame colour/size #15 and hose sway #3; the W shape remains wrong. Broker-allocated v0.1.98-dev is in preparation for hose shape and vaulting, with no publication or in-game pass claimed. Existing tracks, custom poses and accepted hose physics must remain preserved. |
+| Animation verification | Crunch's [November 4 vaulting follow-up](https://github.com/Ensrick/doomrocket-private/issues/53#issuecomment-6624560390) supplies a v0.1.97-dev log: `jump_up_5m` and `jump_down_land` are unsupported by the visible outfit. A legacy traversal-pose bridge is being prepared for v0.1.98-dev. The stock-idle rehearsal and artist rig remain separate from vaulting, custom-export and outfit acceptance. #65 remains accepted and closed. |
 | Stable player build | [Public alpha v0.1.59-alpha](https://steamcommunity.com/sharedfiles/filedetails/?id=3771657344) |
 | Published experimental build | [Warlock Engineer TEST v0.1.97-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified `2026-11-02T21:07:11.7149681Z` (96,176,559 bytes; content handle `8691514703437086948`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.97-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/67fdf3dbfb11f4857069b542ea742efa95fba9ea) ([PR #73](https://github.com/Ensrick/doomrocket-private/pull/73)). |
 | Previous verified TEST | [Warlock Engineer TEST v0.1.96-dev](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730), verified `2026-10-23T19:58:33.5790720Z` (96,175,304 bytes; content handle `6197164204645627637`). [Release record](https://github.com/Ensrick/doomrocket-private/releases/tag/v0.1.96-dev); [reviewed source](https://github.com/Ensrick/doomrocket-private/commit/f60813591d152a2c467644e06622eab39b44290f) ([PR #71](https://github.com/Ensrick/doomrocket-private/pull/71)). |
@@ -15,15 +15,31 @@ is the live work queue; this page is a short re-entry map.
 | v0.1.91 engineering source stage | [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.91-dev/WarlockEngineer_AnimationSourceStage_v0.1.91-dev_START_HERE.md), [source ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.91-dev/WarlockEngineer_AnimationSourceStage_v0.1.91-dev.zip), [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.91-dev/WarlockEngineer_AnimationSourceStage_v0.1.91-dev.zip.verify.json). Complete anonymous downloads match reviewed source `8285071b8bc78501b6f26dd9572e83c7f7213511` and the 39,494,153-byte archive SHA-256 `84b6abd54402cfe4879d2cf3682e1609ac981565cb1cde6219972ee7c3a7994b`. Historical source overlay and receipts; not installable. Its original provenance blocker is resolved by the v0.1.92 supplement below; native playback remains blocked. The v0.1.87 artist rig above remains the animation handoff. |
 | v0.1.92 offline animation evidence | [Strict join report](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.92-dev/WarlockEngineer_AnimationEvidence_v0.1.92-dev.json) and [reviewed source binding](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.92-dev/WarlockEngineer_AnimationEvidence_v0.1.92-dev.source.json). Complete anonymous downloads verified against their SHA-256 values. The existing v0.1.91 measurements and receipts are preserved; this supplement closes offline provenance, with zero new native captures or in-game acceptance. |
 | Previous TEST changes | Published v0.1.90-dev combines the gem/audio/hose changes prepared for the unpublished v0.1.89-dev with guarded aiming and facing diagnostics [#55](https://github.com/Ensrick/doomrocket-private/issues/55), plus the sampler parent-frame and teardown fixes [#53](https://github.com/Ensrick/doomrocket-private/issues/53). Publication provides candidates for written in-game verdicts; no alpha promotion has occurred. |
-| Previous flame/runtime changes | Published v0.1.91-dev replaces the rejected gem effect with the small native pickup torch [#15](https://github.com/Ensrick/doomrocket-private/issues/15) and deduplicates skeleton validation within the staged legacy blend callback [#53](https://github.com/Ensrick/doomrocket-private/issues/53). Native flame colour/size and custom-animation playback remain unverified. |
-| Remaining work | On verified v0.1.97-dev, the #69/#15/#3 in-game verdicts are pending. Other outstanding TEST observations remain clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), audio cleanup [#44](https://github.com/Ensrick/doomrocket-private/issues/44), facing [#55](https://github.com/Ensrick/doomrocket-private/issues/55). Vaulting [#53](https://github.com/Ensrick/doomrocket-private/issues/53) awaits engineering diagnosis, not a repeated tester reproduction. No accepted check needs repeating. Full sound sources [#5](https://github.com/Ensrick/doomrocket-private/issues/5), head art [#56](https://github.com/Ensrick/doomrocket-private/issues/56), and alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) retain their specific prerequisites. |
+| Previous flame/runtime changes | Published v0.1.91-dev replaces the rejected gem effect with the small native pickup torch [#15](https://github.com/Ensrick/doomrocket-private/issues/15) and deduplicates skeleton validation within the staged legacy blend callback [#53](https://github.com/Ensrick/doomrocket-private/issues/53). That evidence did not accept the flame appearance; Crunch accepted colour/size on v0.1.97-dev on November 4. Custom-animation playback remains unaccepted. |
+| Remaining work | Prepare and validate the v0.1.98-dev hose W-shape [#3](https://github.com/Ensrick/doomrocket-private/issues/3) and traversal [#53](https://github.com/Ensrick/doomrocket-private/issues/53) corrections, then publish through canonical VMB. First-spawn hitch [#69](https://github.com/Ensrick/doomrocket-private/issues/69) still needs a written verdict. Other outstanding TEST observations remain clearance [#6](https://github.com/Ensrick/doomrocket-private/issues/6), alignment [#28](https://github.com/Ensrick/doomrocket-private/issues/28), arena waves [#35](https://github.com/Ensrick/doomrocket-private/issues/35), audio cleanup [#44](https://github.com/Ensrick/doomrocket-private/issues/44), facing [#55](https://github.com/Ensrick/doomrocket-private/issues/55). No accepted check needs repeating. Full sound sources [#5](https://github.com/Ensrick/doomrocket-private/issues/5), head art [#56](https://github.com/Ensrick/doomrocket-private/issues/56), and alpha crash [#34](https://github.com/Ensrick/doomrocket-private/issues/34) retain their specific prerequisites. |
 | Development reports | [Development issue chooser](https://github.com/Ensrick/doomrocket-private/issues/new/choose) |
 | Public-alpha reports | [Public issue chooser](https://github.com/Ensrick/doomrocket-public/issues/new/choose) |
 | Can both builds be enabled? | No. They share an internal mod identity; enable exactly one. |
 
 ## Current publication and testing plan
 
-Canonical VMB verified TEST v0.1.97-dev on `2026-11-02T21:07:11.7149681Z` from `67fdf3dbfb11f4857069b542ea742efa95fba9ea`. Fresh native `UPLOADED`/finish-OK evidence and public metadata agree on item 3794172730, content handle `8691514703437086948` and 96,176,559 bytes. The release tag stays bound to that reviewed source and its committed build receipt; this later documentation journal does not retag, rebuild or republish. Native performance, colour and deformation still need Crunch's written verdict. No local game launch, deployment or alpha promotion occurred.
+Canonical VMB verified TEST v0.1.97-dev on `2026-11-02T21:07:11.7149681Z` from `67fdf3dbfb11f4857069b542ea742efa95fba9ea`. Fresh native `UPLOADED`/finish-OK evidence and public metadata agree on item 3794172730, content handle `8691514703437086948` and 96,176,559 bytes. The release tag stays bound to that reviewed source and its committed build receipt. No local game launch, deployment or alpha promotion occurred.
+
+Crunch's November 4 feedback and matching v0.1.97-dev log accept the
+[flame colour and size](https://github.com/Ensrick/doomrocket-private/issues/15#issuecomment-6624849555)
+and [hose sway](https://github.com/Ensrick/doomrocket-private/issues/3#issuecomment-6624724867).
+The hose does not retain its W shape. The same session records unsupported
+`jump_up_5m` and `jump_down_land` events in the visible outfit, grounding the
+[vaulting failure](https://github.com/Ensrick/doomrocket-private/issues/53#issuecomment-6624560390).
+No new first-spawn hitch verdict was posted.
+
+**v0.1.98-dev is in preparation, not published.** The November 5 request
+authorizes W-shape engineering while keeping the accepted sway settings, and
+a legacy traversal-pose bridge that yields to authored/custom ownership.
+Existing clips, tracks, artist assets and pose ownership must be preserved.
+Fresh validation, source/receipt review, hosted QA and canonical VMB publication
+remain pending. The matching log is sufficient to investigate; no repeated
+demonstration or new production animation is assigned to Crunch.
 
 Crunch's October 25 v0.1.96-dev feedback reported a stiff/deforming hose, a yellow flame needing enlargement and lowering, and unclear hitch instructions. The v0.1.97-dev candidate follows those reports with a short-span hose correction and softer physics, asynchronous child-material prewarm, and a greener/larger/lower native torch. Original animation tracks and custom poses remain preserved.
 
@@ -88,13 +104,12 @@ authorizes these three fixes and the next TEST. No deployment or alpha promotion
 is authorized. The verified v0.1.97-dev transaction above is the current
 publication record; earlier versions retain their original historical source bindings.
 
-Crunch also reported broken vaulting in #53 on November 2, before this upload.
-Accept the written failure; no matching log establishes its loaded version or
-cause. Engineering diagnosis and a relevant correction are pending. The existing
-stock-idle controller rehearsal does not test vaulting, and v0.1.97-dev does not
-claim a vaulting fix. Full Blender-export and outfit acceptance remain separate.
-Do not repeat accepted #65 or demand another reproduction, video or arranged
-lobby for the accepted vaulting failure.
+Crunch reported broken vaulting in #53 on November 2, before the v0.1.97-dev
+upload. His November 4 follow-up now supplies the matching v0.1.97-dev log noted
+above. That release has no vaulting correction; v0.1.98-dev is being prepared.
+The stock-idle rehearsal does not test vaulting. Full Blender-export and outfit
+acceptance remain separate. Do not repeat accepted #65 or request another
+failure demonstration, video or arranged lobby.
 
 ## Historical published evidence
 
@@ -336,8 +351,10 @@ The launcher/hand failure (#28) remains accepted. The latest v0.1.84 log contain
 600 grip samples; the prior missing-trace status is obsolete. The v0.1.85
 build transfers twelve existing upper-body joints through the custom parent
 frames while preserving lower-body gait, scales and weapon links. Its probe
-flushes scene poses before measurements. Missing custom jump clips remain an
-Arnaud asset gap; unsupported events skip transfer to avoid stretching. Ordinary
+flushes scene poses before measurements. That version's unsupported traversal
+events skip transfer to avoid stretching. The v0.1.98-dev engineering candidate
+above investigates a native-pose bridge before assigning new production clips.
+Ordinary
 movement/aim/reload alignment still needs a visual verdict on the published build.
 
 Crunch's reports support closure of the career-switch crash
@@ -350,7 +367,9 @@ result in [#1](https://github.com/Ensrick/doomrocket-private/issues/1) is also
 accepted. Their issue records retain the supporting observations and logs.
 
 The #65 ordinary-spawn result is accepted and closed. On verified
-v0.1.96-dev, use the current #69/#15/#3 instructions for the remaining changes. For the authorized publication-only release,
+v0.1.97-dev, first-spawn hitch #69 still needs its written verdict; flame
+colour/size and hose sway are accepted. Hose shape #3 and traversal #53 await
+the v0.1.98-dev candidate and verified publication. For an authorized publication-only release,
 `ready-for-testing` identifies concrete remaining acceptance steps;
 `testing` records the pending in-game verdict. `blocked` names a missing prerequisite: engineering, publication,
 source assets, or diagnostic evidence. It is not a request to repeat an

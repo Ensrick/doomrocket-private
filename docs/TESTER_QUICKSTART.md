@@ -6,10 +6,11 @@ that issue is closed and needs no repeat acceptance check.
 
 [Project status](../PROJECT_STATUS.md) records verified canonical VMB publication
 for [TEST item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
-The three remaining checks below are available on this release; delivery does
-not establish their performance or visual result.
+Crunch's November 4 log confirms v0.1.97-dev. Flame colour/size and hose sway
+are accepted; W shape and vaulting still need engineering corrections.
+**v0.1.98-dev is in preparation and has not been published or handed off.**
 The v0.1.95-dev upload failed metadata validation; its GitHub release is not a
-verified Workshop update. Do not judge these three fixes from that release alone.
+verified Workshop update. Its historical build record is not a current test target.
 
 The user clarified on October 20 that the local launch rule does not apply to
 this Warlock publication-only TEST release because the game is absent here.
@@ -25,16 +26,16 @@ local game launch, alpha promotion or in-game acceptance is claimed by a build.
 3. [#69 first-spawn loading](https://github.com/Ensrick/doomrocket-private/issues/69):
    spawn one Warlock and say whether you notice a hitch, then attach the log. The
    log has the timing, so nothing else is needed. The v0.1.96-dev log measured a
-   216 ms blocking material-package load on the first spawn; this build loads it at
-   level start.
-4. [#15 gem flame](https://github.com/Ensrick/doomrocket-private/issues/15): the
-   candidate uses greener tint, 50% larger native dimensions than v0.1.96-dev and
-   a lower anchor toward the crystal's base.
-   Report colour, size and position. No tuning command is needed.
-5. [#3 hose](https://github.com/Ensrick/doomrocket-private/issues/3): report whether
-   the section that deformed in your video is gone, and whether the motion now sits
-   between v0.1.94-dev (too light) and v0.1.96-dev (stiff). The log's
-   `[doomrocket:HOSE]` lines now include span and peak bend.
+   216 ms blocking material-package load on the first spawn; this build requests
+   it asynchronously when the level world and required donors are ready.
+
+[#15 flame colour and size](https://github.com/Ensrick/doomrocket-private/issues/15#issuecomment-6624849555)
+and [#3 hose sway](https://github.com/Ensrick/doomrocket-private/issues/3#issuecomment-6624724867)
+are accepted and need no repeated acceptance check. Engineering is preparing
+v0.1.98-dev to retain the hose's W shape with the same sway settings and correct
+legacy vault/landing presentation. Those new checks remain pending until
+verified publication. The existing written reports and log are sufficient;
+no repeated failure demonstration or recording is requested.
 
 There is no requirement to complete all issues in one session or repeat
 already accepted behavior. Written observations and matching logs suffice.
@@ -50,9 +51,11 @@ optional [new-spawn controller rehearsal and passive probe](ANIMATION_AUTHORING.
 It uses existing stock idle and does not establish final Blender-export or
 localized outfit acceptance. The accepted #65 spawn fix needs no repeat gate.
 Original clips, tracks, visible transitions and custom-pose ownership remain
-preserved. Crunch's November 2 vaulting failure in #53 is accepted and awaits
-engineering diagnosis. This release does not claim a vaulting fix; no repeat
-demonstration or recording is requested for that known failure.
+preserved. Crunch's November 4 follow-up supplies the matching v0.1.97-dev log
+for the accepted vaulting failure: `jump_up_5m` and `jump_down_land` are unsupported
+by the visible outfit. v0.1.97-dev has no vaulting fix. The v0.1.98-dev traversal
+candidate is in preparation; the optional idle rehearsal does not establish its
+acceptance or acceptance of a custom export.
 
 Crunch heard the lower voice volume in v0.1.94-dev (#5). Further ordinary-play
 loudness/cleanup observations remain useful; no new volume reduction is included
