@@ -1,14 +1,14 @@
 # Development TEST quickstart
 
-The current verified Workshop TEST is **v0.1.97-dev**. Crunch accepted the
+The current verified Workshop TEST is **v0.1.98-dev**. Crunch accepted the
 v0.1.94-dev ordinary-spawn crash fix [#65](https://github.com/Ensrick/doomrocket-private/issues/65);
 that issue is closed and needs no repeat acceptance check.
 
 [Project status](../PROJECT_STATUS.md) records verified canonical VMB publication
 for [TEST item 3794172730](https://steamcommunity.com/sharedfiles/filedetails/?id=3794172730).
 Crunch's November 4 log confirms v0.1.97-dev. Flame colour/size and hose sway
-are accepted; W shape and vaulting still need engineering corrections.
-**v0.1.98-dev is in preparation and has not been published or handed off.**
+are accepted. Verified v0.1.98-dev supplies W-shape and shipping legacy traversal
+candidates for written in-game verdicts.
 The v0.1.95-dev upload failed metadata validation; its GitHub release is not a
 verified Workshop update. Its historical build record is not a current test target.
 
@@ -17,11 +17,11 @@ this Warlock publication-only TEST release because the game is absent here.
 Crunch's in-game feedback remains the runtime check. No local deployment,
 local game launch, alpha promotion or in-game acceptance is claimed by a build.
 
-## Current v0.1.97-dev follow-up
+## Current v0.1.98-dev follow-up
 
 1. Refresh the TEST subscription and restart Vermintide 2 in the Modded Realm.
    Enable Vermintide Mod Framework above TEST; disable public item 3771657344.
-2. Confirm `[doomrocket:LOAD] v0.1.97-dev` in the new console log. If it differs,
+2. Confirm `[doomrocket:LOAD] v0.1.98-dev` in the new console log. If it differs,
    report the mismatch before judging these changes.
 3. [#69 first-spawn loading](https://github.com/Ensrick/doomrocket-private/issues/69):
    spawn one Warlock and say whether you notice a hitch, then attach the log. The
@@ -31,10 +31,12 @@ local game launch, alpha promotion or in-game acceptance is claimed by a build.
 
 [#15 flame colour and size](https://github.com/Ensrick/doomrocket-private/issues/15#issuecomment-6624849555)
 and [#3 hose sway](https://github.com/Ensrick/doomrocket-private/issues/3#issuecomment-6624724867)
-are accepted and need no repeated acceptance check. Engineering is preparing
-v0.1.98-dev to retain the hose's W shape with the same sway settings and correct
-legacy vault/landing presentation. Those new checks remain pending until
-verified publication. The existing written reports and log are sufficient;
+are accepted and need no repeated acceptance check. On v0.1.98-dev, describe
+whether the hose retains its W-shaped resting bends during walking and stopping
+(#3), and whether the visible body and weapon follow ordinary vaults/landings
+and return naturally to walking or aiming (#53). The current sway settings are
+retained. This traversal check applies to the shipping legacy profile; it does
+not accept custom-export playback, localized outfits or the native oracle. The existing written reports and log are sufficient;
 no repeated failure demonstration or recording is requested.
 
 There is no requirement to complete all issues in one session or repeat
@@ -54,8 +56,8 @@ Original clips, tracks, visible transitions and custom-pose ownership remain
 preserved. Crunch's November 4 follow-up supplies the matching v0.1.97-dev log
 for the accepted vaulting failure: `jump_up_5m` and `jump_down_land` are unsupported
 by the visible outfit. v0.1.97-dev has no vaulting fix. The v0.1.98-dev traversal
-candidate is in preparation; the optional idle rehearsal does not establish its
-acceptance or acceptance of a custom export.
+candidate is published for its scoped written verdict; the optional idle
+rehearsal does not establish traversal or custom-export acceptance.
 
 Crunch heard the lower voice volume in v0.1.94-dev (#5). Further ordinary-play
 loudness/cleanup observations remain useful; no new volume reduction is included
