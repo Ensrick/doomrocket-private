@@ -26,7 +26,7 @@ import sys
 import tempfile
 
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -766,6 +766,192 @@ def run_mutation_checks(scene, rig, names, rest, samples, tolerance):
     return checks
 
 
+INDEPENDENT_PROP_BINDINGS = {
+    "CTRL-weapon": "j_leftweaponattach",
+    "CTRL-rocket": "j_leftweaponcomponent2",
+}
+
+
+def normalized_native_rotation(matrix):
+    """Match Unit.world_rotation's normalized-axis quaternion convention."""
+    rotation = matrix.to_3x3().copy()
+    for column in range(3):
+        axis = rotation.col[column]
+        require(axis.length > 1e-8, "Native prop frame has a zero axis")
+        rotation.col[column] = axis / axis.length
+    a, b, c = rotation[0][0], rotation[1][1], rotation[2][2]
+    if a + b + c > 0:
+        scale = 2 * math.sqrt(1 + a + b + c)
+        quaternion = Quaternion((scale/4, (rotation[2][1]-rotation[1][2])/scale,
+            (rotation[0][2]-rotation[2][0])/scale, (rotation[1][0]-rotation[0][1])/scale))
+    elif a > b and a > c:
+        scale = 2 * math.sqrt(1+a-b-c)
+        quaternion = Quaternion(((rotation[2][1]-rotation[1][2])/scale, scale/4,
+            (rotation[0][1]+rotation[1][0])/scale, (rotation[0][2]+rotation[2][0])/scale))
+    elif b > c:
+        scale = 2 * math.sqrt(1+b-a-c)
+        quaternion = Quaternion(((rotation[0][2]-rotation[2][0])/scale,
+            (rotation[0][1]+rotation[1][0])/scale, scale/4, (rotation[1][2]+rotation[2][1])/scale))
+    else:
+        scale = 2 * math.sqrt(1+c-a-b)
+        quaternion = Quaternion(((rotation[1][0]-rotation[0][1])/scale,
+            (rotation[0][2]+rotation[2][0])/scale, (rotation[1][2]+rotation[2][1])/scale, scale/4))
+    return quaternion.normalized()
+
+
+def authoring_capabilities(scene, game, samples):
+    """Attest real exported prop channels, never viewport-only controller claims.
+
+    Old rigs retain their existing three-link policy and receive no marker. A
+    revised rig has to present the exact two supported native-local mappings,
+    preview frames matching the actual GAME result, and an observable GAME
+    response when each control is perturbed. Anatomical scale can prevent an
+    arbitrary rigid world rotation from being represented as native local TRS;
+    the preview therefore shows the normalized actual native result. The probe
+    restores the editable basis and frame and does not insert/remove keys.
+    """
+    rig = bpy.data.objects.get("WARLOCK_CTRL")
+    if rig is None or not rig.get("warlock_weapon_follow_manifest"):
+        return None
+    raw = rig["warlock_weapon_follow_manifest"]
+    try:
+        manifest = json.loads(raw)
+    except (TypeError, ValueError) as error:
+        raise ValueError("Malformed weapon-control binding manifest") from error
+    if "export_bindings" not in manifest and "rocket_capability" not in manifest:
+        return None
+    require(manifest.get("export_bindings") == INDEPENDENT_PROP_BINDINGS
+            and manifest.get("rocket_capability") == "independent-loaded-rocket-v1"
+            and manifest.get("export_transform_policy") == "native-local-trs-v1"
+            and manifest.get("preview_policy") == "normalized-actual-game-v1",
+            "Unsupported or incomplete authored prop-channel bindings")
+    expected_deltas = {"CTRL-weapon": "MCH-warlock-weapon-local-delta",
+                       "CTRL-rocket": "MCH-warlock-rocket-local-delta"}
+    previews = manifest.get("preview_objects", {})
+    local_frames = manifest.get("preview_local_frames", {})
+    require(set(previews) == set(INDEPENDENT_PROP_BINDINGS)
+            and set(local_frames) == set(INDEPENDENT_PROP_BINDINGS),
+            "Authored prop preview bindings are incomplete")
+    for control_name, bone_name in INDEPENDENT_PROP_BINDINGS.items():
+        require(control_name in rig.pose.bones and bone_name in game.pose.bones,
+                "Authored prop control or GAME channel is missing")
+        active = [constraint for constraint in game.pose.bones[bone_name].constraints
+                  if not constraint.mute and constraint.influence > 1e-6]
+        require(len(active) >= 2, "Authored prop GAME channel has no active drivers")
+        local, location = active[-2:]
+        require(local.type == "COPY_TRANSFORMS" and local.target == rig
+                and local.subtarget == expected_deltas[control_name]
+                and local.owner_space == "LOCAL" and local.target_space == "LOCAL"
+                and local.mix_mode == "AFTER_SPLIT" and abs(local.influence - 1.) < 1e-6
+                and location.type == "COPY_LOCATION" and location.target == rig
+                and location.subtarget == control_name
+                and location.owner_space == "WORLD" and location.target_space == "WORLD"
+                and not location.use_offset and location.use_x and location.use_y and location.use_z
+                and abs(location.influence - 1.) < 1e-6,
+                "Authored prop GAME channel is not driven by its declared control")
+        delta = rig.pose.bones.get(expected_deltas[control_name])
+        require(delta is not None, "Native-local prop delta is missing")
+        delta_constraints = [constraint for constraint in delta.constraints
+                             if not constraint.mute and constraint.influence > 1e-6]
+        require(len(delta_constraints) == 1, "Native-local prop delta has unexpected drivers")
+        copied = delta_constraints[0]
+        require(copied.type == "COPY_TRANSFORMS" and copied.target == rig
+                and copied.subtarget == control_name
+                and copied.owner_space == "WORLD" and copied.target_space == "WORLD"
+                and copied.mix_mode == "REPLACE" and abs(copied.influence - 1.) < 1e-6,
+                "Native-local prop delta does not follow the declared control")
+        preview = bpy.data.objects.get(previews[control_name])
+        require(preview is not None and preview.get("authoring_reference_only") is True,
+                "Authored prop preview object is missing or is not reference-only")
+        local_frames[control_name] = Matrix(local_frames[control_name])
+        validate_matrix(local_frames[control_name], "Prop preview local frame")
+
+    initial_frame = scene.frame_current
+    saved = {name: rig.pose.bones[name].matrix_basis.copy()
+             for name in INDEPENDENT_PROP_BINDINGS}
+    position_error = 0.
+    axis_error = 0.
+    responses = []
+
+    def evaluated_worlds():
+        rig.update_tag()
+        bpy.context.view_layer.update()
+        graph = bpy.context.evaluated_depsgraph_get()
+        native = game.evaluated_get(graph)
+        return {control: (bpy.data.objects[previews[control]].evaluated_get(graph).matrix_world.copy(),
+                          native.matrix_world @ native.pose.bones[bone].matrix)
+                for control, bone in INDEPENDENT_PROP_BINDINGS.items()}
+
+    def measure(pairs):
+        nonlocal position_error, axis_error
+        for control_name, (preview, native) in pairs.items():
+            validate_matrix(native, INDEPENDENT_PROP_BINDINGS[control_name])
+            validate_matrix(preview, control_name + " preview")
+            expected = Matrix.LocRotScale(native.translation, normalized_native_rotation(native),
+                                         Vector((1, 1, 1))) @ local_frames[control_name]
+            position_error = max(position_error, (preview.translation - expected.translation).length)
+            axis_error = max(axis_error, max(
+                ((preview.to_3x3().col[index] - expected.to_3x3().col[index]) * AXIS_PROBE_LENGTH).length
+                for index in range(3)))
+
+    try:
+        for sample in samples:
+            scene.frame_set(sample["frame"])
+            pairs = evaluated_worlds()
+            measure(pairs)
+            require(all(matrix_error(native, sample["bones"][INDEPENDENT_PROP_BINDINGS[control]]) <= 5e-5
+                        for control, (_, native) in pairs.items()),
+                    "Prop-capability measurement differs from the baked GAME samples")
+        scene.frame_set(samples[0]["frame"])
+        before = evaluated_worlds()
+        for control_name in INDEPENDENT_PROP_BINDINGS:
+            control = rig.pose.bones[control_name]
+            basis = control.matrix_basis.copy()
+            try:
+                control.location.x += .012
+                after = evaluated_worlds()
+                measure(after)
+                response = (after[control_name][1].translation - before[control_name][1].translation).length
+                require(response >= .001, "Viewport prop control does not move its exported GAME channel")
+                responses.append(response)
+            finally:
+                control.matrix_basis = basis
+                evaluated_worlds()
+            try:
+                if control.rotation_mode == "QUATERNION":
+                    control.rotation_quaternion = control.rotation_quaternion @ Quaternion((0, 1, 0), .12)
+                else:
+                    control.rotation_euler.y += .12
+                rotated = evaluated_worlds()
+                measure(rotated)
+                rotation_response = normalized_native_rotation(before[control_name][1]).rotation_difference(
+                    normalized_native_rotation(rotated[control_name][1])).angle
+                require(min(rotation_response, 2 * math.pi - rotation_response) >= .01,
+                        "Viewport prop rotation does not move its exported GAME channel")
+            finally:
+                control.matrix_basis = basis
+                evaluated_worlds()
+        restored = evaluated_worlds()
+        require(all(matrix_error(a, c) < 2e-5 and matrix_error(b, d) < 2e-5
+                    for key, (a, b) in before.items() for c, d in [restored[key]]),
+                "Prop-capability probe did not restore the authored pose")
+        require(position_error <= 5e-5 and axis_error <= 5e-5,
+                "Authored prop previews differ from the normalized sampled GAME channels")
+    finally:
+        scene.frame_set(initial_frame)
+        for name, basis in saved.items():
+            rig.pose.bones[name].matrix_basis = basis
+        rig.update_tag()
+        bpy.context.view_layer.update()
+    return {"schema": 1, "weapon_control_policy": "independent-props-v1",
+        "export_transform_policy": "native-local-trs-v1",
+        "game_bindings": dict(INDEPENDENT_PROP_BINDINGS), "verified_control_to_game": True,
+        "maximum_position_error_m": position_error,
+        "maximum_axis_error_m_at_0_1m": axis_error,
+        "minimum_game_response_m": min(responses),
+        "binding_manifest_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest()}
+
+
 def _export_animation(args, source_dirty_at_start=False) -> dict:
     require(0 < args.tolerance <= 5e-5, "Roundtrip tolerance must not exceed 50 micrometres")
     source_scene = bpy.context.scene
@@ -808,6 +994,7 @@ def _export_animation(args, source_dirty_at_start=False) -> dict:
         dispose_scene(baseline_scene, baseline_objects)
     chain, samples = sample_game(source_scene, game, names,
                                  range(args.start, args.end + 1))
+    capabilities = authoring_capabilities(source_scene, game, samples)
     output = args.output.resolve()
     if output.suffix.lower() != ".fbx":
         output = output / "warlock_animation_probe.fbx"
@@ -840,6 +1027,8 @@ def _export_animation(args, source_dirty_at_start=False) -> dict:
             for s in samples],
         "game_runtime_acceptance": "pending; FBX and SDK checks cannot establish in-game appearance",
     }
+    if capabilities is not None:
+        manifest["authoring_capabilities"] = capabilities
     temporary_scenes = []
     occupied = bpy.data.objects.get(export_name)
     occupied_name = occupied.name if occupied else None

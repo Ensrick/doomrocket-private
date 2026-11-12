@@ -20,6 +20,11 @@ local WEAPON_LINKS = {
 	{ target = "a_barrel", source = "j_leftweaponcomponent1" },
 	{ target = "handle", source = "j_lefthand" },
 }
+-- Explicitly verified new authoring exports may animate the loaded rocket
+-- through an existing outfit channel. Ordinary/native profiles retain their
+-- original three links and the rocket's approved internal parent/pose.
+local PROP_POLICY = "independent-props-v1"
+local PROP_LINK = { target = "pRocket", source = "j_leftweaponcomponent2" }
 
 if mod._reset_warlock_grip_alignment then
 	mod._reset_warlock_grip_alignment()
@@ -89,7 +94,10 @@ end
 
 local function unlink_weapon(entry)
 	if not entry.authored_weapon then return true end
-	if not live(entry.weapon, entry.world) then entry.authored_weapon = nil; return true end
+	if not live(entry.weapon, entry.world) then
+		entry.authored_weapon, entry.authored_prop_rest = nil, nil
+		return true
+	end
 	local graph = scene_graph(entry.weapon)
 	if not graph then return false end
 	-- This is the same convention as AIInventoryExtension.unlink_unit. Never
@@ -100,6 +108,12 @@ local function unlink_weapon(entry)
 	for _, link in ipairs(graph) do
 		Unit.scene_graph_link(entry.weapon, link.i, link.parent)
 		Unit.set_local_pose(entry.weapon, link.i, link.local_pose:unbox())
+	end
+	local prop = entry.authored_prop_rest
+	if prop then
+		Unit.scene_graph_link(entry.weapon, prop.i, prop.parent)
+		Unit.set_local_pose(entry.weapon, prop.i, prop.local_pose:unbox())
+		entry.authored_prop_rest = nil
 	end
 	entry.authored_weapon = nil
 	World.update_unit(entry.world, entry.weapon)
@@ -138,16 +152,24 @@ end
 
 local function weapon_links(profile)
 	local links = profile and profile.weapon_links
-	if type(links) ~= "table" or #links ~= #WEAPON_LINKS then return false end
-	for i, expected in ipairs(WEAPON_LINKS) do
+	local policy = profile and profile.weapon_control_policy
+	if policy ~= nil and policy ~= PROP_POLICY then return false end
+	local extra = policy == PROP_POLICY
+	if type(links) ~= "table" or #links ~= #WEAPON_LINKS + (extra and 1 or 0) then return false end
+	for i = 1, #links do
+		local expected = WEAPON_LINKS[i] or PROP_LINK
 		local link = links[i]
 		local scale = type(link) == "table" and link.world_scale
+		-- Compiled pRocket geometry remains in the approved scale-100 FBX
+		-- mesh frame. Its frame must not be confused with the rigid root/helper
+		-- frames, whose explicit world scale is one.
+		local expected_scale = i > #WEAPON_LINKS and 100 or 1
 		if type(link) ~= "table" or link.target ~= expected.target or link.source ~= expected.source
 			or type(scale) ~= "table" or #scale ~= 3
-			or scale[1] ~= 1 or scale[2] ~= 1 or scale[3] ~= 1
+			or scale[1] ~= expected_scale or scale[2] ~= expected_scale or scale[3] ~= expected_scale
 			or link.offset ~= nil then return false end
 	end
-	return true
+	return links
 end
 
 -- Quaternion.normalize is not used by any VT2 script, so it may be absent
@@ -181,19 +203,50 @@ local function follow_authored_weapon(owner, entry, channels)
 		if not unlink_weapon(entry) then entry.status = "invalid_weapon_graph"; return end
 		entry.weapon = weapon
 	end
-	if not weapon_links(channels.profile) then entry.status = "invalid_weapon_manifest"; return end
+	local links = weapon_links(channels.profile)
+	if not links then entry.status = "invalid_weapon_manifest"; return end
 	local graph = scene_graph(weapon)
 	if not graph then entry.status = "invalid_weapon_graph"; return end
+	local prop_rest = entry.authored_prop_rest
+	if #links > #WEAPON_LINKS then
+		if not Unit.has_node(weapon, PROP_LINK.target) or not Unit.has_node(weapon, "pRocketLauncher") then
+			entry.status = "missing_weapon_node"; return
+		end
+		local node = Unit.node(weapon, PROP_LINK.target)
+		local parent = Unit.scene_graph_parent(weapon, node)
+		if not finite(parent) or parent ~= math.floor(parent) or parent < 0 or parent >= node
+			or parent ~= Unit.node(weapon, "pRocketLauncher") then
+			entry.status = "invalid_weapon_graph"; return
+		end
+		if not prop_rest then
+			local pose = Unit.local_pose(weapon, node)
+			local root = Unit.world_pose(weapon, 0)
+			if not Matrix4x4.is_valid(pose) or not positive_frame(root) then
+				entry.status = "invalid_weapon_graph"; return
+			end
+			local relative = Matrix4x4.multiply(Unit.world_pose(weapon, node),
+				Matrix4x4.inverse(root))
+			if not Matrix4x4.is_valid(relative) then entry.status = "invalid_weapon_graph"; return end
+			prop_rest = { i = node, parent = parent, local_pose = Matrix4x4Box(pose),
+				root_relative = Matrix4x4Box(relative) }
+		elseif prop_rest.i ~= node or prop_rest.parent ~= parent then
+			entry.status = "invalid_weapon_graph"; return
+		end
+	end
 	local prepared, desired, parents, original = {}, {}, {}, {}
 	for _, link in ipairs(graph) do
 		parents[link.i] = link.parent
 		original[link.i] = link.local_pose:unbox()
 	end
+	if prop_rest then
+		parents[prop_rest.i] = prop_rest.parent
+		original[prop_rest.i] = prop_rest.local_pose:unbox()
+	end
 	local root_parent = Unit.world_pose(owner, 0)
 	local root_ok, a, b, c = orthogonal(root_parent)
 	if not root_ok or not positive_frame(root_parent) or math.abs(a - b) > a * 0.0001
 		or math.abs(a - c) > a * 0.0001 then entry.status = "invalid_weapon_parent"; return end
-	for i, link in ipairs(WEAPON_LINKS) do
+	for i, link in ipairs(links) do
 		if not Unit.has_node(entry.outfit, link.source)
 			or (type(link.target) == "string" and not Unit.has_node(weapon, link.target)) then
 			entry.status = "missing_weapon_node"; return
@@ -207,6 +260,11 @@ local function follow_authored_weapon(owner, entry, channels)
 		if not rotation then entry.status = "invalid_weapon_rotation"; return end
 		local rigid = Matrix4x4.from_quaternion_position(rotation,
 			Unit.world_position(entry.outfit, source))
+		if i > #WEAPON_LINKS then
+			for _, axis in ipairs({"x", "y", "z"}) do
+				Matrix4x4["set_" .. axis](rigid, times(Matrix4x4[axis](rigid), 100))
+			end
+		end
 		if not orthogonal(rigid) or not positive_frame(rigid) then
 			entry.status = "invalid_weapon_frame"; return
 		end
@@ -248,6 +306,14 @@ local function follow_authored_weapon(owner, entry, channels)
 		Unit.scene_graph_link(weapon, link.i, link.parent)
 		Unit.set_local_pose(weapon, link.i, link.local_pose:unbox())
 	end
+	-- The native inventory's metadata contains only its two externally linked
+	-- helpers. Preserve the loaded mesh's own rest record separately; never add
+	-- generated entries to shared/native scene_graph_data.
+	if prop_rest then
+		Unit.scene_graph_link(weapon, prop_rest.i, prop_rest.parent)
+		Unit.set_local_pose(weapon, prop_rest.i, prop_rest.local_pose:unbox())
+	end
+	entry.authored_prop_rest = #links > #WEAPON_LINKS and prop_rest or nil
 	entry.authored_weapon = true
 	World.link_unit(entry.world, weapon, 0, owner, 0)
 	for _, link in ipairs(prepared) do
@@ -363,6 +429,104 @@ local function target_pairs(owner, outfit)
 	return node_pairs, parents
 end
 
+-- Prepare only the native endpoint of an opted-in prop integration. The
+-- compositor applies these to its hidden incoming LEGACY sample, never to an
+-- incoming authored pose or the outgoing artist snapshot. Rest geometry comes
+-- from the wielded approved unit, not from a dormant legacy component track.
+local function prepare_legacy_props(owner, entry, helper, profile, grip)
+	local links = weapon_links(profile)
+	if not links or #links ~= #WEAPON_LINKS + 1 then return nil, "invalid_prop_policy" end
+	local weapon = wielded_weapon(entry)
+	if not weapon then return nil, "missing_native_prop" end
+	local base = scene_graph(weapon)
+	if not base or not Unit.has_node(weapon, "pRocket") then return nil, "invalid_weapon_graph" end
+	local relative
+	if entry.authored_prop_rest then
+		if weapon ~= entry.weapon then return nil, "changed_native_prop" end
+		relative = entry.authored_prop_rest.root_relative:unbox()
+	else
+		local root = Unit.world_pose(weapon, 0)
+		if not positive_frame(root) then return nil, "invalid_prop_rest" end
+		relative = Matrix4x4.multiply(Unit.world_pose(weapon, Unit.node(weapon, "pRocket")),
+			Matrix4x4.inverse(root))
+	end
+	if not Matrix4x4.is_valid(relative) then return nil, "invalid_prop_rest" end
+	local parent_pose = Unit.world_pose(owner, 0)
+	local parent_ok, pa, pb, pc = orthogonal(parent_pose)
+	if not parent_ok or not positive_frame(parent_pose)
+		or math.abs(pa - pb) > pa * 0.0001 or math.abs(pa - pc) > pa * 0.0001 then
+		return nil, "invalid_weapon_parent"
+	end
+	local desired, overrides, cache, targets = {}, {}, {}, {}
+	for _, record in ipairs(grip) do
+		local pose = Matrix4x4.from_quaternion_position(record.rotation, record.position)
+		local scale = Unit.local_scale(helper, record.node)
+		if not Vector3.is_valid(scale) then return nil, "invalid_prop_grip" end
+		Matrix4x4.set_x(pose, times(Matrix4x4.x(pose), scale.x))
+		Matrix4x4.set_y(pose, times(Matrix4x4.y(pose), scale.y))
+		Matrix4x4.set_z(pose, times(Matrix4x4.z(pose), scale.z))
+		overrides[record.node] = pose
+	end
+	for i, name in ipairs({"j_leftweaponattach", "j_leftweaponcomponent1", "j_leftweaponcomponent2"}) do
+		if not Unit.has_node(helper, name) then return nil, "missing_prop_target" end
+		local target = Unit.node(helper, name)
+		local source = i == 3 and "j_leftweaponattach" or name
+		if not Unit.has_node(owner, source) then return nil, "missing_native_prop_source" end
+		local source_node = Unit.node(owner, source)
+		local rotation = normalized(Unit.world_rotation(owner, source_node))
+		if not rotation then return nil, "invalid_weapon_rotation" end
+		local pose = Matrix4x4.from_quaternion_position(rotation, Unit.world_position(owner, source_node))
+		if i == 3 then
+			pose = Matrix4x4.multiply(relative, pose)
+			local r = normalized(Matrix4x4.rotation(pose))
+			if not r then return nil, "invalid_prop_rest" end
+			pose = Matrix4x4.from_quaternion_position(r, Matrix4x4.translation(pose))
+		end
+		local ok, a, b, c = orthogonal(Unit.world_pose(helper, target))
+		if not ok or math.abs(a - b) > a * .0001 or math.abs(a - c) > a * .0001 then
+			return nil, "unsupported_prop_scale"
+		end
+		for _, axis in ipairs({"x", "y", "z"}) do
+			Matrix4x4["set_" .. axis](pose, times(Matrix4x4[axis](pose), a))
+		end
+		if not positive_frame(pose) then return nil, "invalid_prop_frame" end
+		desired[target] = pose
+		targets[#targets+1] = target
+	end
+	local function parent_world(node, depth)
+		if desired[node] then return desired[node] end
+		if cache[node] then return cache[node] end
+		if node == 0 then return Unit.world_pose(helper, 0) end
+		if depth > 256 then return end
+		local parent = Unit.scene_graph_parent(helper, node)
+		if not finite(parent) or parent ~= math.floor(parent) or parent < 0 or parent == node then return end
+		local world = parent_world(parent, depth + 1)
+		if not world then return end
+		local pose = Matrix4x4.multiply(overrides[node] or Unit.local_pose(helper, node), world)
+		cache[node] = pose
+		return pose
+	end
+	local prepared = {}
+	for _, target in ipairs(targets) do
+		local parent = Unit.scene_graph_parent(helper, target)
+		if not finite(parent) or parent ~= math.floor(parent) or parent < 0 or parent == target then
+			return nil, "invalid_prop_parent"
+		end
+		local world = parent_world(parent, 0)
+		if not world or not positive_frame(world) then return nil, "invalid_prop_parent" end
+		local pose = Matrix4x4.multiply(desired[target], Matrix4x4.inverse(world))
+		local ok, a, b, c = orthogonal(pose)
+		local scale = Unit.local_scale(helper, target)
+		if not ok or not positive_frame(pose) or not Vector3.is_valid(scale)
+			or math.abs(a - scale.x) > .001 or math.abs(b - scale.y) > .001
+			or math.abs(c - scale.z) > .001 then return nil, "unsupported_prop_local_scale" end
+		prepared[#prepared+1] = { node = target, pose = pose,
+			position = Matrix4x4.translation(pose), rotation = Matrix4x4.rotation(pose) }
+	end
+	if not weapon_links(profile) then return nil, "invalid_prop_policy" end
+	return prepared
+end
+
 -- The presentation compositor is the sole authority for this hidden target.
 -- Return current-frame native temporaries; preflight every candidate without
 -- changing either the displayed outfit or the helper's authored clip data.
@@ -377,6 +541,20 @@ function mod._prepare_warlock_legacy_grip_pose(owner, helper, token)
 	World.update_unit(entry.world, owner)
 	World.update_unit(entry.world, helper)
 	return prepare_legacy(owner, { outfit = helper, pairs = pairs, parents = parents })
+end
+
+function mod._prepare_warlock_legacy_prop_pose(owner, helper, profile, grip, token)
+	local entry = entries[owner]
+	local authorize = mod._warlock_transition_helper_valid
+	if not entry or not valid(owner, entry) or not entry.mirrored or not authorize
+		or not authorize(owner, helper, nil, token) or not live(helper, entry.world)
+		or helper == owner or helper == entry.outfit or type(grip) ~= "table" or #grip ~= 12 then
+		return nil, "inactive_prop_helper"
+	end
+	World.update_unit(entry.world, owner)
+	World.update_unit(entry.world, helper)
+	if live(entry.weapon, entry.world) then World.update_unit(entry.world, entry.weapon) end
+	return prepare_legacy_props(owner, entry, helper, profile, grip)
 end
 
 local function apply(owner, entry)
@@ -408,10 +586,16 @@ local function apply(owner, entry)
 	end
 	local writes, status = prepare_legacy(owner, entry)
 	if not writes then entry.status = status; return end
-	for i = 1, #writes do
-		local write = writes[i]
-		Unit.set_local_rotation(entry.outfit, write.node, write.rotation)
-		Unit.set_local_position(entry.outfit, write.node, write.position)
+	local props = {}
+	if channels.profile and channels.profile.weapon_control_policy ~= nil then
+		props, status = prepare_legacy_props(owner, entry, entry.outfit, channels.profile, writes)
+		if not props then entry.status = status; return end
+	end
+	for _, group in ipairs({writes, props}) do
+		for _, write in ipairs(group) do
+			Unit.set_local_rotation(entry.outfit, write.node, write.rotation)
+			Unit.set_local_position(entry.outfit, write.node, write.position)
+		end
 	end
 	World.update_unit(entry.world, entry.outfit)
 	entry.status = "active"

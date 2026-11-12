@@ -14,6 +14,8 @@ from pathlib import Path
 import bpy
 from mathutils import Matrix, Vector
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 BODY = 'units/warlock_bombardier/warlock_bombardier_3p.fbx'
 READY_SHA = '0f23c954bf9bb0a68d4d5ecc22ee5f8a7f69e99e242b5f3812e857f9853574d1'
 
@@ -185,7 +187,7 @@ def build(options):
         'rest':matrix_list(b.matrix_local),'inherit_scale':b.inherit_scale} for b in game.data.bones]
     RIG['warlock_game_armature'] = game.name
     RIG['warlock_tools_directory'] = str(out)
-    RIG['warlock_rig_version'] = '1.0'
+    RIG['warlock_rig_version'] = '1.1'
     RIG['engine_boundary'] = 'Authoring controls are never exported. Bake WARLOCK_GAME only.'
     game['source_fbx_sha256'] = digest(body)
     game['original_skeleton'] = json.dumps(signature)
@@ -260,15 +262,10 @@ def build(options):
     for side,digit,segment,native,mch,settings in finger_records:
         segment_control=make_curve(native,'circle',.027,'Fingers',(.3,.65,1) if side=='left' else (1,.35,.3))
         segment_control.lock_location=(True,True,True);segment_control.lock_scale=(True,True,True)
-        pb=RIG.pose.bones[mch];pb.rotation_mode='XYZ'
-        path=f'pose.bones["{settings}"]'
-        # Local X is the bend axis; segment controls remain free for correction.
-        factor=(.5,.85,1.0)[segment] if digit=='thumb' else (.7,1.,.85)[segment]
-        driver(pb,'rotation_euler',f'(curl + individual) * {factor}',[
-            ('curl',RIG,path+'["curl"]'),('individual',RIG,path+f'["curl_{digit}"]')],0)
-        if segment==0:
-            factor={'thumb':-.35,'index':-.25,'middle':0.,'ring':.2,'pinky':.4}[digit]
-            driver(pb,'rotation_euler',f'spread * {factor}',[('spread',RIG,path+'["spread"]')],2)
+    # Shipping finger joint-to-child axes are not Blender's assumed local Y.
+    # Calibrate bend and fan directions from each actual anatomical chain.
+    from finger_controls import install_finger_drivers
+    finger_calibration = install_finger_drivers(RIG, finger_records)
     for name in ('j_neck','j_neck_1','j_head','j_jaw','j_leftear','j_rightear','j_nose',
         'j_lefteyelidtop','j_righteyelidtop','j_lefteyebrow1','j_righteyebrow1'):
         make_curve('ORG-'+name,'circle',.13 if name=='j_head' else .045,'Face')
@@ -378,12 +375,12 @@ def build(options):
     weapon_rig=next(o for o in weapon_objects if o.type=='ARMATURE')
     weapon_rig.name='WARLOCK_LAUNCHER_REFERENCE';weapon_rig.animation_data_clear()
     weapon_rig.matrix_world=Matrix.Identity(4)
-    c=weapon_rig.constraints.new('CHILD_OF');c.target=game;c.subtarget='j_leftweaponattach';c.inverse_matrix=Matrix.Identity(4)
-    c.use_scale_x=False;c.use_scale_y=False;c.use_scale_z=False
-    c.use_rotation_x=False;c.use_rotation_y=False;c.use_rotation_z=False
-    weapon_reference_rotation(weapon_rig,game)
+    from weapon_controls import build_weapon_controls
+    weapon_controls = build_weapon_controls(RIG,game,weapon_rig,weapon_objects,GROUPS,WIDGETS)
     weapon_rig['authoring_reference_only']=True;weapon_rig.hide_set(True)
     for obj in weapon_objects: obj['authoring_reference_only']=True
+    from control_widgets import apply_widgets
+    widget_manifest = apply_widgets(RIG,game,meshes[0],GROUPS,WIDGETS)
     WIDGETS.hide_viewport=True
     for obj in keep-{RIG}:
         if obj.name in bpy.context.view_layer.objects: obj.hide_set(True)
@@ -391,11 +388,16 @@ def build(options):
         if col.name.startswith(('ORG','DEF','MCH')) or col.name=='Warlock extra mechanisms': col.is_visible=False
     defaults={pb.name:{k:pb[k] for k in pb.keys() if isinstance(pb[k],(int,float))}
         for pb in RIG.pose.bones}
-    manifest={'schema':1,'version':'1.0','groups':GROUPS,'sources':{
+    manifest={'schema':1,'version':'1.1','groups':GROUPS,'sources':{
         'controls_file':str(controls),'controls_sha256':digest(controls),
         'body_fbx':str(body),'body_sha256':digest(body),
-        'weapon_reference_fbx':str(weapon_source),'weapon_reference_sha256':digest(weapon_source)},'skeleton':signature,
+        'weapon_reference_fbx':str(weapon_source),'weapon_reference_sha256':digest(weapon_source),
+        'tools_sha256':{name:digest(Path(__file__).with_name(name)) for name in
+            ('build_rig.py','finger_controls.py','control_widgets.py','weapon_controls.py',
+             'warlock_rig_ui.py','accessory_weights.py')}},'skeleton':signature,
         'corrective_skin':corrections,'engine_helper':{'aim_target':[.1,5.,.6]},
+        'finger_calibration':finger_calibration,'weapon_controls':weapon_controls,
+        'widgets':widget_manifest,
         'export_axes':{'forward':'-Y','up':'Z'},
         'limits':'No new game skeleton bones; B-Bone interpolation and implicit solver scale are not exported. Anatomical scale uses CTRL-shape properties.'}
     RIG['warlock_control_manifest']=json.dumps(manifest)
@@ -412,13 +414,22 @@ def build(options):
             area.spaces.active.shading.type='MATERIAL'
     readme=bpy.data.texts.new('START HERE - Warlock animation rig')
     readme.write('Animate WARLOCK_CTRL. Select body-part curves; do not edit WARLOCK_GAME bones.\n'
-        'Install or Run Script warlock_rig_ui.py for snap buttons and export.\n'
+        'For buttons: open text warlock_rig_ui.py in the Text Editor, then Run Script.\n'
+        'The script registers the Warlock sidebar; it does not regenerate or pose the rig.\n'
+        'Use Activate controls in that sidebar if the body mesh is selected.\n'
         'FK/IK: 0 = IK, 1 = FK. Foot heel/toe controls are under Legs IK.\n'
         'Finger curl/spread: CTRL-hand-settings-left/right. Twist: CTRL-forearm-twist-left/right.\n'
+        'Hand settings also contain independent weapon/rocket follow and right-hand weapon follow.\n'
+        'Use the Warlock panel matched follow switches to keep the current pose.\n'
         'Stretch/squash: CTRL-shape-* properties length / volume; bounded .75..1.35.\n'
         'Cloth/belt controls change existing geometry through revised weights: body FBX update is required.\n'
         'Use the supplied evaluated-bone exporter, not normal Export All or Apply Pose as Rest.\n'
         'Roundtrip / SDK checks are separate from an in-game visual verdict.\n')
+    # Embed only the reviewed optional UI, never inherited generated text or an
+    # auto-run module. Manual Run Script then uses this exact handoff revision.
+    ui_text=bpy.data.texts.new('warlock_rig_ui.py')
+    ui_text.write(Path(__file__).with_name('warlock_rig_ui.py').read_text(encoding='utf-8'))
+    ui_text.use_module=False
     bpy.context.preferences.filepaths.save_version=0
     path=out/'WarlockEngineer_AnimationRig.blend'
     manifest_path=out/'rig_manifest.json'

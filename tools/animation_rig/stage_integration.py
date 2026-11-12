@@ -29,10 +29,19 @@ APPROVED_REST_SHA = "b3da934daa268f11d5153cb06d581cfcf9cc2f61584b601fa72b7ec8378
 APPROVED_EXPORTERS = {
     "1f4263bbe95299ac88aece4bf0b2e122fb98d2426a46fa1d84c25e24fc037f74",
     "501db4fbb8c48141b94e5efa74813516ea237cf9a608641799de2a500e81f1aa",
+    "98751f0abe9db0717539d85c6da431960c21e3dea1e9b1bb85a682a148e97208",
 }
+# A legacy exporter hash cannot opt into a capability it never measured.
+# Populate only with reviewed revisions that verify the control-to-GAME bridge.
+INDEPENDENT_PROP_EXPORTERS = {
+    "98751f0abe9db0717539d85c6da431960c21e3dea1e9b1bb85a682a148e97208",
+}
+PROP_POLICY = "independent-props-v1"
+PROP_BINDINGS = {"CTRL-weapon": "j_leftweaponattach", "CTRL-rocket": "j_leftweaponcomponent2"}
 APPROVED_BODY_EXPORTERS = {
     "ca93a59cdf2d3ef7cbcc0abce21bf8249406a9f4f3e5074380ff9ef25287115d",
     "e493703735774ff9a9698e6378fdbb71bf9de49bb8ca7e45f073aa404c628977",
+    "849bc14e2ea13fa24e8cc23ef523968e82f2add75ff01e6a2975670e3a4291b1",
 }
 CLIPS = ("combat_idle", "combat_reload_loop", "combat_reload_start", "combat_run",
          "combat_run_start_fwd", "combat_shoot_loop", "combat_shoot_start", "combat_walk",
@@ -331,12 +340,52 @@ def validate_sdk_diagnostic(sdk, count, first_frame):
             bounded(sample.get("axis_probe_error_m"), halfway["tolerance_m"], "halfway axis")
 
 
+def validated_prop_policy(receipt):
+    """Accept only the exact capability measured by a reviewed new exporter."""
+    capability = receipt.get("authoring_capabilities")
+    if capability is None:
+        return None
+    fields = {"schema", "weapon_control_policy", "game_bindings", "verified_control_to_game",
+              "maximum_position_error_m", "maximum_axis_error_m_at_0_1m",
+              "minimum_game_response_m", "binding_manifest_sha256", "export_transform_policy"}
+    require(isinstance(capability, dict) and set(capability) == fields,
+            "Unsupported authored prop capability schema")
+    require(receipt.get("export_script_sha256") in INDEPENDENT_PROP_EXPORTERS,
+            "Authored prop capability requires a reviewed control-to-GAME exporter")
+    require(type(capability["schema"]) is int and capability["schema"] == 1
+            and capability["weapon_control_policy"] == PROP_POLICY
+            and capability["game_bindings"] == PROP_BINDINGS
+            and capability["export_transform_policy"] == "native-local-trs-v1"
+            and capability["verified_control_to_game"] is True,
+            "Unverified authored prop binding policy")
+    for field in ("maximum_position_error_m", "maximum_axis_error_m_at_0_1m"):
+        error = capability[field]
+        require(type(error) in (int, float) and finite(error) and 0 <= error <= 5e-5,
+                "Authored prop GAME alignment exceeds tolerance: " + field)
+    response = capability["minimum_game_response_m"]
+    require(type(response) in (int, float) and finite(response) and response >= .001,
+            "Authored prop controls did not move their GAME channels")
+    digest_value(capability["binding_manifest_sha256"], "Authored prop binding manifest hash")
+    return PROP_POLICY
+
+
+def configure_prop_policy(profile, exports):
+    """A profile may not interpret old helper tracks as independent rocket poses."""
+    policies = {validated_prop_policy(export["data"]) for export in exports.values()}
+    require(len(policies) <= 1, "Do not mix legacy and independent-prop exports in one profile")
+    if policies == {PROP_POLICY}:
+        profile["weapon_control_policy"] = PROP_POLICY
+        profile["weapon_links"].append({"target": "pRocket", "source": "j_leftweaponcomponent2",
+                                         "world_scale": [100, 100, 100]})
+
+
 def validate_export(base, spec, inputs, rest, names, body_hash, bones_hash,
                     selected_body_hash=None, rest_manifest_hash=None):
     receipt_path = pinned_input(base, spec.get("receipt"), spec.get("receipt_sha256"), inputs)
     receipt = read_json(receipt_path)
     require(receipt.get("schema") == 1 and receipt.get("status") == "fbx-roundtrip-passed", "Authored export has not passed FBX verification")
     require(receipt.get("export_script_sha256") in APPROVED_EXPORTERS, "Authored export uses an unreviewed exporter")
+    validated_prop_policy(receipt)
     fbx = pinned_input(base, spec.get("fbx"), receipt.get("fbx_sha256"), inputs)
     require(fbx.suffix.lower() == ".fbx", "Authored source must be an FBX")
     sidecar = pinned_input(base, str(fbx.with_suffix(".animation")), receipt.get("animation_sha256"), inputs)
@@ -643,6 +692,7 @@ def prepare_integration(config_path: Path, source_root: Path, enable_localized=F
     asm_bytes, unit_bytes = sources[UNIT+".state_machine"].read_bytes(), sources[UNIT+".unit"].read_bytes()
     asm_text = asm_bytes.decode("utf-8")
     staged_asm, profile = build_state_manifest(Sjson(asm_text).parse(), mapping, exports, asm_text, aim_policies)
+    configure_prop_policy(profile, exports)
     existing_sampler = relative_path(source_root, SAMPLER_STATE_MACHINE + ".state_machine")
     if existing_sampler.exists():
         # The default stock-body native rehearsal deliberately uses this same
