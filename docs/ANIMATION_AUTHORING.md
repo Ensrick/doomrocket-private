@@ -19,6 +19,28 @@ in-game pass.
 
 ### November 11 artist feedback revision
 
+Rig 1.1 is available as [the complete portable ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.98-dev/WarlockEngineer_AnimationRig_1.1_2026-11-11.zip),
+with [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.98-dev/START_HERE.md)
+and its [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.98-dev/WarlockEngineer_AnimationRig_1.1_2026-11-11.zip.verify.json).
+All three complete anonymous downloads matched the local files at
+`2026-11-12T04:59:18Z` (November 11, America/Chicago). The ZIP is 103,195,977
+bytes with SHA-256 `a628e0bfb039ea07bc9f4372d9a43332a3e43eee513984384896c058e0d103c8`.
+Its reviewed source is `3719e480ba9ab661e4fab2738b0028bd29fb7458`, merged
+with the identical source tree in [PR #77](https://github.com/Ensrick/doomrocket-private/pull/77).
+These are additional artist assets on the existing GitHub release; the
+v0.1.98-dev tag, game archive, publication receipt and Workshop build are
+unchanged. The merged independent-prop bridge requires explicit custom-profile
+integration; the artist handoff does not install or enable that profile.
+
+The saved revision passed 346 focused Blender checks, the 1,048-test pipeline,
+fresh FBX roundtrip, and fresh candidate/reference SDK compilation. The SDK
+audit checked 2,295,150 weighted skin samples, with maximum error 0.919226 mm
+below the unchanged 2 mm gate. All thirteen original clips retain their 138
+tracks byte for byte, and isolated integration retains all 154 visible
+transitions. Native game playback and rendered acceptance remain unverified.
+The October 11 download and receipts remain historical evidence; preserve
+existing animator scenes and use a separate working copy of this revision.
+
 The accepted source for this revision is Crunch's Discord attachment
 `Feedback_Rig_AI.txt`, sent November 11 at 02:19 America/Chicago. Read it through
 the Discord bridge when following up; it is not a new GitHub comment on #53.
