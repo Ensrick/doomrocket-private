@@ -17,6 +17,70 @@ in-game pass.
 
 ## Current testing scope
 
+### November 11 artist feedback revision
+
+The accepted source for this revision is Crunch's Discord attachment
+`Feedback_Rig_AI.txt`, sent November 11 at 02:19 America/Chicago. Read it through
+the Discord bridge when following up; it is not a new GitHub comment on #53.
+Keep private DM content out of public issue posts unless explicitly authorized.
+
+Rig 1.1 corrects the anatomical finger axes: positive curl bends each digit
+toward the palm, while spread fans the digits in the palm plane. Per-finger
+curl and directly keyed segment corrections remain additive. The old controls
+used an assumed local X bend axis, which was the fingers' length axis.
+
+The revised widgets use blue for left, red for right, gold for center, and
+purple for technical settings. Finger rings follow each anatomical segment;
+hand/foot silhouettes, spherical twist controls, shoulder crescents, the
+head cross, body loops, backpack box and belt arcs are fitted to the existing
+mesh. Overlapping predecessor widgets are hidden; their bones, mechanisms and
+animation channels are retained. Twist deformation uses the two existing
+weighted forearm-roll channels and their automatic compensation. Inherited
+Rigify limb tweaks do not drive GAME deformation, so their inert handles are
+hidden; no extra weighted upper-arm or leg twist bones are invented.
+Existing weighted jaw, lip, nose, ear,
+eyebrow and eyelid channels provide the face controls. **There is no tongue
+channel in the approved model.** Independent tongue deformation requires
+Arnaud's source support; a nonfunctional tongue control is not provided.
+
+The optional UI is also embedded as the text `warlock_rig_ui.py`, with automatic
+execution disabled. In the Text Editor, choose that text and Run Script once
+per Blender session, or install the adjacent script as an add-on. It registers
+the **Warlock** sidebar; it does not regenerate the rig or change its pose.
+The panel remains visible when the mesh is selected and provides **Activate
+controls**. The previous script registered successfully but its panel vanished
+unless the control armature was already active.
+
+Hand settings contain independent launcher/rocket follow options and right-hand
+weapon follow. Use the matched follow buttons to change spaces without changing
+the current pose. Right-hand weapon follow uses IK; the button matches FK to IK
+first. Auto-key only keys the affected controls and switches. Keep the adjacent
+`weapon_controls.py` with the UI and exporters when moving the handoff.
+
+Independent props bake into the existing `j_leftweaponattach` and
+`j_leftweaponcomponent2` tracks through a native-local-TRS bridge. Preview props
+follow the actual normalized GAME result under stretch; they do not substitute
+an unexportable sheared world transform. The exporter measures native channel
+response and preview agreement before emitting `independent-props-v1`.
+The integration stager accepts that capability only from the reviewed exporter
+and rejects mixing new-capability and old authored exports in one profile.
+Existing profiles retain their three weapon links; only a marked new profile
+adds the loaded `pRocket` link, preserving its compiled scale of 100. Legacy
+return, drop and reset restore its native parent/local pose. Marked new-profile
+legacy endpoints are prepared before snapshot blending; incoming authored
+poses retain ownership.
+
+The focused checks are `test_fingers_blender.py`, `test_widgets_blender.py`,
+`test_native_twist_blender.py`,
+`test_weapon_controls_blender.py`, `test_ui_blender.py --require-follow-controls`,
+`test_feedback_preservation_blender.py --exercise-widgets` and
+`test_feedback_export_blender.py`. Read their actual generated reports alongside
+the existing rig, export and SDK reports. A passed Blender preview is not proof
+that independent prop motion survived export or that the game rendered it.
+Original game-bone rest data, artist masters and all thirteen legacy animation
+source pairs remain protected. The generated revision is a separate handoff;
+do not replace an animator's saved work with a fresh seed rebuild.
+
 [Crunch's November 4 vaulting follow-up](https://github.com/Ensrick/doomrocket-private/issues/53#issuecomment-6624560390)
 supplies a matching v0.1.97-dev log. The written failure remains accepted;
 `jump_up_5m` and `jump_down_land` are recorded as unsupported by the visible

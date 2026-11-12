@@ -100,6 +100,7 @@ jobs:
         run: |
           python tools/tests/test_doomrocket_grip_alignment.py
           python tools/tests/test_doomrocket_authored_weapon.py
+          python tools/tests/test_doomrocket_authored_props.py
 
       - name: Run legacy traversal and custom-pose ownership regressions
         run: python tools/tests/test_doomrocket_traversal_pose.py

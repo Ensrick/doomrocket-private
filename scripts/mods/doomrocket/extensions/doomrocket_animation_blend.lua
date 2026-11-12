@@ -462,6 +462,7 @@ end
 
 local function legacy_target(owner, entry, token)
 	local skin = entry.profile.accessory_skin
+	local prop_policy = entry.profile.weapon_control_policy
 	if skin ~= nil and skin ~= "localized-v1" then return fail(entry, "invalid_accessory_profile") end
 	local grip, reason = mod._prepare_warlock_legacy_grip_pose(owner, entry.helper, token)
 	if not preparation_valid(owner, entry, token) then return false end
@@ -477,8 +478,19 @@ local function legacy_target(owner, entry, token)
 		if not preparation_valid(owner, entry, token) then return false end
 		if type(outfit) ~= "table" or #outfit ~= 7 then return fail(entry, why or "invalid_legacy_outfit") end
 	end
+	local props = {}
+	if prop_policy ~= nil then
+		if prop_policy ~= "independent-props-v1"
+			or type(mod._prepare_warlock_legacy_prop_pose) ~= "function" then
+			return fail(entry, "invalid_legacy_prop")
+		end
+		local why
+		props, why = mod._prepare_warlock_legacy_prop_pose(owner, entry.helper, entry.profile, grip, token)
+		if not preparation_valid(owner, entry, token) then return false end
+		if type(props) ~= "table" or #props ~= 3 then return fail(entry, why or "invalid_legacy_prop") end
+	end
 	local prepared, used = {}, {}
-	for _, group in ipairs({grip, outfit}) do
+	for _, group in ipairs({grip, outfit, props}) do
 		for _, record in ipairs(group) do
 			if type(record) ~= "table" or not entry.bone_set[record.node] or used[record.node] then
 				return fail(entry, "invalid_legacy_nodes")
@@ -492,6 +504,7 @@ local function legacy_target(owner, entry, token)
 	-- setter. This catches graph mutations outside the 12 or 19 corrected joints.
 	if not usable(owner, entry) or not preparation_valid(owner, entry, token) then return false end
 	if entry.profile.accessory_skin ~= skin then return fail(entry, "invalid_accessory_profile") end
+	if entry.profile.weapon_control_policy ~= prop_policy then return fail(entry, "invalid_legacy_prop") end
 	if not skeleton(entry) then return fail(entry, "changed_skeleton") end
 	if not preparation_valid(owner, entry, token) then return false end
 	-- All candidate groups and the complete graph are now checked atomically.

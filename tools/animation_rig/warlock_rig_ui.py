@@ -20,7 +20,7 @@ from mathutils import Matrix, Vector
 bl_info = {
     "name": "Warlock Engineer Animator Controls",
     "author": "Warlock Engineer maintainers; snap helpers from Blender Rigify",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (5, 2, 0),
     "location": "3D View > Sidebar > Warlock",
     "description": "Pose controls, FK/IK matching and verified animation export",
@@ -53,12 +53,103 @@ LIMBS = {f"{side}_{region}": limb_map(side, region)
          for side in ("left", "right") for region in ("arm", "leg")}
 
 
+def is_control_rig(obj):
+    return bool(obj and obj.type == "ARMATURE" and (
+        obj.name == "WARLOCK_CTRL" or obj.get("warlock_control_manifest")))
+
+
+def available_rigs(context):
+    """Use the current view layer, never an unlinked or excluded armature."""
+    return [obj for obj in context.view_layer.objects if is_control_rig(obj)]
+
+
 def rig_for_context(context):
+    """Find the handoff even when its visible body mesh is selected.
+
+    The previous panel disappeared unless WARLOCK_CTRL was already active. A
+    successful Run Script then appeared to do nothing. Resolve a single rig for
+    the panel, but require explicit activation before pose operators can run.
+    Never choose arbitrarily when several rigs are linked into the scene.
+    """
     obj = context.active_object
-    if obj and obj.type == "ARMATURE" and (
-            obj.name == "WARLOCK_CTRL" or obj.get("warlock_control_manifest")):
+    if is_control_rig(obj):
         return obj
-    return None
+    rigs = available_rigs(context)
+    if obj:
+        armatures = {modifier.object.name for modifier in obj.modifiers
+                     if modifier.type == "ARMATURE" and modifier.object}
+        if obj.type == "ARMATURE":
+            armatures.add(obj.name)
+        related = [rig for rig in rigs if rig.get("warlock_game_armature") in armatures]
+        if len(related) == 1:
+            return related[0]
+    return rigs[0] if len(rigs) == 1 else None
+
+
+def active_pose_rig(context):
+    obj = context.active_object
+    return obj if context.mode == "POSE" and is_control_rig(obj) else None
+
+
+def reveal_sidebar(context):
+    """Reveal the registered panel after an explicit Text Editor Run Script.
+
+    Add-on registration itself leaves selection, mode, animation and workspaces
+    alone. This helper only opens existing 3D View sidebars; it never changes an
+    editor type or enables blend-file Python auto-execution.
+    """
+    count = 0
+    for window in context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == "VIEW_3D":
+                area.spaces.active.show_region_ui = True
+                area.tag_redraw()
+                count += 1
+    return count
+
+
+def reveal_control_bone(bone):
+    # Promoted native channels also retain their ORG collection membership.
+    # Reveal their animator collection without exposing mechanism skeletons.
+    for collection in bone.collections:
+        if not collection.name.startswith(("ORG", "DEF", "MCH", "Warlock extra mechanisms")):
+            collection.is_visible = True
+    bone.hide = False
+
+
+class WARLOCK_OT_activate_controls(bpy.types.Operator):
+    bl_idname = "warlock.activate_controls"
+    bl_label = "Activate Warlock controls"
+    bl_description = "Select the control armature and enter Pose Mode without resetting a pose"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return rig_for_context(context) is not None and context.mode in {"OBJECT", "POSE"}
+
+    def execute(self, context):
+        rig = rig_for_context(context)
+        if context.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+        for obj in context.view_layer.objects:
+            if obj.select_get():
+                obj.select_set(False)
+        rig.hide_set(False)
+        rig.hide_viewport = False
+        rig.hide_select = False
+        rig.select_set(True)
+        context.view_layer.objects.active = rig
+        rig.data.show_bone_custom_shapes = True
+        bpy.ops.object.mode_set(mode="POSE")
+        names = control_names(rig)
+        for name in names:
+            bone = rig.data.bones[name]
+            reveal_control_bone(bone)
+        if not any(rig.pose.bones[name].select for name in names) and names:
+            rig.pose.bones[names[0]].select = True
+            rig.data.bones.active = rig.data.bones[names[0]]
+        self.report({"INFO"}, "Warlock controls active. Use the Warlock sidebar or the selected control's custom properties.")
+        return {"FINISHED"}
 
 
 def control_names(rig):
@@ -336,7 +427,7 @@ def pose_error(a, b):
                for name in a for point in probes)
 
 
-def switch_limb(context, rig, limb, mode):
+def switch_limb(context, rig, limb, mode, *, keyframe=None):
     mapping = LIMBS[limb]
     desired = 0.0 if mode == "IK" else 1.0
     prop = rig.pose.bones[mapping["prop"]]
@@ -362,7 +453,8 @@ def switch_limb(context, rig, limb, mode):
         # Fail closed: a pose that cannot be matched must not silently jump.
         if error > .0005:
             raise RuntimeError(f"{limb} could not preserve the pose ({error * 1000:.3f} mm); undoing switch")
-        if context.scene.tool_settings.use_keyframe_insert_auto:
+        should_key = context.scene.tool_settings.use_keyframe_insert_auto if keyframe is None else keyframe
+        if should_key:
             for name in set(mapping["fk"] + mapping["ctrl"] + [mapping["prop"]]
                             + ([toe_name] if toe_matrix is not None else [])):
                 key_control(rig.pose.bones[name])
@@ -382,7 +474,7 @@ class WARLOCK_OT_switch_limb(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return rig_for_context(context) is not None and context.mode == "POSE"
+        return active_pose_rig(context) is not None
 
     def execute(self, context):
         try:
@@ -417,9 +509,7 @@ class WARLOCK_OT_select_controls(bpy.types.Operator):
                 bone.select = False
         for name in names:
             bone = rig.data.bones[name]
-            for collection in bone.collections:
-                collection.is_visible = True
-            bone.hide = False
+            reveal_control_bone(bone)
             rig.pose.bones[name].select = True
         if names:
             rig.data.bones.active = rig.data.bones[names[0]]
@@ -479,19 +569,95 @@ class WARLOCK_OT_key_controls(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def exporter_path(rig):
+def tool_path(rig, filename):
     # Handoff folders are intended to move to another workstation. Prefer
     # their adjacent audited tools over paths remembered on this workstation.
     candidates = []
     if "__file__" in globals():
-        candidates.append(Path(__file__).resolve().with_name("export_animation.py"))
+        candidates.append(Path(__file__).resolve().with_name(filename))
     if bpy.data.filepath:
-        candidates.append(Path(bpy.data.filepath).parent / "export_animation.py")
+        candidates.append(Path(bpy.data.filepath).parent / filename)
     directory = rig.get("warlock_tools_directory")
     if directory:
-        candidates.append(Path(directory) / "export_animation.py")
+        candidates.append(Path(directory) / filename)
     return next((path for path in candidates if path.is_file()),
-                candidates[0] if candidates else Path("export_animation.py"))
+                candidates[0] if candidates else Path(filename))
+
+
+def exporter_path(rig):
+    return tool_path(rig, "export_animation.py")
+
+
+def follow_module(rig):
+    """Load only the reviewed adjacent helper, not text from the scene."""
+    path = tool_path(rig, "weapon_controls.py")
+    if not path.is_file():
+        raise RuntimeError("Place weapon_controls.py beside warlock_rig_ui.py in the handoff folder")
+    spec = importlib.util.spec_from_file_location("warlock_weapon_controls", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+FOLLOW_CHANNELS = {
+    "weapon_follow": ("CTRL-hand-settings-left", "weapon_follow", "Weapon follows left hand"),
+    "rocket_follow": ("CTRL-hand-settings-left", "rocket_follow", "Rocket follows left hand"),
+    "right_hand_follow": ("CTRL-hand-settings-right", "right_hand_follow_weapon", "Right hand follows weapon"),
+}
+
+
+class WARLOCK_OT_switch_follow(bpy.types.Operator):
+    bl_idname = "warlock.switch_follow"
+    bl_label = "Match and switch attachment follow"
+    bl_description = "Change follow space while preserving the current pose; auto-key is respected"
+    bl_options = {"REGISTER", "UNDO"}
+    channel: EnumProperty(items=[(name, record[2], "") for name, record in FOLLOW_CHANNELS.items()])
+    enabled: BoolProperty(default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return active_pose_rig(context) is not None
+
+    def execute(self, context):
+        rig = active_pose_rig(context)
+        saved = snapshot_controls(rig)
+        try:
+            helper = follow_module(rig)
+            autokey = context.scene.tool_settings.use_keyframe_insert_auto
+            right_arm_changed = False
+            if self.channel == "right_hand_follow" and self.enabled:
+                prop = rig.pose.bones[LIMBS["right_arm"]["prop"]]
+                right_arm_changed = abs(prop["IK_FK"]) > 1e-8
+                switch_limb(context, rig, "right_arm", "IK", keyframe=False)
+            helper.switch_follow(rig, self.channel, self.enabled, keyframe=autokey)
+            if right_arm_changed and autokey:
+                mapping = LIMBS["right_arm"]
+                for name in set(mapping["fk"] + mapping["ctrl"] + [mapping["prop"]]):
+                    key_control(rig.pose.bones[name])
+            self.report({"INFO"}, FOLLOW_CHANNELS[self.channel][2] + (": on" if self.enabled else ": off"))
+            return {"FINISHED"}
+        except Exception as error:
+            restore_controls(rig, saved)
+            self.report({"ERROR"}, str(error))
+            return {"CANCELLED"}
+
+
+def draw_follow_options(layout, rig):
+    available = [(channel, rig.pose.bones.get(bone), prop, label)
+                 for channel, (bone, prop, label) in FOLLOW_CHANNELS.items()]
+    available = [(channel, bone, prop, label) for channel, bone, prop, label in available
+                 if bone is not None and prop in bone]
+    if not available:
+        return
+    box = layout.box()
+    box.label(text="Attachment follow (pose preserving)")
+    for channel, bone, prop, label in available:
+        box.label(text=label + (": on" if bone[prop] >= .5 else ": off"))
+        row = box.row(align=True)
+        for enabled, text in ((True, "Follow"), (False, "Free")):
+            button = row.operator("warlock.switch_follow", text=text,
+                                  depress=bool(bone[prop] >= .5) == enabled)
+            button.channel, button.enabled = channel, enabled
 
 
 class WARLOCK_OT_export_animation(bpy.types.Operator, ExportHelper):
@@ -548,13 +714,25 @@ class WARLOCK_PT_animator(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return rig_for_context(context) is not None
+        # Keep the tab visible after Run Script even with the body mesh or no
+        # object selected. The panel explains how to activate the controls.
+        return True
 
     def draw(self, context):
         layout = self.layout
         rig = rig_for_context(context)
-        if context.mode != "POSE":
-            layout.label(text="Enter Pose Mode to animate", icon="INFO")
+        if rig is None:
+            layout.label(text="Warlock animator tools are loaded", icon="CHECKMARK")
+            if available_rigs(context):
+                layout.label(text="Select the intended Warlock control armature")
+            else:
+                layout.label(text="Open WarlockEngineer_AnimationRig.blend")
+            return
+        if active_pose_rig(context) != rig:
+            layout.label(text="Warlock animator tools are loaded", icon="CHECKMARK")
+            layout.operator("warlock.activate_controls", icon="ARMATURE_DATA")
+            if context.mode not in {"OBJECT", "POSE"}:
+                layout.label(text="Leave Edit Mode before activating controls", icon="INFO")
             return
         row = layout.row(align=True)
         row.operator("warlock.select_controls", text="Select all").group = "All"
@@ -562,6 +740,7 @@ class WARLOCK_PT_animator(bpy.types.Panel):
         row = layout.row(align=True)
         row.operator("warlock.reset_controls", text="Reset selected")
         row.operator("warlock.reset_controls", text="Reset all").all_controls = True
+        draw_follow_options(layout, rig)
         layout.label(text="FK/IK buttons preserve the current pose")
         for name, mapping in LIMBS.items():
             box = layout.box()
@@ -587,13 +766,18 @@ class WARLOCK_PT_animator(bpy.types.Panel):
             box.label(text=selected.name)
             for prop in selected.keys():
                 if isinstance(selected[prop], (int, float, bool)) and not prop.startswith("_"):
+                    if prop in {record[1] for record in FOLLOW_CHANNELS.values()}:
+                        # Raw space toggles can jump; the matched buttons above
+                        # preserve the evaluated pose before switching.
+                        continue
                     box.prop(selected, "[" + json.dumps(prop) + "]", text=prop.replace("_", " "))
         layout.separator()
         layout.operator("warlock.export_animation", icon="EXPORT")
 
 
-CLASSES = (WARLOCK_OT_switch_limb, WARLOCK_OT_select_controls, WARLOCK_OT_reset_controls,
-           WARLOCK_OT_key_controls, WARLOCK_OT_export_animation, WARLOCK_PT_animator)
+CLASSES = (WARLOCK_OT_activate_controls, WARLOCK_OT_switch_limb, WARLOCK_OT_select_controls,
+           WARLOCK_OT_reset_controls, WARLOCK_OT_key_controls, WARLOCK_OT_switch_follow,
+           WARLOCK_OT_export_animation, WARLOCK_PT_animator)
 
 
 def register():
@@ -603,6 +787,8 @@ def register():
         if old:
             bpy.utils.unregister_class(old)
         bpy.utils.register_class(cls)
+    print("WARLOCK_UI_READY: 3D View > Sidebar (N) > Warlock > Activate Warlock controls. "
+          "Registration preserves poses and existing animation keys.")
 
 
 def unregister():
@@ -614,3 +800,4 @@ def unregister():
 
 if __name__ == "__main__":
     register()
+    reveal_sidebar(bpy.context)
