@@ -93,12 +93,12 @@ checks do not establish an in-game pass or authorize alpha promotion.
   the accepted sway settings and a legacy traversal-pose bridge. Preserve all
   existing animation tracks, authored/custom poses and secondary hose physics;
   retain the distinction between verified delivery and pending in-game verdicts.
-- No local manifest `552500`, game executable or game bundles are available;
-  the installed SDK oracle fails before Lua boot. Record this coverage limit.
-  Publication and offline checks establish no native startup, animation or
-  visual pass. Accept Crunch's written runtime feedback and matching logs.
-  Preserve current sessions and resource guards; do not invent launch flags,
-  use GUI automation or install the game to satisfy an exempted local check.
+- The October 20 absence-based exception recorded that no local manifest
+  `552500`, game executable or game bundles were available then. That is a
+  historical installation fact, not the current state; see the November 14
+  launch scope below. Publication and offline checks establish no native
+  startup, animation or visual pass. Accept Crunch's written runtime feedback
+  and matching logs, preserving current sessions and resource guards.
 - v0.1.95-dev's October 23 upload failed with native `invalid param` (0x8).
   Its 8,050-byte UTF-8 description exceeded the SDK's 8,000-byte limit; the
   existing GitHub tag remains at `7d18132ef967e8fa51d083c1527945333a9ce8d2`.
@@ -118,6 +118,26 @@ checks do not establish an in-game pass or authorize alpha promotion.
   no mandatory repeat is created by the version refresh. Custom-export, localized
   outfit and native-oracle acceptance remain separate. Cloth physics is not included.
 - Historical receipts and artist-rig links retain their original scope.
+
+## Current installation and launch scope, November 14, 2026
+
+- Vermintide 2 is now installed locally. The November 14 read-only audit confirms
+  app manifest `552500` and both `binaries/vermintide2.exe` and
+  `binaries_dx12/vermintide2_dx12.exe` in the configured Steam library.
+- The earlier absence-based publication-only exceptions retain their historical
+  scope. They are not a standing waiver for future runtime/game candidates.
+  Before handing a future runtime build to a tester, follow the workspace's
+  actual-installed-candidate launch verification rule unless the user grants a
+  new explicit exception. Preserve user sessions; do not invent launch flags,
+  force Steam recovery or use GUI automation to satisfy it.
+- Rig 1.2 is a separately verified artist archive, not a new Workshop/game
+  build. Its GitHub delivery does not deploy or enable a custom animation profile.
+  Blender/FBX/SDK evidence and rendered in-game acceptance remain distinct.
+- The isolated historical SDK oracle now reaches runtime initialization through
+  the owned entrypoint, but crashes before Lua with `0xc0000005`; native `Unit`
+  pose captures remain zero. This does not establish final-rig playback or a
+  game launch pass. See `tools/animation_rig/NATIVE_POSE_ORACLE.md` for the bounded
+  audit and preserve the historical source/receipt identities.
 
 ## Build environment hygiene
 
@@ -159,9 +179,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/Test-WarlockPipeline.p
 
 `tools/Invoke-DoomrocketRelease.ps1` delegates to the canonical standalone
 adapter. Generated bundles stay ignored; commit `.build-receipt.json` with
-source before hosted QA and merge. Use publication-only mode under the user's
-October 20 exception because the game is not installed. Verified publication
-authorizes the TEST handoff; it does not establish native runtime acceptance.
+source before hosted QA and merge. Historical October 20 publication-only runs
+used the explicit absence-based exception; current and future runtime handoffs
+follow the November 14 scope above. Verified publication proves delivery and
+does not establish native runtime acceptance.
 
 See `docs/RELEASE_CHANNELS.md`, `CONTRIBUTING.md`, and
 `docs/TESTER_QUICKSTART.md` for the human workflows.

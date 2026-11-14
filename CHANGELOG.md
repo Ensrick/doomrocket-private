@@ -1,6 +1,6 @@
 # Changelog
 
-## Authoring rig 1.2 candidate — first-baseline controls and original-clip reference (2026-11-14)
+## Authoring rig 1.2 handoff — first-baseline controls and original-clip reference (2026-11-14)
 
 - Prepare a new working copy from the pinned neutral rig 1.1 source, retaining
   its two stored actions. Preserve existing animator scenes; the engineering
@@ -15,10 +15,21 @@
 - The saved candidate passes 382 focused Blender/reference checks, the
   1,054-test pipeline, final FBX/SDK and whole-profile package closure. Preserve
   all thirteen original clips/138 tracks and all 154 visible transitions.
-- Portable archive/public delivery remain pending. This is not a new Workshop
+- The portable archive, distinct guide and verification receipt are publicly
+  hosted and complete anonymous downloads verified. This is not a new Workshop
   version or native game acceptance; the isolated SDK oracle crashes during
   initialization before Lua, with zero native pose captures. Tongue deformation
   still requires source support absent from the model.
+
+The [rig 1.2 archive](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.99-dev/WarlockEngineer_AnimationRig_1.2_2026-11-14.zip)
+is 213,249,826 bytes, SHA-256
+`8cc08c47ce069057e5417cbcf953888bad42339db0a42ad9f106fdb4552b1296`.
+All three artist assets matched complete anonymous downloads at
+`2026-11-14T07:21:19.469196Z`, bound to source
+`a2c8b2ee7321253bf38fe1bf410f23a494af2a65` ([PR #82](https://github.com/Ensrick/doomrocket-private/pull/82)).
+The existing v0.1.99-dev runtime tag, game archive, receipt and Workshop item
+are unchanged. The game is now installed; its earlier absence is historical,
+and future runtime builds follow the current launch-verification scope.
 
 ## v0.1.99-dev - stronger hose W bends and corrected fitting approaches (2026-11-13)
 
