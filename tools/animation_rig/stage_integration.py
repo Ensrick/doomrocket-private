@@ -30,11 +30,13 @@ APPROVED_EXPORTERS = {
     "1f4263bbe95299ac88aece4bf0b2e122fb98d2426a46fa1d84c25e24fc037f74",
     "501db4fbb8c48141b94e5efa74813516ea237cf9a608641799de2a500e81f1aa",
     "98751f0abe9db0717539d85c6da431960c21e3dea1e9b1bb85a682a148e97208",
+    "057307ec67e81d999a076d7d7d7086f7dfb04e106bdedd122ff80efd23caab33",
 }
 # A legacy exporter hash cannot opt into a capability it never measured.
 # Populate only with reviewed revisions that verify the control-to-GAME bridge.
 INDEPENDENT_PROP_EXPORTERS = {
     "98751f0abe9db0717539d85c6da431960c21e3dea1e9b1bb85a682a148e97208",
+    "057307ec67e81d999a076d7d7d7086f7dfb04e106bdedd122ff80efd23caab33",
 }
 PROP_POLICY = "independent-props-v1"
 PROP_BINDINGS = {"CTRL-weapon": "j_leftweaponattach", "CTRL-rocket": "j_leftweaponcomponent2"}

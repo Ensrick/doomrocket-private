@@ -35,6 +35,76 @@ def main():
     controls = load_module("warlock_weapon_controls_tested", tools / "weapon_controls.py")
     oracle = load_module("warlock_weapon_oracle", tools / "test_weapon_reference_blender.py")
     bpy.ops.wm.open_mainfile(filepath=str(options.rig), use_scripts=False)
+    migration_checks = []
+    original_rig = bpy.data.objects["WARLOCK_CTRL"]
+    old_manifest = json.loads(original_rig.get(controls.MANIFEST_KEY,"{}"))
+    if options.upgrade and old_manifest and not old_manifest.get("rocket_pivot"):
+        # Keyed pivot migration is an explicit separate operation: rejecting it
+        # must happen before any scene/action/constraint changes.
+        original_game = bpy.data.objects["WARLOCK_GAME"]
+        action = bpy.data.actions.new("PIVOT_REJECTION_FIXTURE")
+        original_rig.animation_data_create()
+        original_rig.animation_data.action = action
+        original_rig.pose.bones["CTRL-rocket"].keyframe_insert("location",frame=1)
+        before = oracle.protected(original_game)
+        bones_before = len(original_rig.data.bones)
+        try:
+            controls.upgrade_existing_weapon_controls(original_rig,original_game)
+        except ValueError as error:
+            assert "keyed CTRL-rocket" in str(error),str(error)
+        else:
+            raise AssertionError("Existing keyed rocket tracks must not be silently retargeted")
+        assert oracle.protected(original_game)==before and len(original_rig.data.bones)==bones_before
+        migration_checks.append({"check":"keyed rocket migration rejects before any protected scene/action change"})
+        bpy.ops.wm.open_mainfile(filepath=str(options.rig),use_scripts=False)
+        original_rig = bpy.data.objects["WARLOCK_CTRL"]
+        original_game = bpy.data.objects["WARLOCK_GAME"]
+        action = bpy.data.actions.new("PARENT_ANIMATION_REJECTION_FIXTURE")
+        original_rig.animation_data_create()
+        original_rig.animation_data.action = action
+        original_rig.pose.bones["chest"].keyframe_insert("rotation_euler",frame=1)
+        original_rig.pose.bones["chest"].rotation_euler.z = .19
+        original_rig.pose.bones["chest"].keyframe_insert("rotation_euler",frame=7)
+        before = oracle.protected(original_game)
+        for nla in (False,True):
+            if nla:
+                track = original_rig.animation_data.nla_tracks.new()
+                track.strips.new("Parent animated metric",1,action)
+                original_rig.animation_data.action = None
+            try:
+                controls.upgrade_existing_weapon_controls(original_rig,original_game)
+            except ValueError as error:
+                assert "whole-animation pivot migration" in str(error),str(error)
+            else:
+                raise AssertionError("Existing animated parent metrics require whole-animation migration")
+            assert oracle.protected(original_game)==before
+            migration_checks.append({"check":("NLA" if nla else "bound parent action")+
+                " rejects before changing any existing track or pose"})
+        bpy.ops.wm.open_mainfile(filepath=str(options.rig),use_scripts=False)
+        original_rig = bpy.data.objects["WARLOCK_CTRL"]
+        original_game = bpy.data.objects["WARLOCK_GAME"]
+        original_rig.pose.bones["CTRL-shape-j_leftarm_scale"]["length"] = 1.2
+        original_rig.pose.bones["chest"].rotation_euler.z = .19
+        original_rig.pose.bones["CTRL-rocket"].location.x = .055
+        original_rig.pose.bones["CTRL-rocket"].rotation_quaternion = Quaternion(Vector((.3,.6,.7)).normalized(),.31)
+        original_rig.update_tag()
+        bpy.context.view_layer.update()
+        graph = bpy.context.evaluated_depsgraph_get()
+        native = original_game.evaluated_get(graph)
+        world_before = {pb.name:(native.matrix_world@pb.matrix).copy() for pb in native.pose.bones}
+        preview = bpy.data.objects[old_manifest["preview_objects"]["CTRL-rocket"]]
+        preview_before = preview.evaluated_get(graph).matrix_world.copy()
+        actions_before = oracle.protected(original_game)["actions_sha256"]
+        controls.upgrade_existing_weapon_controls(original_rig,original_game)
+        graph = bpy.context.evaluated_depsgraph_get()
+        native = original_game.evaluated_get(graph)
+        error = max(controls._matrix_error(world_before[pb.name],native.matrix_world@pb.matrix)
+                    for pb in native.pose.bones)
+        preview_error = controls._matrix_error(preview_before,preview.evaluated_get(graph).matrix_world)
+        assert error<3e-5 and preview_error<3e-5 and oracle.protected(original_game)["actions_sha256"]==actions_before
+        migration_checks.append({"check":"unkeyed custom rocket pose survives actual centred-pivot migration",
+                                 "maximum_native_matrix_error":error,"preview_matrix_error":preview_error})
+        bpy.ops.wm.open_mainfile(filepath=str(options.rig),use_scripts=False)
     rig, game, reference = [bpy.data.objects[name] for name in
         ("WARLOCK_CTRL", "WARLOCK_GAME", "WARLOCK_LAUNCHER_REFERENCE")]
     preserved = oracle.protected(game)
@@ -46,11 +116,12 @@ def main():
                    and obj.get("authoring_reference_only")]
         widgets = bpy.data.collections["Warlock custom curve widgets"]
         controls.build_weapon_controls(rig, game, reference, objects, groups, widgets)
+        controls.upgrade_existing_weapon_controls(rig,game)
     assert rig.get(controls.MANIFEST_KEY), "Revised follow controls missing"
     initial = {bone.name: (bone.matrix_basis.copy(),
                {prop: bone[prop] for prop in bone.keys() if isinstance(bone[prop], (int, float, bool))})
                for bone in rig.pose.bones}
-    checks = []
+    checks = migration_checks
 
     def update():
         rig.update_tag()
@@ -98,11 +169,24 @@ def main():
     count = len(rig.data.bones)
     controls.build_weapon_controls(rig, game, reference, [], {}, None)
     check("repeat setup does not duplicate controls", len(rig.data.bones) == count)
-    for name in ("CTRL-weapon", "CTRL-rocket"):
-        shape = rig.pose.bones[name].custom_shape
-        check(name + " uses a selectable 3D bounds box", shape and len(shape.data.vertices) == 8
-              and len(shape.data.edges) == 12,
-              vertices=len(shape.data.vertices), edges=len(shape.data.edges))
+    object_count = len(bpy.data.objects)
+    controls.upgrade_existing_weapon_controls(rig,game)
+    check("repeat centred-pivot upgrade does not duplicate mechanisms",len(rig.data.bones)==count
+          and len(bpy.data.objects)==object_count)
+    shape = rig.pose.bones["CTRL-weapon"].custom_shape
+    check("launcher uses a selectable tight 3D bounds box", shape and len(shape.data.vertices)==8
+          and len(shape.data.edges)==12,vertices=len(shape.data.vertices),edges=len(shape.data.edges))
+    shape = rig.pose.bones["CTRL-rocket"].custom_shape
+    check("rocket uses one circular cross-section ring", shape and len(shape.data.vertices)==48
+          and len(shape.data.edges)==48,vertices=len(shape.data.vertices),edges=len(shape.data.edges))
+    manifest = json.loads(rig[controls.MANIFEST_KEY])
+    check("launcher box has only five millimetres of clearance",manifest["prop_widgets"]["clearance_m"]==.005)
+    rocket = bpy.data.objects[manifest["preview_objects"]["CTRL-rocket"]]
+    def rocket_center():
+        return oracle.mesh_bounds_center_world(rocket,world(controls.ACTUAL_ROCKET))
+    center_error = (rocket_center()-world("CTRL-rocket").translation).length
+    check("real rocket transform pivot coincides with measured mesh centre",center_error<3e-6,
+          pivot_error_m=center_error)
 
     # Target native frame at real stretches/squashes and rotated torso, not just
     # an unposed neutral chain. The oracle independently implements SDK math.
@@ -149,9 +233,16 @@ def main():
             shear = max(abs(axes[a].dot(axes[b])) for a, b in ((0, 1), (0, 2), (1, 2)))
             check("edited %s remains native TRS length%.2f" % (bone_name, length),
                   shear < 2e-5, normalized_axis_dot=shear)
-            location_error = (native_world(bone_name).translation - world(controls.CHANNELS[channel][2]).translation).length
-            check("edited %s has exact control position length%.2f" % (bone_name, length),
+            position = rocket_center() if channel=="rocket_follow" else native_world(bone_name).translation
+            location_error = (position-world(controls.CHANNELS[channel][2]).translation).length
+            check("edited %s has exact control pivot position length%.2f" % (bone_name, length),
                   location_error < 2e-6, position_error=location_error)
+        before = rocket_center()
+        rig.pose.bones["CTRL-rocket"].rotation_quaternion = Quaternion(Vector((.7,.2,.4)).normalized(),.73)
+        update()
+        center_motion = (rocket_center()-before).length
+        check("rotating actual rocket keeps its centre fixed length%.2f" % length,
+              center_motion<4e-6,center_motion_m=center_motion)
 
     # Both controls follow the same hand by default but their state and free
     # animation are independent. Detaching one must not detach the other.
@@ -233,6 +324,9 @@ def main():
           oracle.protected(game)["actions_sha256"] == preserved["actions_sha256"])
     check("native skeleton/skin/action protected identities remain exact after tests",
           oracle.protected(game) == preserved)
+    check("all prop drivers evaluate without invalid dependencies",
+          all(curve.driver.is_valid for obj in bpy.data.objects if obj.animation_data
+              for curve in obj.animation_data.drivers))
     # Explicit keying may create the new control action, while retaining every
     # pre-existing artist action as an exact digest.
     action_before = {item["name"]: oracle.digest(item) for item in oracle.actions()}

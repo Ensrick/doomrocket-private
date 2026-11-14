@@ -382,6 +382,43 @@ def seal_temporary_scene(scene) -> None:
                            for kind in TEMPORARY_DATA_TYPES}
 
 
+def authoring_pose_state(scene):
+    """Capture only the source scene's armature poses, including unkeyed edits."""
+    fields = ("location", "rotation_euler", "rotation_quaternion", "rotation_axis_angle", "scale",
+              "delta_location", "delta_rotation_euler", "delta_rotation_quaternion", "delta_scale")
+
+    def values(owner):
+        properties = {}
+        for key in owner.keys():
+            value = owner[key]
+            if isinstance(value, (int, float, bool)):
+                properties[key] = value
+            elif hasattr(value, "to_list"):
+                array = value.to_list()
+                if all(isinstance(item, (int, float, bool)) for item in array):
+                    properties[key] = array
+        return {"owner": owner, "mode": owner.rotation_mode,
+                "transforms": {field: tuple(getattr(owner, field))
+                               for field in fields if hasattr(owner, field)},
+                "properties": properties}
+
+    return [(obj, values(obj), [values(bone) for bone in obj.pose.bones])
+            for obj in scene.objects if obj.type == "ARMATURE"]
+
+
+def restore_authoring_pose(state):
+    for armature, object_state, bones in state:
+        for item in (object_state, *bones):
+            owner = item["owner"]
+            owner.rotation_mode = item["mode"]
+            for field, value in item["transforms"].items():
+                setattr(owner, field, value)
+            for key, value in item["properties"].items():
+                owner[key] = value
+        armature.update_tag()
+    bpy.context.view_layer.update()
+
+
 @contextmanager
 def preserve_ui_state():
     """An export button may run while the animator is posing controls."""
@@ -389,14 +426,16 @@ def preserve_ui_state():
     active = bpy.context.view_layer.objects.active
     selected = list(bpy.context.selected_objects)
     mode = active.mode if active else "OBJECT"
-    frame = scene.frame_current
+    frame, subframe = scene.frame_current, scene.frame_subframe
+    pose = authoring_pose_state(scene)
     if mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
     try:
         yield
     finally:
         select_scene(scene)
-        scene.frame_set(frame)
+        scene.frame_set(frame, subframe=subframe)
+        restore_authoring_pose(pose)
         for obj in bpy.context.view_layer.objects:
             obj.select_set(obj in selected)
         bpy.context.view_layer.objects.active = active
@@ -799,6 +838,90 @@ def normalized_native_rotation(matrix):
     return quaternion.normalized()
 
 
+def validate_centered_rocket(rig, game, manifest, local_frame):
+    """Validate the calibrated center gizmo while retaining the native origin."""
+    pivot = manifest.get("rocket_pivot")
+    if pivot is None:
+        require(manifest.get("control_frames", {name: name for name in INDEPENDENT_PROP_BINDINGS})
+                == {name: name for name in INDEPENDENT_PROP_BINDINGS},
+                "Unexpected uncalibrated prop-control frames")
+        return None
+    expected_frames = {"CTRL-weapon": "CTRL-weapon", "CTRL-rocket": "MCH-warlock-rocket-control-frame"}
+    require(manifest.get("control_frames") == expected_frames
+            and pivot.get("schema") == 1 and pivot.get("policy") == "centered-native-frame-v1"
+            and pivot.get("coordinate_space") == "normalized native j_leftweaponcomponent2 frame, metres"
+            and pivot.get("control_frame") == expected_frames["CTRL-rocket"],
+            "Unsupported centered rocket-pivot contract")
+    values = pivot.get("local_center", ())
+    require(len(values) == 3 and all(isinstance(value, (float, int)) and math.isfinite(value)
+                                   for value in values), "Invalid rocket local center")
+    center = Vector(values)
+    control = rig.pose.bones["CTRL-rocket"]
+    frame = rig.pose.bones.get(expected_frames["CTRL-rocket"])
+    require(frame is not None and frame.parent == control and not frame.constraints
+            and matrix_error(frame.matrix_basis, Matrix.Identity(4)) < 2e-5
+            and matrix_error(control.bone.matrix_local.inverted() @ frame.bone.matrix_local,
+                             Matrix.Translation(-center)) < 2e-5,
+            "Rocket native control frame is not calibrated to its center gizmo")
+    objects = {key: bpy.data.objects.get(pivot.get(key, "")) for key in (
+        "rotation_reference", "rotation_quaternion_helper", "location_center_helper", "location_target")}
+    require(all(obj is not None and obj.get("authoring_reference_only") is True
+                for obj in objects.values()), "Rocket pivot calibration helpers are missing")
+    prospective, quaternion, center_helper, offset = [objects[key] for key in (
+        "rotation_reference", "rotation_quaternion_helper", "location_center_helper", "location_target")]
+    require(offset.parent == center_helper and not offset.constraints
+            and matrix_error(offset.matrix_parent_inverse, Matrix.Identity(4)) < 2e-5
+            and matrix_error(offset.matrix_basis, Matrix.Translation(-center)) < 2e-5,
+            "Rocket origin helper does not preserve the calibrated center offset")
+    constraints = list(center_helper.constraints)
+    require(len(constraints) == 2 and constraints[0].type == "COPY_LOCATION"
+            and constraints[0].target == rig and constraints[0].subtarget == "CTRL-rocket"
+            and constraints[1].type == "COPY_ROTATION" and constraints[1].target == quaternion
+            and all(not item.mute and abs(item.influence - 1.) < 1e-6
+                    and item.owner_space == "WORLD" and item.target_space == "WORLD" for item in constraints),
+            "Rocket center does not follow the declared control and prospective rotation")
+    native = game.data.bones["j_leftweaponcomponent2"]
+    parent = native.parent
+    require(parent is not None and pivot.get("native_parent") == parent.name
+            and prospective.type == "ARMATURE"
+            and set(prospective.data.bones.keys()) == {native.name, parent.name}
+            and prospective.data.bones[native.name].parent.name == parent.name
+            and matrix_error(prospective.matrix_world, game.matrix_world) < 1e-6,
+            "Rocket prospective reference changed the native parent contract")
+    for name in (native.name, parent.name):
+        # EditBone construction normalizes the reference axes. Check physical
+        # head/axis endpoints in metres; GAME's original bind matrices remain
+        # subject to the unchanged exact approved-skeleton check below.
+        reference_rest = prospective.matrix_world @ prospective.data.bones[name].matrix_local
+        native_rest = game.matrix_world @ game.data.bones[name].matrix_local
+        require(max((actual - expected).length for actual, expected in
+                    zip(probe_points(reference_rest), probe_points(native_rest))) < 1e-6
+                and prospective.data.bones[name].inherit_scale == game.data.bones[name].inherit_scale,
+                "Rocket prospective reference changed a native bind frame")
+    parent_constraints = list(prospective.pose.bones[parent.name].constraints)
+    child_constraints = list(prospective.pose.bones[native.name].constraints)
+    original = game.pose.bones[native.name].constraints[0]
+    require(len(parent_constraints) == 1 and parent_constraints[0].type == "COPY_TRANSFORMS"
+            and parent_constraints[0].target == game and parent_constraints[0].subtarget == parent.name
+            and parent_constraints[0].owner_space == "WORLD" and parent_constraints[0].target_space == "WORLD"
+            and len(child_constraints) == 2 and child_constraints[0].type == "COPY_TRANSFORMS"
+            and child_constraints[0].target == original.target and child_constraints[0].subtarget == original.subtarget
+            and child_constraints[1].type == "COPY_TRANSFORMS" and child_constraints[1].target == rig
+            and child_constraints[1].subtarget == "MCH-warlock-rocket-local-delta"
+            and child_constraints[1].mix_mode == "AFTER_SPLIT"
+            and all(not item.mute and abs(item.influence - 1.) < 1e-6
+                    and item.owner_space == "LOCAL" and item.target_space == "LOCAL" for item in child_constraints),
+            "Rocket prospective rotation does not reproduce the actual native local mapping")
+    rocket = bpy.data.objects[manifest["preview_objects"]["CTRL-rocket"]]
+    require(rocket.type == "MESH" and len(rocket.data.vertices) == 622 and not rocket.modifiers,
+            "Rocket center requires the approved rigid reference geometry")
+    points = [local_frame @ vertex.co for vertex in rocket.data.vertices]
+    bounds_center = Vector(tuple((min(point[axis] for point in points)
+                                  + max(point[axis] for point in points)) * .5 for axis in range(3)))
+    require((bounds_center - center).length < 5e-5, "Rocket control pivot is not the actual mesh bounds center")
+    return center
+
+
 def authoring_capabilities(scene, game, samples):
     """Attest real exported prop channels, never viewport-only controller claims.
 
@@ -827,6 +950,8 @@ def authoring_capabilities(scene, game, samples):
             "Unsupported or incomplete authored prop-channel bindings")
     expected_deltas = {"CTRL-weapon": "MCH-warlock-weapon-local-delta",
                        "CTRL-rocket": "MCH-warlock-rocket-local-delta"}
+    control_frames = manifest.get("control_frames", {name: name for name in INDEPENDENT_PROP_BINDINGS})
+    pivot = manifest.get("rocket_pivot")
     previews = manifest.get("preview_objects", {})
     local_frames = manifest.get("preview_local_frames", {})
     require(set(previews) == set(INDEPENDENT_PROP_BINDINGS)
@@ -839,12 +964,15 @@ def authoring_capabilities(scene, game, samples):
                   if not constraint.mute and constraint.influence > 1e-6]
         require(len(active) >= 2, "Authored prop GAME channel has no active drivers")
         local, location = active[-2:]
+        location_target = (bpy.data.objects.get(pivot.get("location_target", ""))
+                           if pivot and control_name == "CTRL-rocket" else rig)
+        location_bone = "" if pivot and control_name == "CTRL-rocket" else control_name
         require(local.type == "COPY_TRANSFORMS" and local.target == rig
                 and local.subtarget == expected_deltas[control_name]
                 and local.owner_space == "LOCAL" and local.target_space == "LOCAL"
                 and local.mix_mode == "AFTER_SPLIT" and abs(local.influence - 1.) < 1e-6
-                and location.type == "COPY_LOCATION" and location.target == rig
-                and location.subtarget == control_name
+                and location.type == "COPY_LOCATION" and location.target == location_target
+                and location.subtarget == location_bone
                 and location.owner_space == "WORLD" and location.target_space == "WORLD"
                 and not location.use_offset and location.use_x and location.use_y and location.use_z
                 and abs(location.influence - 1.) < 1e-6,
@@ -856,7 +984,7 @@ def authoring_capabilities(scene, game, samples):
         require(len(delta_constraints) == 1, "Native-local prop delta has unexpected drivers")
         copied = delta_constraints[0]
         require(copied.type == "COPY_TRANSFORMS" and copied.target == rig
-                and copied.subtarget == control_name
+                and copied.subtarget == control_frames.get(control_name)
                 and copied.owner_space == "WORLD" and copied.target_space == "WORLD"
                 and copied.mix_mode == "REPLACE" and abs(copied.influence - 1.) < 1e-6,
                 "Native-local prop delta does not follow the declared control")
@@ -865,8 +993,9 @@ def authoring_capabilities(scene, game, samples):
                 "Authored prop preview object is missing or is not reference-only")
         local_frames[control_name] = Matrix(local_frames[control_name])
         validate_matrix(local_frames[control_name], "Prop preview local frame")
+    rocket_center = validate_centered_rocket(rig, game, manifest, local_frames["CTRL-rocket"])
 
-    initial_frame = scene.frame_current
+    initial_frame, initial_subframe = scene.frame_current, scene.frame_subframe
     saved = {name: rig.pose.bones[name].matrix_basis.copy()
              for name in INDEPENDENT_PROP_BINDINGS}
     position_error = 0.
@@ -893,6 +1022,12 @@ def authoring_capabilities(scene, game, samples):
             axis_error = max(axis_error, max(
                 ((preview.to_3x3().col[index] - expected.to_3x3().col[index]) * AXIS_PROBE_LENGTH).length
                 for index in range(3)))
+            if rocket_center is not None and control_name == "CTRL-rocket":
+                evaluated = rig.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                control = evaluated.matrix_world @ evaluated.pose.bones[control_name].matrix
+                native_rigid = Matrix.LocRotScale(native.translation, normalized_native_rotation(native),
+                                                  Vector((1, 1, 1)))
+                position_error = max(position_error, (native_rigid @ rocket_center - control.translation).length)
 
     try:
         for sample in samples:
@@ -938,7 +1073,7 @@ def authoring_capabilities(scene, game, samples):
         require(position_error <= 5e-5 and axis_error <= 5e-5,
                 "Authored prop previews differ from the normalized sampled GAME channels")
     finally:
-        scene.frame_set(initial_frame)
+        scene.frame_set(initial_frame, subframe=initial_subframe)
         for name, basis in saved.items():
             rig.pose.bones[name].matrix_basis = basis
         rig.update_tag()
@@ -955,7 +1090,7 @@ def authoring_capabilities(scene, game, samples):
 def _export_animation(args, source_dirty_at_start=False) -> dict:
     require(0 < args.tolerance <= 5e-5, "Roundtrip tolerance must not exceed 50 micrometres")
     source_scene = bpy.context.scene
-    initial_frame = source_scene.frame_current
+    initial_frame, initial_subframe = source_scene.frame_current, source_scene.frame_subframe
     game = bpy.data.objects.get(args.game_armature)
     names = required_names()
     rest = skeleton(game, names)
@@ -1079,7 +1214,7 @@ def _export_animation(args, source_dirty_at_start=False) -> dict:
             dispose_scene(scene, objects)
         if occupied:
             occupied.name = occupied_name
-        source_scene.frame_set(initial_frame)
+        source_scene.frame_set(initial_frame, subframe=initial_subframe)
     print("WARLOCK_ANIMATION_EXPORT", json.dumps({key: value for key, value in manifest.items()
           if key not in {"reference_samples", "rest_contract", "bone_names", "fbx_options"}}))
     return manifest

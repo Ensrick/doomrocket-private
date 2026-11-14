@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 BODY = 'units/warlock_bombardier/warlock_bombardier_3p.fbx'
 READY_SHA = '0f23c954bf9bb0a68d4d5ecc22ee5f8a7f69e99e242b5f3812e857f9853574d1'
+FIRST_RIG_SHA = 'e2b73978f1e2f9018212422ceb7bbea6244ae3c1e007540d64975d2114e06ffb'
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -146,14 +147,27 @@ def build(options):
     global RIG, WIDGETS, GROUPS
     root = Path(__file__).resolve().parents[2]
     controls = options.controls.resolve(); body = (root/BODY).resolve()
+    first_rig = options.first_rig.resolve()
     out = options.output.resolve()
     if any(part.casefold()=='units' for part in out.parts):
         raise RuntimeError('Authoring output must be outside every production units directory')
-    out.mkdir(parents=True,exist_ok=True)
-    if controls.parent == out or controls == out/'WarlockEngineer_AnimationRig.blend':
+    if controls.parent == out or controls == out/'WarlockEngineer_AnimationRig.blend' or first_rig.parent == out:
         raise RuntimeError('Build inputs must be distinct from handoff outputs')
+    if not first_rig.is_file() or digest(first_rig) != FIRST_RIG_SHA:
+        raise RuntimeError('Supply --first-rig with the preserved October 11 artist rig; '
+                           'required SHA-256 ' + FIRST_RIG_SHA)
     if digest(controls) != READY_SHA:
         raise RuntimeError('Control seed differs from the independently audited Rigify scene')
+    # Capture the actual first display before opening the seed or adding newer
+    # prop helpers. Counting the later fresh controls as the first 145 shapes
+    # would silently invent the wrong provenance. Only plain records survive
+    # loading another scene; the approved first scene is never saved or edited.
+    from control_widgets import FIRST_DISPLAY_SHA256, capture_original_widgets, apply_widgets
+    bpy.ops.wm.open_mainfile(filepath=str(first_rig), use_scripts=False)
+    first_widgets = capture_original_widgets(bpy.data.objects['WARLOCK_CTRL'])
+    if len(first_widgets['controls']) != 145 or first_widgets['display_sha256'] != FIRST_DISPLAY_SHA256:
+        raise RuntimeError('The first rig must contain the exact reviewed 145 original displays')
+    out.mkdir(parents=True,exist_ok=True)
     bpy.ops.wm.open_mainfile(filepath=str(controls), use_scripts=False)
     RIG = bpy.data.objects['rig_skaven_stormvermin']
     keep = {RIG} | {b.custom_shape for b in RIG.pose.bones if b.custom_shape}
@@ -187,7 +201,7 @@ def build(options):
         'rest':matrix_list(b.matrix_local),'inherit_scale':b.inherit_scale} for b in game.data.bones]
     RIG['warlock_game_armature'] = game.name
     RIG['warlock_tools_directory'] = str(out)
-    RIG['warlock_rig_version'] = '1.1'
+    RIG['warlock_rig_version'] = '1.2'
     RIG['engine_boundary'] = 'Authoring controls are never exported. Bake WARLOCK_GAME only.'
     game['source_fbx_sha256'] = digest(body)
     game['original_skeleton'] = json.dumps(signature)
@@ -379,8 +393,7 @@ def build(options):
     weapon_controls = build_weapon_controls(RIG,game,weapon_rig,weapon_objects,GROUPS,WIDGETS)
     weapon_rig['authoring_reference_only']=True;weapon_rig.hide_set(True)
     for obj in weapon_objects: obj['authoring_reference_only']=True
-    from control_widgets import apply_widgets
-    widget_manifest = apply_widgets(RIG,game,meshes[0],GROUPS,WIDGETS)
+    widget_manifest = apply_widgets(RIG,game,meshes[0],GROUPS,WIDGETS,first_widgets=first_widgets)
     WIDGETS.hide_viewport=True
     for obj in keep-{RIG}:
         if obj.name in bpy.context.view_layer.objects: obj.hide_set(True)
@@ -388,8 +401,10 @@ def build(options):
         if col.name.startswith(('ORG','DEF','MCH')) or col.name=='Warlock extra mechanisms': col.is_visible=False
     defaults={pb.name:{k:pb[k] for k in pb.keys() if isinstance(pb[k],(int,float))}
         for pb in RIG.pose.bones}
-    manifest={'schema':1,'version':'1.1','groups':GROUPS,'sources':{
+    manifest={'schema':1,'version':'1.2','groups':GROUPS,'sources':{
         'controls_file':str(controls),'controls_sha256':digest(controls),
+        'first_rig_file':str(first_rig),'first_rig_sha256':FIRST_RIG_SHA,
+        'first_display_sha256':first_widgets['display_sha256'],
         'body_fbx':str(body),'body_sha256':digest(body),
         'weapon_reference_fbx':str(weapon_source),'weapon_reference_sha256':digest(weapon_source),
         'tools_sha256':{name:digest(Path(__file__).with_name(name)) for name in
@@ -450,6 +465,8 @@ if __name__=='__main__':
     argv=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
     parser=argparse.ArgumentParser()
     parser.add_argument('--controls',type=Path,required=True)
+    parser.add_argument('--first-rig',type=Path,required=True,
+        help='Preserved October 11 artist .blend (SHA-256 '+FIRST_RIG_SHA+'); read-only display baseline')
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--correct-accessories',action='store_true')
     build(parser.parse_args(argv))

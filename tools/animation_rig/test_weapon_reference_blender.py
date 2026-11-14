@@ -136,6 +136,26 @@ def sample(game, reference, meshes):
             'rigid_mesh_dimensions_m': bounds}
 
 
+def mesh_bounds_center_world(mesh, reference_frame):
+    """A rigid mesh's measured centre in an explicit native preview frame.
+
+    A displayed ring centre alone is insufficient: evaluate the actual object,
+    measure its vertices in the rigid frame and transform that bounds centre
+    back into world space.
+    """
+    graph = bpy.context.evaluated_depsgraph_get()
+    obj = mesh.evaluated_get(graph)
+    data = obj.to_mesh()
+    try:
+        transform = reference_frame.inverted() @ obj.matrix_world
+        points = [transform @ vertex.co for vertex in data.vertices]
+        center = Vector(tuple((min(p[axis] for p in points)+max(p[axis] for p in points))*.5
+                              for axis in range(3)))
+        return reference_frame @ center
+    finally:
+        obj.to_mesh_clear()
+
+
 def run(args):
     source, output, report_path = args.rig.resolve(), args.output.resolve(), args.report.resolve()
     assert source != output and not output.exists() and not report_path.exists(), 'Use new output paths'

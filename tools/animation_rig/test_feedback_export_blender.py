@@ -24,6 +24,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import export_animation
 import weapon_controls
+import test_feedback_preservation_blender as preservation
 
 
 def digest(path):
@@ -31,23 +32,197 @@ def digest(path):
 
 
 def action_payload(action):
-    """All key/handle/sample data, not just a count or an action name."""
-    return [[layer.name, [[strip.type, [
-        [bag.slot_handle, [[curve.data_path, curve.array_index,
-            curve.extrapolation, [
-                [list(key.co), list(key.handle_left), list(key.handle_right),
-                 key.handle_left_type, key.handle_right_type, key.interpolation,
-                 key.easing, key.amplitude, key.back, key.period]
-                for key in curve.keyframe_points],
-            [list(point.co) for point in curve.sampled_points]]
-            for curve in bag.fcurves]]
-        for bag in getattr(strip, "channelbags", ())]] for strip in layer.strips]]
-        for layer in action.layers]
+    """Keys, handles, modifiers, groups and markers, excluding volatile ID data."""
+    return next(item for item in preservation.action_payload() if item["name"] == action.name)
 
 
 def require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def exercise_nla_export(rig, game, output):
+    """Export a live, visibly effective NLA strip without flattening its data."""
+    animation = rig.animation_data
+    require(animation is not None and animation.action is None and not animation.nla_tracks,
+            "NLA fixture requires the separate fresh handoff scene")
+    scene = bpy.context.scene
+    frame, subframe = scene.frame_current, scene.frame_subframe
+    start, end = scene.frame_start, scene.frame_end
+    original_pose = export_animation.authoring_pose_state(scene)
+    original_use_nla = animation.use_nla
+    control = rig.pose.bones["ORG-j_backpack"]
+    basis = control.matrix_basis.copy()
+    action = bpy.data.actions.new("WARLOCK_NLA_EXPORT_DIAGNOSTIC_ONLY")
+    track = None
+    try:
+        animation.action = action
+        for key_frame, displacement in ((1, 0.), (3, .012), (5, 0.)):
+            scene.frame_set(key_frame)
+            control.matrix_basis = basis
+            control.location.x += displacement
+            control.keyframe_insert("location", index=0, frame=key_frame,
+                                    group="Existing backpack custom pose")
+        action.pose_markers.new("NLA custom pose").frame = 3
+        slot = animation.action_slot
+        for layer in action.layers:
+            for strip in layer.strips:
+                bag = strip.channelbag(slot, ensure=False)
+                if bag:
+                    for curve in bag.fcurves:
+                        curve.modifiers.new("CYCLES")
+        animation.action = None
+        animation.use_nla = True
+        control.matrix_basis = basis
+        track = animation.nla_tracks.new()
+        track.name = "WARLOCK_NLA_EXPORT_DIAGNOSTIC_ONLY"
+        strip = track.strips.new("Preserve timing influence and custom pose", 1, action)
+        if hasattr(strip, "action_slot"):
+            strip.action_slot = slot
+        strip.blend_type = "REPLACE"
+        strip.extrapolation = "NOTHING"
+        strip.influence = .8
+        scene.frame_start, scene.frame_end = 1, 5
+        scene.frame_set(3)
+        rig.update_tag()
+        bpy.context.view_layer.update()
+        graph = bpy.context.evaluated_depsgraph_get()
+        native = game.evaluated_get(graph)
+        posed = (native.matrix_world @ native.pose.bones["j_backpack"].matrix).translation.copy()
+        track.mute = True
+        control.matrix_basis = basis
+        scene.frame_set(3)
+        rig.update_tag()
+        bpy.context.view_layer.update()
+        native = game.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        unlayered = (native.matrix_world @ native.pose.bones["j_backpack"].matrix).translation.copy()
+        moved = (posed - unlayered).length
+        require(moved > .005, "NLA fixture did not affect the actual GAME pose: " + str(moved))
+        track.mute = False
+        scene.frame_set(3)
+        rig.update_tag()
+        bpy.context.view_layer.update()
+        # A manual edit of a currently animated channel must survive export,
+        # together with a fractional timeline position and a numeric pose option.
+        scene.frame_set(2, subframe=.25)
+        control.location.x += .004
+        settings = rig.pose.bones["CTRL-hand-settings-left"]
+        settings["curl_middle"] = .17
+        rig.update_tag()
+        bpy.context.view_layer.update()
+        custom_basis = control.matrix_basis.copy()
+        native = game.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        custom_worlds = {bone.name: (native.matrix_world @ bone.matrix).copy()
+                         for bone in native.pose.bones}
+        before_actions = preservation.action_payload()
+        before_bindings = preservation.animation_bindings()
+        clip = output / "warlock_nla_preservation_diagnostic.fbx"
+        receipt = export_animation.export_animation(SimpleNamespace(
+            rig=None, output=clip, start=1, end=5, game_armature=game.name,
+            source_fbx=export_animation.SOURCE_FBX, tolerance=5e-5))
+        require(receipt["status"] == "fbx-roundtrip-passed", "Live NLA FBX export failed")
+        require(preservation.action_payload() == before_actions,
+                "Exporter changed NLA action keys/groups/modifiers/markers")
+        require(preservation.animation_bindings() == before_bindings,
+                "Exporter changed NLA strips, timing, influence or bindings")
+        require(scene.frame_current == 2 and abs(scene.frame_subframe - .25) < 1e-8,
+                "Exporter changed the posed subframe")
+        require(export_animation.matrix_error(control.matrix_basis, custom_basis) < 1e-7
+                and settings["curl_middle"] == .17,
+                "Exporter discarded an unkeyed transform or custom numeric pose")
+        native = game.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        pose_error = max(export_animation.matrix_error(custom_worlds[bone.name],
+                            native.matrix_world @ bone.matrix) for bone in native.pose.bones)
+        require(pose_error < 2e-5, "Exporter changed the displayed GAME custom pose")
+        return {"status": "live-nla-fbx-roundtrip-passed", "frames": 5,
+            "game_backpack_displacement_m": moved,
+            "actions_keys_modifiers_markers_preserved": True,
+            "nla_strips_timing_influence_bindings_preserved": True,
+            "posed_subframe_restored": 2.25, "unkeyed_transform_and_numeric_pose_preserved": True,
+            "maximum_restored_game_matrix_error": pose_error,
+            "fbx_sha256": digest(clip), "export_report": str(clip.with_suffix(".export.json"))}
+    finally:
+        animation.action = None
+        animation.use_nla = original_use_nla
+        if track is not None:
+            animation.nla_tracks.remove(track)
+        bpy.data.actions.remove(action)
+        scene.frame_start, scene.frame_end = start, end
+        scene.frame_set(frame, subframe=subframe)
+        export_animation.restore_authoring_pose(original_pose)
+
+
+def exercise_centered_rocket(rig, game):
+    """Require the real mesh to rotate about the new gizmo, including stretch."""
+    raw = rig["warlock_weapon_follow_manifest"]
+    manifest = json.loads(raw)
+    require(manifest.get("rocket_pivot", {}).get("policy") == "centered-native-frame-v1",
+            "This revision requires the real centered rocket pivot")
+    center = Vector(manifest["rocket_pivot"]["local_center"])
+    original_pose = export_animation.authoring_pose_state(bpy.context.scene)
+    settings = rig.pose.bones["CTRL-shape-j_leftarm_scale"]
+    control = rig.pose.bones["CTRL-rocket"]
+    maximum_center_error = 0.
+    minimum_origin_orbit = math.inf
+    cases = []
+
+    def sample():
+        rig.update_tag()
+        bpy.context.view_layer.update()
+        graph = bpy.context.evaluated_depsgraph_get()
+        native = game.evaluated_get(graph)
+        controls = rig.evaluated_get(graph)
+        native_world = native.matrix_world @ native.pose.bones["j_leftweaponcomponent2"].matrix
+        rigid = Matrix.LocRotScale(native_world.translation,
+            export_animation.normalized_native_rotation(native_world), Vector((1, 1, 1)))
+        pivot = (controls.matrix_world @ controls.pose.bones["CTRL-rocket"].matrix).translation.copy()
+        return rigid, pivot
+
+    try:
+        weapon_controls.switch_follow(rig, "rocket_follow", False)
+        for length in (.75, 1., 1.35):
+            settings["length"], settings["volume"] = length, 1.
+            before, pivot = sample()
+            basis = control.matrix_basis.copy()
+            for axis in range(3):
+                from mathutils import Quaternion
+                direction = Vector((0., 0., 0.))
+                direction[axis] = 1.
+                control.rotation_quaternion = control.rotation_quaternion @ Quaternion(direction, .2)
+                after, moved_pivot = sample()
+                error = max((before @ center - pivot).length,
+                            (after @ center - moved_pivot).length,
+                            (moved_pivot - pivot).length)
+                orbit = (after.translation - before.translation).length
+                maximum_center_error = max(maximum_center_error, error)
+                minimum_origin_orbit = min(minimum_origin_orbit, orbit)
+                require(error < 5e-5 and orbit > .001,
+                        "Rocket rotation used its native origin instead of the actual mesh center")
+                cases.append({"arm_length": length, "axis": axis,
+                              "mesh_center_error_m": error, "native_origin_orbit_m": orbit})
+                control.matrix_basis = basis
+                sample()
+        # A visually plausible declared center must not bypass its actual
+        # geometry/calibration check in the exporter.
+        altered = json.loads(raw)
+        altered["rocket_pivot"]["local_center"][0] += .01
+        rig["warlock_weapon_follow_manifest"] = json.dumps(altered)
+        native = game.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        samples = [{"frame": bpy.context.scene.frame_current, "bones": {
+            bone.name: (native.matrix_world @ bone.matrix).copy() for bone in native.pose.bones}}]
+        try:
+            export_animation.authoring_capabilities(bpy.context.scene, game, samples)
+        except ValueError:
+            pass
+        else:
+            raise RuntimeError("Exporter accepted a false declared rocket center")
+        return {"status": "centered-native-pivot-passed", "cases": cases,
+            "maximum_mesh_center_error_m": maximum_center_error,
+            "minimum_native_origin_orbit_m": minimum_origin_orbit,
+            "false_center_manifest_rejected": True}
+    finally:
+        rig["warlock_weapon_follow_manifest"] = raw
+        export_animation.restore_authoring_pose(original_pose)
 
 
 def main(args):
@@ -82,6 +257,8 @@ def main(args):
     rig.animation_data.action = None
     require(not rig.animation_data.nla_tracks,
             "Use the fresh handoff candidate; do not flatten an artist's existing NLA")
+    centered_rocket = exercise_centered_rocket(rig, game)
+    nla_export = exercise_nla_export(rig, game, output)
     action = bpy.data.actions.new("WARLOCK_FEEDBACK_DIAGNOSTIC_ONLY")
     rig.animation_data.action = action
     scene = bpy.context.scene
@@ -159,6 +336,9 @@ def main(args):
                 rotate("CTRL-forearm-twist-" + side, 1, .10)
         elif frame == 41:
             label = "independent launcher and rocket"
+            prop("CTRL-shape-j_leftarm_scale", "length", 1.18)
+            prop("CTRL-shape-j_leftarm_scale", "volume", .8)
+            update()
             weapon_controls.switch_follow(rig, "weapon_follow", False)
             rig.pose.bones["CTRL-weapon"].location.x += .02
             rotate("CTRL-weapon", 2, .12)
@@ -244,6 +424,8 @@ def main(args):
         "animation_fbx": str(clip), "fbx_sha256": digest(clip),
         "frames": 65, "bones": 138, "poses": poses,
         "original_actions_preserved": sorted(original_actions),
+        "live_nla_export": nla_export,
+        "centered_rocket": centered_rocket,
         "viewport_only_mutations_rejected": rejected,
         "authoring_capabilities": report["authoring_capabilities"],
         "game_rest_preserved": True, "source_file_preserved": True,

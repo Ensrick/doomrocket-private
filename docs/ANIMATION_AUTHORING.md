@@ -17,7 +17,79 @@ in-game pass.
 
 ## Current testing scope
 
-### November 11 artist feedback revision
+### November 14 first-baseline revision — rig 1.2 candidate
+
+This revision follows the accepted November 13 artist feedback. Use the Discord
+bridge to read its attachment when following up; private message text remains
+outside the public documentation.
+
+Rig 1.2 is a separately validated artist candidate from the pinned neutral
+rig 1.1 source; its control silhouettes come from the first October handoff.
+The two stored source actions are retained. The revision does not reset a fresh
+donor scene, overwrite earlier `.blend` files, or convert arbitrary animator
+working files. Start a new working copy; preserve existing animated scenes.
+The first-baseline and saved-source hashes are recorded in the handoff's
+`FIRST_BASELINE.json`. The engineering reviser refuses a different or edited
+source rather than rewriting an artist's existing keys or custom pose.
+
+The display follows the requested compact layout: left red, right blue, center
+yellow, and technical settings lilac. Root display size is halved. The six body
+controls retain their original geometry with a uniform 4% display enlargement;
+hand placement is adjusted while its original scale is retained. Foot shapes
+move 25 mm to improve measured toe coverage, retaining their scale and rotation.
+Finger settings use five triangular handles per hand. The launcher box is
+fitted closely, the
+rocket has a centered circular handle/pivot, and the backpack box excludes the
+straps. Native finger, twist, FK/IK, stretch/squash and matched-follow behavior
+remain separate from these display adjustments.
+
+For existing-animation reference, run the embedded UI, then open **Warlock >
+Original animation reference > Load original reference clips**. The adjacent
+`reference/warlock_animation_reference.blend` contains the thirteen original
+clips on a separate unselectable gray character. Choose a clip, then use
+**Play**, **Stop**, **First**, **Scrub frame**, speed, loop or hide.
+The reference clock does not advance the artist timeline or alter its FPS,
+frame range, actions, NLA or pose. **Current reference frame** updates during
+playback; Stop synchronizes the scrub field, and editing Scrub frame stops
+reference playback. These
+are decoded SDK clip samples for comparison, not a running engine state-machine
+simulation or automatic animation transfer onto `WARLOCK_CTRL`. The reference
+shows body motion; it does not assemble gameplay grip, hose physics or custom
+state transitions.
+
+Keep `reference_playback.py`, the reference library and its validation receipt
+with the handoff. The evaluated-bone exporter continues to select only the
+artist rig's exact `WARLOCK_GAME`; the reference objects/actions are excluded.
+The model still has no tongue channel, so independent tongue deformation needs
+additional artist source support.
+
+The saved candidate has SHA-256
+`4468f1887f090a98b724ff57bef35af3c33c3c306efe0e9a9dab833b53bcd0ee`.
+Its core and reference checks pass: 382 focused Blender/reference checks and
+the 1,054-test, 52-suite source pipeline. The 65-frame diagnostic, live-NLA
+preservation export, four fresh SDK compile lanes and whole-profile package
+closure pass. All thirteen original clips retain 138 tracks byte for byte;
+all 154 visible transitions remain exact. The candidate SDK skin comparison
+checks 2,295,150 samples with maximum error 0.919226 mm under the existing 2 mm
+gate. The final integration receipt has SHA-256
+`1b62953611625db27774e7eb5fe26563dce25cce8c70f94ba517351f8dbb9ed5`.
+
+The independent reference library contains thirteen clips, twelve referenced
+by the shipping state machine. Its 2,447,016 bone and 1,135,797 weighted-skin
+comparisons pass the separate 0.5 mm gates; maximum head/axis/skin errors are
+0.492643/0.498122/0.487998 mm. The 110,309,099-byte library has SHA-256
+`4ac89a9506627e1addfe9b24ce47cb3567fefbba804f68e6619025ed927a5e37`.
+
+Portable archive freezing and public delivery remain pending. Native game
+playback and rendered acceptance are unverified: the isolated historical SDK
+oracle reaches runtime initialization but crashes with `0xc0000005` before
+Lua; zero native `Unit` poses were captured. Address/static evidence supports
+an internal allocator-policy assertion, without a proven initiating caller;
+see the [native oracle audit](../tools/animation_rig/NATIVE_POSE_ORACLE.md).
+This authoring revision does not change the Workshop build, release tag,
+published game archive or build receipt.
+
+### November 11 artist feedback revision — published rig 1.1 history
 
 Rig 1.1 is available as [the complete portable ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.98-dev/WarlockEngineer_AnimationRig_1.1_2026-11-11.zip),
 with [START_HERE.md](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.98-dev/START_HERE.md)
@@ -494,11 +566,50 @@ pure incoming legacy sample before it is mixed with the displayed snapshot;
 it never overwrites an incoming authored sample or the composed visible pose.
 No legacy FBX resampling is needed.
 
-## Rebuild and run the behavior tests
+## Reproduce the rig 1.2 revision
+
+The recommended revision uses two read-only inputs: the neutral rig 1.1 source
+(`46b6971772af15fabc841eac450001988b70d29c0a2f758ef45442774777afb6`)
+and the first October 11 display source
+(`e2b73978f1e2f9018212422ceb7bbea6244ae3c1e007540d64975d2114e06ffb`).
+The script checks both complete file identities, retains the two stored source
+actions and writes a new directory. Never pass an animator's edited or animated
+working scene to this engineering reviser. Its pinned neutral source is the
+approved generation input, not a general migration service.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$repoRoot = git rev-parse --show-toplevel
+$blenderExe = 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
+$toolRoot = Join-Path $repoRoot 'tools\animation_rig'
+$workingSource = Join-Path $repoRoot '.build\rig_feedback_20261111\handoff\WarlockEngineer_AnimationRig.blend'
+$firstRig = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Blends_2026-10-11\WarlockEngineer_AnimationRig.blend'
+$authoringRoot = Join-Path $repoRoot '.build\rig_feedback_20261114\reproduce-rig-1.2' # must be new/empty
+
+& $blenderExe --background --factory-startup --disable-autoexec --python-exit-code 1 `
+    --python (Join-Path $toolRoot 'revise_rig.py') -- `
+    --rig $workingSource --first-rig $firstRig --output $authoringRoot
+if ($LASTEXITCODE -ne 0) { throw 'Pinned rig revision failed; preserve the inputs.' }
+```
+
+The original October 10 scene is also preserved as a baseline, with SHA-256
+`04fd88648bb4d773e3e059deba2647922be5ccc3ae1081452f1438aafeb897fb`.
+Its 145 display records match the October 11 display inventory. Keep the
+revision receipt and `FIRST_BASELINE.json` with the final artist package.
+The reference library and adjacent UI/export helpers are packaged separately
+after their own checks; generating a scene does not establish a verified
+portable handoff or an in-game pass.
+
+## Fresh seed rebuild and behavior tests
 
 Run these commands from the development repository. Keep outputs outside
 production `units`; the scripts reject those destinations. The saved seed and
 generated blend remain external authoring assets and must not be committed.
+This fresh-seed path deliberately clears donor actions/NLA; use the pinned
+revision above for the rig 1.2 handoff. Both paths require the original display
+source explicitly. The commands below do not render; visual reviews follow
+the workspace storage/retention rules and keep editable scenes outside
+disposable review-media folders.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
@@ -507,18 +618,19 @@ $blenderExe = 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
 $toolRoot = Join-Path $repoRoot 'tools\animation_rig'
 $authoringRoot = Join-Path $repoRoot '.build\animator_rig_rebuild' # choose a fresh directory
 $rigSeed = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_DoomRocket_Rigify_ControlsReady.blend'
+$firstRig = 'D:\Game Mods\Vermintide 2 modding\Projects\3D\WarlockEngineer_AnimationRig_Blends_2026-10-11\WarlockEngineer_AnimationRig.blend'
 $rigFile = Join-Path $authoringRoot 'WarlockEngineer_AnimationRig.blend'
 $reviewRoot = Join-Path $repoRoot '.build\animator_rig\review'
 Set-Location -LiteralPath $repoRoot
 
 & $blenderExe --background --factory-startup --disable-autoexec --python-exit-code 1 `
     --python (Join-Path $toolRoot 'build_rig.py') -- `
-    --controls $rigSeed --output $authoringRoot --correct-accessories
+    --controls $rigSeed --first-rig $firstRig --output $authoringRoot --correct-accessories
 if ($LASTEXITCODE -ne 0) { throw 'Rig build failed.' }
 
 & $blenderExe --background --disable-autoexec $rigFile --python-exit-code 1 `
     --python (Join-Path $toolRoot 'test_rig_blender.py') -- `
-    --output (Join-Path $authoringRoot 'validation') --render
+    --output (Join-Path $authoringRoot 'validation')
 if ($LASTEXITCODE -ne 0) { throw 'Rig behavior checks failed.' }
 
 & $blenderExe --background --factory-startup --disable-autoexec --python-exit-code 1 `
@@ -633,8 +745,8 @@ after building; do not commit the copied FBX, blends, renders, or archive.
 ```powershell
 $referenceRoot = Join-Path $authoringRoot 'reference'
 New-Item -ItemType Directory -Path $referenceRoot -Force | Out-Null
-foreach ($fileName in @('warlock_rig_ui.py', 'export_animation.py', 'export_body.py',
-        'accessory_weights.py', 'test_rig_blender.py', 'test_ui_blender.py')) {
+foreach ($fileName in @('warlock_rig_ui.py', 'weapon_controls.py', 'reference_playback.py',
+        'export_animation.py', 'export_body.py', 'accessory_weights.py')) {
     Copy-Item -LiteralPath (Join-Path $toolRoot $fileName) -Destination $authoringRoot -Force
 }
 Copy-Item -LiteralPath (Join-Path $repoRoot 'units\warlock_bombardier\warlock_bombardier_3p.fbx') `
@@ -647,8 +759,14 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'docs\ANIMATION_AUTHORING.md') `
 
 The adjacent `reference/shipping_body.fbx` and `reference/game.bones` make the
 exporters independent of this workstation's repository path. Keep them as
-approved references. To test portability, copy the handoff folder to a fresh
-location and run its UI test and diagnostic export with the adjacent tools.
+approved references. Rig 1.2 also needs the verified
+`reference/warlock_animation_reference.blend`, its `.json` manifest and
+`.verify.json` receipt, the distinct revision guide and `FIRST_BASELINE.json`.
+The copying example above supplies only the common runtime dependencies; the
+closed package manifest must include the verified reference library and reports.
+To test portability, copy the complete handoff to a fresh location, run the
+source checkout's UI checks against that scene, and perform an actual export
+using the adjacent tools and references.
 Compare the new export report against the approved skeleton and pose checks.
 Use Blender 5.2 for this handoff; another Blender version requires a new
 behavior, UI, and FBX roundtrip run.

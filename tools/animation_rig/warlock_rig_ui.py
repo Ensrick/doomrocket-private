@@ -10,17 +10,18 @@ import importlib.util
 import json
 import math
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
 from bpy_extras.io_utils import ExportHelper
 from mathutils import Matrix, Vector
 
 bl_info = {
     "name": "Warlock Engineer Animator Controls",
     "author": "Warlock Engineer maintainers; snap helpers from Blender Rigify",
-    "version": (1, 1, 0),
+    "version": (1, 2, 0),
     "blender": (5, 2, 0),
     "location": "3D View > Sidebar > Warlock",
     "description": "Pose controls, FK/IK matching and verified animation export",
@@ -588,6 +589,169 @@ def exporter_path(rig):
     return tool_path(rig, "export_animation.py")
 
 
+_REFERENCE_MODULE_NAME = "_warlock_isolated_reference_playback"
+_REFERENCE_ITEMS = {}
+
+
+def reference_module(rig):
+    """Load the adjacent reviewed reference helper; never execute scene text."""
+    path = tool_path(rig, "reference_playback.py").resolve()
+    if not path.is_file():
+        raise RuntimeError("Place reference_playback.py beside warlock_rig_ui.py")
+    module = sys.modules.get(_REFERENCE_MODULE_NAME)
+    if module is not None and Path(module.__file__).resolve() == path:
+        return module
+    if module is not None:
+        module.stop_all()
+    spec = importlib.util.spec_from_file_location(_REFERENCE_MODULE_NAME, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    sys.modules[_REFERENCE_MODULE_NAME] = module
+    return module
+
+
+def reference_collection(context, settings=None):
+    settings = settings or context.scene.warlock_reference_settings
+    rig = bpy.data.objects.get(settings.owner)
+    if not is_control_rig(rig):
+        rig = rig_for_context(context)
+    if rig is None:
+        return None
+    return reference_module(rig).collection_for(context.scene, rig.name)
+
+
+def reference_items(settings, context):
+    if context is None:
+        return [("NONE", "Load original reference clips first", "")]
+    try:
+        collection = reference_collection(context, settings)
+        if collection is not None:
+            helper = sys.modules[_REFERENCE_MODULE_NAME]
+            info = helper.manifest(collection)
+            key = (collection.as_pointer(), collection.get("warlock_reference_library_sha256"))
+            if key not in _REFERENCE_ITEMS:
+                _REFERENCE_ITEMS[key] = [(clip["id"], clip["id"].replace("_", " ") +
+                    (" (not used by shipping ASM)" if not clip["asm_referenced"] else ""),
+                    "Original decoded clip; reference only") for clip in info["clips"]]
+            return _REFERENCE_ITEMS[key]
+    except (OSError, RuntimeError, ValueError):
+        pass
+    return [("NONE", "Load original reference clips first", "")]
+
+
+def update_reference_clip(settings, context):
+    if settings.clip == "NONE":
+        return
+    collection = reference_collection(context, settings)
+    if collection is not None:
+        helper = sys.modules[_REFERENCE_MODULE_NAME]
+        clip = helper.set_clip(collection, settings.clip)
+        settings.frame = clip.get("start", 1.0)
+        context.view_layer.update()
+
+
+def update_reference_frame(settings, context):
+    collection = reference_collection(context, settings)
+    if collection is not None:
+        helper = sys.modules[_REFERENCE_MODULE_NAME]
+        helper.stop(collection)
+        helper.set_frame(collection, settings.frame)
+        context.view_layer.update()
+
+
+class WARLOCK_PG_reference_settings(bpy.types.PropertyGroup):
+    owner: StringProperty(options={"HIDDEN"})
+    clip: EnumProperty(name="Original clip", items=reference_items, update=update_reference_clip)
+    frame: FloatProperty(name="Scrub frame", default=1.0, min=1.0, update=update_reference_frame)
+    speed: FloatProperty(name="Speed", default=1.0, min=.1, max=2.0)
+    loop: BoolProperty(name="Loop", default=True)
+
+
+class WARLOCK_OT_reference_load(bpy.types.Operator):
+    bl_idname = "warlock.reference_load"
+    bl_label = "Load original reference clips"
+    bl_description = "Show original animations beside the rig without editing artist actions, pose or timeline"
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        return rig_for_context(context) is not None
+
+    def execute(self, context):
+        rig = rig_for_context(context)
+        try:
+            helper = reference_module(rig)
+            path = tool_path(rig, "reference_playback.py").parent / "reference" / "warlock_animation_reference.blend"
+            collection = helper.load_reference(context.scene, rig.name, path)
+            collection.hide_viewport = False
+            settings = context.scene.warlock_reference_settings
+            settings.owner = rig.name
+            settings.clip = collection["warlock_reference_clip"]
+            settings.frame = collection["warlock_reference_frame"]
+            self.report({"INFO"}, "Original clips loaded beside the rig. Reference only; artist timeline remains unchanged.")
+            return {"FINISHED"}
+        except Exception as error:
+            self.report({"ERROR"}, str(error))
+            return {"CANCELLED"}
+
+
+class WARLOCK_OT_reference_transport(bpy.types.Operator):
+    bl_idname = "warlock.reference_transport"
+    bl_label = "Reference playback"
+    bl_description = "Play or stop only the reference character; never start the artist scene timeline"
+    command: EnumProperty(items=[("PLAY", "Play", ""), ("STOP", "Stop", ""), ("FIRST", "First frame", "")])
+
+    @classmethod
+    def poll(cls, context):
+        try:
+            return reference_collection(context) is not None
+        except Exception:
+            return False
+
+    def execute(self, context):
+        try:
+            settings = context.scene.warlock_reference_settings
+            collection = reference_collection(context, settings)
+            helper = sys.modules[_REFERENCE_MODULE_NAME]
+            if self.command == "PLAY":
+                helper.start(collection, settings.speed, settings.loop)
+            else:
+                helper.stop(collection)
+                settings.frame = (helper.clip_for(collection).get("start", 1.0)
+                                  if self.command == "FIRST" else collection["warlock_reference_frame"])
+            context.view_layer.update()
+            return {"FINISHED"}
+        except Exception as error:
+            self.report({"ERROR"}, str(error))
+            return {"CANCELLED"}
+
+
+def draw_reference_options(layout, rig, context):
+    box = layout.box()
+    box.label(text="Original animation reference")
+    box.label(text="Separate character; never exported", icon="INFO")
+    # Drawing the normal pose panel does not load a helper or a library.
+    collection = next((collection for collection in context.scene.collection.children_recursive
+                       if collection.get("warlock_reference_owner") == rig.name), None)
+    settings = context.scene.warlock_reference_settings
+    if collection is None or settings.owner != rig.name:
+        box.operator("warlock.reference_load", icon="ARMATURE_DATA")
+        return
+    box.prop(collection, "hide_viewport", text="Hide reference")
+    box.prop(settings, "clip")
+    row = box.row(align=True)
+    row.operator("warlock.reference_transport", text="Play", icon="PLAY").command = "PLAY"
+    row.operator("warlock.reference_transport", text="Stop", icon="PAUSE").command = "STOP"
+    row.operator("warlock.reference_transport", text="First", icon="REW").command = "FIRST"
+    box.prop(settings, "frame")
+    box.label(text="Current reference frame: %.2f" % collection.get("warlock_reference_frame", 1.0))
+    row = box.row(align=True)
+    row.prop(settings, "speed")
+    row.prop(settings, "loop")
+    box.label(text="Scrubbing stops reference playback.")
+    box.label(text="Individual decoded clips, not engine ASM simulation.")
+
+
 def follow_module(rig):
     """Load only the reviewed adjacent helper, not text from the scene."""
     path = tool_path(rig, "weapon_controls.py")
@@ -728,6 +892,7 @@ class WARLOCK_PT_animator(bpy.types.Panel):
             else:
                 layout.label(text="Open WarlockEngineer_AnimationRig.blend")
             return
+        draw_reference_options(layout, rig, context)
         if active_pose_rig(context) != rig:
             layout.label(text="Warlock animator tools are loaded", icon="CHECKMARK")
             layout.operator("warlock.activate_controls", icon="ARMATURE_DATA")
@@ -775,25 +940,47 @@ class WARLOCK_PT_animator(bpy.types.Panel):
         layout.operator("warlock.export_animation", icon="EXPORT")
 
 
-CLASSES = (WARLOCK_OT_activate_controls, WARLOCK_OT_switch_limb, WARLOCK_OT_select_controls,
+CLASSES = (WARLOCK_PG_reference_settings, WARLOCK_OT_reference_load, WARLOCK_OT_reference_transport,
+           WARLOCK_OT_activate_controls, WARLOCK_OT_switch_limb, WARLOCK_OT_select_controls,
            WARLOCK_OT_reset_controls, WARLOCK_OT_key_controls, WARLOCK_OT_switch_follow,
            WARLOCK_OT_export_animation, WARLOCK_PT_animator)
 
 
+def registered_class(cls):
+    # PropertyGroup subclasses are discoverable through RNA, but unlike
+    # operators are not necessarily attributes of bpy.types in Blender 5.2.
+    old = getattr(bpy.types, cls.__name__, None)
+    if old is None and issubclass(cls, bpy.types.PropertyGroup):
+        old = bpy.types.PropertyGroup.bl_rna_get_subclass_py(cls.__name__)
+    return old
+
+
 def register():
     # Manual Run Script can be repeated without duplicate registration errors.
-    for cls in CLASSES:
-        old = getattr(bpy.types, cls.__name__, None)
+    helper = sys.modules.get(_REFERENCE_MODULE_NAME)
+    if helper:
+        helper.stop_all()
+    if hasattr(bpy.types.Scene, "warlock_reference_settings"):
+        del bpy.types.Scene.warlock_reference_settings
+    for cls in reversed(CLASSES):
+        old = registered_class(cls)
         if old:
             bpy.utils.unregister_class(old)
+    for cls in CLASSES:
         bpy.utils.register_class(cls)
+    bpy.types.Scene.warlock_reference_settings = PointerProperty(type=WARLOCK_PG_reference_settings)
     print("WARLOCK_UI_READY: 3D View > Sidebar (N) > Warlock > Activate Warlock controls. "
           "Registration preserves poses and existing animation keys.")
 
 
 def unregister():
+    helper = sys.modules.get(_REFERENCE_MODULE_NAME)
+    if helper:
+        helper.stop_all()
+    if hasattr(bpy.types.Scene, "warlock_reference_settings"):
+        del bpy.types.Scene.warlock_reference_settings
     for cls in reversed(CLASSES):
-        old = getattr(bpy.types, cls.__name__, None)
+        old = registered_class(cls)
         if old:
             bpy.utils.unregister_class(old)
 
