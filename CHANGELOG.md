@@ -1,5 +1,25 @@
 # Changelog
 
+## Authoring rig 1.2 candidate — first-baseline controls and original-clip reference (2026-11-14)
+
+- Prepare a new working copy from the pinned neutral rig 1.1 source, retaining
+  its two stored actions. Preserve existing animator scenes; the engineering
+  reviser refuses arbitrary edited files. Use the first October handoff's
+  control silhouettes with small placement/size corrections.
+- Use left red, right blue, center yellow and technical lilac. Add compact
+  per-finger settings handles, a centered rocket control and tighter accessory
+  selection while retaining the working finger, native twist and follow logic.
+- Provide isolated playback of the thirteen original decoded clips as an
+  animation reference. Its independent clock leaves the artist's timeline,
+  actions and pose unchanged; the reference is excluded from game export.
+- The saved candidate passes 382 focused Blender/reference checks, the
+  1,054-test pipeline, final FBX/SDK and whole-profile package closure. Preserve
+  all thirteen original clips/138 tracks and all 154 visible transitions.
+- Portable archive/public delivery remain pending. This is not a new Workshop
+  version or native game acceptance; the isolated SDK oracle crashes during
+  initialization before Lua, with zero native pose captures. Tongue deformation
+  still requires source support absent from the model.
+
 ## v0.1.99-dev - stronger hose W bends and corrected fitting approaches (2026-11-13)
 
 - **Hose (#3):** address Crunch's November 12 report of weak W-shaped bends

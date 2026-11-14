@@ -473,6 +473,38 @@ class RigUITests:
             else:
                 self.rig["warlock_tools_directory"] = original_directory
 
+    def relocated_reference_helper(self):
+        original_file = self.ui.__file__
+        original_directory = self.rig.get("warlock_tools_directory")
+        original_bytecode = sys.dont_write_bytecode
+        try:
+            sys.dont_write_bytecode = True
+            with flat_scratch("warlock-reference-relocation-") as directory:
+                relocated = Path(directory)
+                helper = relocated / "reference_playback.py"
+                reviewed = Path(__file__).resolve().with_name("reference_playback.py")
+                helper.write_bytes(reviewed.read_bytes())
+                self.ui.__file__ = str(relocated / "warlock_rig_ui.py")
+                self.rig["warlock_tools_directory"] = str(relocated / "old-missing-workstation")
+                actual = self.ui.reference_module(self.rig)
+                assert Path(actual.__file__) == helper
+                assert callable(actual.load_reference) and callable(actual.set_frame)
+                assert not actual._TIMERS, "Loading a helper must not start reference playback"
+                return {"relocated_adjacent_reference_helper_loaded": True,
+                        "no_repository_or_original_workstation_dependency": True,
+                        "registration_does_not_load_reference_or_change_artist_timeline": True,
+                        "reviewed_helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest()}
+        finally:
+            module = sys.modules.pop(self.ui._REFERENCE_MODULE_NAME, None)
+            if module:
+                module.stop_all()
+            sys.dont_write_bytecode = original_bytecode
+            self.ui.__file__ = original_file
+            if original_directory is None:
+                del self.rig["warlock_tools_directory"]
+            else:
+                self.rig["warlock_tools_directory"] = original_directory
+
     def attachment_follow_operator(self):
         self.reset()
         rig, ui = self.rig, self.ui
@@ -564,6 +596,7 @@ class RigUITests:
         self.run("snap_operator_autokey", self.autokey_operator)
         self.run("relocated_package_uses_adjacent_exporter", self.relocated_exporter_path)
         self.run("relocated_package_loads_adjacent_follow_helper", self.relocated_follow_helper)
+        self.run("relocated_package_loads_adjacent_reference_helper", self.relocated_reference_helper)
         if self.require_follow:
             self.run("attachment_follow_buttons_and_fk_to_ik_preserve_pose", self.attachment_follow_operator)
             self.run("weapon_follow_autokey_preserves_existing_tracks", lambda: self.attachment_follow_autokey("weapon_follow"))

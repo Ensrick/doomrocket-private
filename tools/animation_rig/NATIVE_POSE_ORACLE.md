@@ -1,8 +1,70 @@
 # Native pose oracle status
 
 The isolated harness compiles with the installed VT2 SDK. Native playback is
-**unverified and blocked by the installed runtime entrypoint**. There are no
-successful native pose receipts from this tool.
+**unverified and blocked during SDK runtime initialization**. The November 14
+toolchain route fixes the earlier compiler-entrypoint mistake but crashes
+before oracle Lua starts. There are no successful native pose receipts.
+
+## November 14 entrypoint investigation
+
+A fresh installation audit found Vermintide 2 installed in
+`C:\Program Files (x86)\Steam\steamapps\common\Warhammer Vermintide 2`:
+manifest `552500`, StateFlags `4`, build `25901688`, with DX11 and DX12
+executables. The earlier absence below is historical. Installation alone does
+not establish a supported windowless game/oracle entrypoint; no game or Steam
+session was launched, restarted or modified during this investigation.
+
+Read-only inspection of the exact installed SDK executable, SHA-256
+`721bc354a520510ea270147c57230c87cc7e07d93f78ca1a0763d5bdb74137de`,
+showed that its default compile flag is enabled and its `--no-compile` handler
+is inside the `--toolchain` branch. The standalone flag sequence used in
+October did not select that branch. An owned toolchain directory containing
+`settings/ToolChainConfiguration.config` supplies `ProjectIndex`, `Projects`,
+`SourceDirectory`, `DataDirectoryBase` and `SourceRepositoryPath`. Its actual
+JSON parse and runtime selection were then verified, rather than inferred
+only from strings in the binary.
+
+The runner now has an explicit **`-UseToolchainRuntime`** option for that exact
+audited SDK signature. It generates a BOM-free configuration inside each
+owned lane, checks the probe paths, records the configuration hash, and parses
+the supported suppression/window flags before the toolchain configuration.
+The default known-hash guard still rejects the failed standalone route;
+`-CompileOnly` remains available. The option is not an arbitrary guard bypass
+and does not count as native acceptance. Use a new dedicated probe and a
+bounded timeout for any justified future investigation; repeating the current
+initialization failure is not a required animator test.
+
+The November 14 proof used a historical frozen 97-frame diagnostic, not the
+upcoming artist revision. Its thin owned source mapped the original unit and
+material inputs read-only. Compilation passed in 38.0 seconds, with peak
+working set 2,508,652,544 bytes. The first runtime attempt (PID `48008`, start
+`2026-11-14T06:39:11.487058Z`) skipped the compiler, initialized the SDK plugin
+loader, then exited with **`0xC0000005`** after 2.420 seconds; peak working set
+was 75,636,736 bytes. No oracle start/completion marker or `Unit` capture was
+produced, and the historical source files and capture destination remained
+unchanged.
+
+One additional owned `DEBUG_ONLY_THIS_PROCESS` observation (PID `7804`, start
+`2026-11-14T06:49:31.372096Z`) reproduced the failure in 2.315 seconds, with
+peak working set 75,698,176 bytes. The initial loader breakpoint was continued.
+The access violation was first-chance and then unhandled, writing address
+`0x24` at `ntdll.dll+0x1a12d`. Recorded stack-address candidates and matching
+SDK instruction/constant readback point to the internal `operator delete`
+guard in `override_new.cpp:101` (`Don't use new!`) and assertion reporting.
+These are **not a formally unwound call stack** and do not prove which plugin
+or caller first violated the allocator policy. The final logged DLL load,
+Wwise, is not enough to assign it responsibility. No engine checks or binary
+instructions were disabled or patched, and no further runtime attempt followed.
+
+Evidence is under
+`.build/rig_feedback_20261114/integration/native_entrypoint_audit/`: the owned
+configuration, source and compiled provenance, `runtime_probe/candidate/`
+process/log receipts, `debug_result.json`, `windows_error_event.json`, and
+`wer_summary.json`. Windows Error Reporting retained metadata but no dump.
+**Native `Unit` pose samples remain zero.** This startup failure does not
+establish a problem in an artist animation or provide a rendered game verdict.
+
+## Historical October entrypoint evidence
 
 The v0.1.93-dev TEST candidate adds a separate passive in-game observation path:
 `/warlock_animation_rehearsal on` selects a compiled stock-clip rehearsal only
@@ -26,7 +88,9 @@ No boot callback, `ANIMATION_ORACLE_STARTED`, `ANIMATION_ORACLE_COMPLETE`, or
 its own `compile_streamable_resources.bat` also invokes that executable without
 `--compile`. Generic Stingray runtime flags and Lua APIs present in the binary
 do not establish an accessible playback entrypoint in this VT2 mod-tools build.
-The runner refuses another native attempt with this known executable hash.
+The runner still refuses that standalone route for this known executable
+hash by default. The separate November toolchain opt-in above does not reuse
+this failed invocation as evidence of native playback.
 
 The October 20 read-only installation audit found one configured Steam library,
 `C:\Program Files (x86)\Steam`, in both `steamapps/libraryfolders.vdf` and

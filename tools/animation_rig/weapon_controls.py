@@ -27,8 +27,13 @@ ACTUAL_WEAPON = "MCH-warlock-weapon-actual-frame"
 ACTUAL_ROCKET = "MCH-warlock-rocket-actual-frame"
 DELTA_WEAPON = "MCH-warlock-weapon-local-delta"
 DELTA_ROCKET = "MCH-warlock-rocket-local-delta"
+ROCKET_CONTROL_FRAME = "MCH-warlock-rocket-control-frame"
+ROCKET_PIVOT_REFERENCE = "WARLOCK_ROCKET_PIVOT_NATIVE_REFERENCE"
+ROCKET_PIVOT_CENTER = "WARLOCK_ROCKET_PIVOT_CENTER"
+ROCKET_PIVOT_OFFSET = "WARLOCK_ROCKET_PIVOT_OFFSET"
 MANIFEST_KEY = "warlock_weapon_follow_manifest"
 EXPORT_BINDINGS = {"CTRL-weapon": "j_leftweaponattach", "CTRL-rocket": "j_leftweaponcomponent2"}
+PROP_WIDGET_CLEARANCE = .005
 
 
 def _driver(owner, field, expression, variables, index=None):
@@ -154,8 +159,8 @@ def _box_widget(name, mesh, reference, widgets):
     """A real three-dimensional box around the approved reference geometry."""
     transform = reference.matrix_world.inverted() @ mesh.matrix_world
     points = [transform @ Vector(corner) for corner in mesh.bound_box]
-    lower = Vector(tuple(min(point[axis] for point in points) - .025 for axis in range(3)))
-    upper = Vector(tuple(max(point[axis] for point in points) + .025 for axis in range(3)))
+    lower = Vector(tuple(min(point[axis] for point in points) - PROP_WIDGET_CLEARANCE for axis in range(3)))
+    upper = Vector(tuple(max(point[axis] for point in points) + PROP_WIDGET_CLEARANCE for axis in range(3)))
     vertices = [(x, y, z) for x in (lower.x, upper.x)
                 for y in (lower.y, upper.y) for z in (lower.z, upper.z)]
     edges = [(a, b) for a in range(8) for b in range(a+1, 8)
@@ -353,6 +358,267 @@ def build_weapon_controls(rig, game, weapon_rig, weapon_objects, groups, widgets
     rig[MANIFEST_KEY] = json.dumps(manifest)
     rig.update_tag()
     bpy.context.view_layer.update()
+    return upgrade_existing_weapon_controls(rig, game)
+
+
+def _action_curves(action):
+    """Read all layered actions without attaching, evaluating or rewriting them."""
+    for layer in action.layers:
+        for strip in layer.strips:
+            for bag in getattr(strip, "channelbags", ()):
+                yield from bag.fcurves
+
+
+def _mesh_points_in_frame(mesh, frame):
+    transform = frame.inverted() @ mesh.matrix_world
+    return [transform @ vertex.co for vertex in mesh.data.vertices]
+
+
+def _bounds(points):
+    return (Vector(tuple(min(p[axis] for p in points) for axis in range(3))),
+            Vector(tuple(max(p[axis] for p in points) for axis in range(3))))
+
+
+def _prop_widgets(rig, manifest):
+    """Fit display curves to the actual rigid meshes, including the pivot ring."""
+    collection = bpy.data.collections.get("Warlock custom curve widgets")
+    if collection is None:
+        raise ValueError("Missing owned widget collection")
+    launcher = bpy.data.objects.get("pRocketLauncher")
+    rocket = bpy.data.objects.get(manifest["preview_objects"]["CTRL-rocket"])
+    if launcher is None or rocket is None or launcher.type != "MESH" or rocket.type != "MESH":
+        raise ValueError("Missing approved rigid launcher/rocket preview meshes")
+    bpy.context.view_layer.update()
+    native_weapon = _world(rig, ACTUAL_WEAPON)
+    points = _mesh_points_in_frame(launcher, native_weapon)
+    low, high = _bounds(points)
+    vertices = [(x,y,z) for x in (low.x-PROP_WIDGET_CLEARANCE, high.x+PROP_WIDGET_CLEARANCE)
+                for y in (low.y-PROP_WIDGET_CLEARANCE, high.y+PROP_WIDGET_CLEARANCE)
+                for z in (low.z-PROP_WIDGET_CLEARANCE, high.z+PROP_WIDGET_CLEARANCE)]
+    edges = [(a,b) for a in range(8) for b in range(a+1,8) if (a ^ b) in (1,2,4)]
+    def replace(name, vertices, edges, kind):
+        bone = rig.pose.bones[name]
+        old = bone.custom_shape
+        data = bpy.data.meshes.new("WGT-"+name)
+        data.from_pydata(vertices,edges,[])
+        shape = bpy.data.objects.new(data.name,data)
+        collection.objects.link(shape)
+        shape.hide_render = True
+        bone.custom_shape = shape
+        bone.use_custom_shape_bone_size = False
+        bone.custom_shape_scale_xyz = (1,1,1)
+        bone.custom_shape_translation = (0,0,0)
+        bone.custom_shape_rotation_euler = (0,0,0)
+        bone["warlock_widget_kind"] = kind
+        if old and old.name.startswith("WGT-CTRL-") and not old.animation_data \
+                and not any(pb.custom_shape == old for obj in bpy.data.objects
+                            if obj.type == "ARMATURE" for pb in obj.pose.bones):
+            old_data = old.data
+            bpy.data.objects.remove(old,do_unlink=True)
+            if old_data.users == 0:
+                bpy.data.meshes.remove(old_data)
+    replace("CTRL-weapon",vertices,edges,"weapon_box")
+    rocket_points = _mesh_points_in_frame(rocket,_world(rig,ACTUAL_ROCKET))
+    rlow, rhigh = _bounds(rocket_points)
+    center = Vector(manifest["rocket_pivot"]["local_center"])
+    # The principal direction follows the existing mesh rather than a presumed
+    # bone axis. A cross-section ring remains small and clear around its body.
+    mean = sum(rocket_points,Vector()) / len(rocket_points)
+    covariance = [[sum((p[i]-mean[i])*(p[j]-mean[j]) for p in rocket_points)
+                   for j in range(3)] for i in range(3)]
+    axis = Vector((0,1,0))
+    for _ in range(24):
+        axis = Vector(tuple(sum(covariance[i][j]*axis[j] for j in range(3)) for i in range(3))).normalized()
+    seed = Vector((1,0,0)) if abs(axis.x) < .8 else Vector((0,0,1))
+    u = axis.cross(seed).normalized()
+    v = axis.cross(u).normalized()
+    radius = max(((p-center)-axis*(p-center).dot(axis)).length for p in rocket_points) + PROP_WIDGET_CLEARANCE
+    vertices = [center + radius*(math.cos(math.tau*i/48)*u + math.sin(math.tau*i/48)*v)
+                for i in range(48)]
+    replace("CTRL-rocket",vertices,[(i,(i+1)%48) for i in range(48)],"rocket_center_ring")
+    manifest["prop_widgets"] = {"schema":1,"clearance_m":PROP_WIDGET_CLEARANCE,
+        "launcher_bounds_native_frame":[list(low),list(high)],
+        "rocket_bounds_native_frame":[list(rlow),list(rhigh)],
+        "rocket_ring_center":list(center),"rocket_ring_axis":list(axis),"rocket_ring_radius":radius}
+
+
+def _prospective_rocket_reference(rig,game):
+    """Evaluate native LOCAL rotation before the centered WORLD location write.
+
+    A direct read of GAME's final rotation back into its own location constraint
+    creates a dependency cycle. This two-bone authoring reference uses only the
+    upstream native parent and the already reviewed LOCAL delta.
+    """
+    native = game.data.bones["j_leftweaponcomponent2"]
+    parent = native.parent
+    if parent is None:
+        raise ValueError("Rocket native channel requires its original parent")
+    data = bpy.data.armatures.new(ROCKET_PIVOT_REFERENCE+"_DATA")
+    obj = bpy.data.objects.new(ROCKET_PIVOT_REFERENCE,data)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.matrix_world = game.matrix_world.copy()
+    obj["authoring_reference_only"] = True
+    obj.hide_render = True
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    for source in (parent,native):
+        bone = data.edit_bones.new(source.name)
+        bone.length = source.length
+        bone.matrix = source.matrix_local
+        bone.inherit_scale = source.inherit_scale
+        bone.use_deform = False
+    data.edit_bones[native.name].parent = data.edit_bones[parent.name]
+    bpy.ops.object.mode_set(mode="OBJECT")
+    constraint = obj.pose.bones[parent.name].constraints.new("COPY_TRANSFORMS")
+    constraint.target = game
+    constraint.subtarget = parent.name
+    constraint.owner_space = constraint.target_space = "WORLD"
+    original = game.pose.bones[native.name].constraints[0]
+    constraint = obj.pose.bones[native.name].constraints.new("COPY_TRANSFORMS")
+    constraint.target = original.target
+    constraint.subtarget = original.subtarget
+    constraint.owner_space = constraint.target_space = "LOCAL"
+    constraint = obj.pose.bones[native.name].constraints.new("COPY_TRANSFORMS")
+    constraint.target = rig
+    constraint.subtarget = DELTA_ROCKET
+    constraint.owner_space = constraint.target_space = "LOCAL"
+    constraint.mix_mode = "AFTER_SPLIT"
+    obj.hide_set(True)
+    return obj
+
+
+def upgrade_existing_weapon_controls(rig,game):
+    """Center the real rocket pivot in a new scene, retaining native animation.
+
+    This revises the frozen, unbound handoff source. An existing animation scene
+    requires an explicit migration: changing the pivot under animated parent
+    metrics cannot preserve every keyed pose with one static basis match. Reject
+    bound actions/NLA and keyed rocket tracks before editing. Static unkeyed
+    custom poses are matched at the current frame; action payloads stay intact.
+    """
+    manifest = json.loads(rig[MANIFEST_KEY])
+    if manifest.get("rocket_pivot",{}).get("schema") == 1:
+        _prop_widgets(rig,manifest)
+        rig[MANIFEST_KEY] = json.dumps(manifest)
+        return manifest
+    for action in bpy.data.actions:
+        if any(curve.data_path.startswith('pose.bones["CTRL-rocket"]')
+               for curve in _action_curves(action)):
+            raise ValueError("Existing keyed CTRL-rocket tracks need explicit pose-preserving migration; source was not changed")
+    for obj in bpy.data.objects:
+        animation = obj.animation_data
+        if animation and (animation.action is not None or any(track.strips for track in animation.nla_tracks)):
+            raise ValueError("Bound animation/NLA requires explicit whole-animation pivot migration; source was not changed: " + obj.name)
+    if rig.animation_data and any(curve.data_path.startswith('pose.bones["CTRL-rocket"].'+field)
+            for curve in rig.animation_data.drivers for field in ("location","rotation_","scale","matrix_basis")):
+        raise ValueError("Existing driven CTRL-rocket transforms require explicit migration; source was not changed")
+    if any(name in rig.data.bones for name in (ROCKET_CONTROL_FRAME,)) \
+            or any(name in bpy.data.objects for name in
+                   (ROCKET_PIVOT_REFERENCE,ROCKET_PIVOT_CENTER,ROCKET_PIVOT_OFFSET)):
+        raise ValueError("Unrecognized partial rocket-pivot upgrade")
+    delta = rig.pose.bones[DELTA_ROCKET].constraints
+    native_constraints = game.pose.bones["j_leftweaponcomponent2"].constraints
+    if len(delta) != 1 or delta[0].type != "COPY_TRANSFORMS" or delta[0].target != rig \
+            or delta[0].subtarget != "CTRL-rocket" or delta[0].owner_space != "WORLD" \
+            or delta[0].target_space != "WORLD" or delta[0].mix_mode != "REPLACE" \
+            or delta[0].mute or abs(delta[0].influence-1.) > 1e-6 or len(native_constraints) != 3 \
+            or native_constraints[0].type != "COPY_TRANSFORMS" \
+            or native_constraints[0].owner_space != "LOCAL" or native_constraints[0].target_space != "LOCAL" \
+            or native_constraints[1].type != "COPY_TRANSFORMS" or native_constraints[1].target != rig \
+            or native_constraints[1].subtarget != DELTA_ROCKET \
+            or native_constraints[1].owner_space != "LOCAL" or native_constraints[1].target_space != "LOCAL" \
+            or native_constraints[1].mix_mode != "AFTER_SPLIT" \
+            or native_constraints[-1].type != "COPY_LOCATION" \
+            or native_constraints[-1].target != rig or native_constraints[-1].subtarget != "CTRL-rocket" \
+            or native_constraints[-1].owner_space != "WORLD" or native_constraints[-1].target_space != "WORLD" \
+            or native_constraints[-1].use_offset or not all((native_constraints[-1].use_x,
+                native_constraints[-1].use_y,native_constraints[-1].use_z)) \
+            or any(c.mute or abs(c.influence-1.)>1e-6 for c in native_constraints):
+        raise ValueError("Unrecognized existing rocket export bindings; source was not changed")
+    # PoseBone.matrix is assigned before constraints. Match in the editable
+    # space even when an existing hand-follow constraint is currently active,
+    # otherwise a posed source would receive the hand motion a second time.
+    follow = rig.pose.bones["CTRL-rocket"].constraints.get(CONSTRAINT)
+    if follow is None or follow.type != "CHILD_OF" or follow.target != rig or follow.subtarget != SOURCE_BONE:
+        raise ValueError("Missing reviewed rocket follow constraint")
+    saved_mute = follow.mute
+    follow.mute = True
+    rig.update_tag()
+    bpy.context.view_layer.update()
+    unconstrained_control = _world(rig,"CTRL-rocket")
+    follow.mute = saved_mute
+    rig.update_tag()
+    bpy.context.view_layer.update()
+    graph = bpy.context.evaluated_depsgraph_get()
+    native = game.evaluated_get(graph)
+    protected = {pb.name:(native.matrix_world@pb.matrix).copy() for pb in native.pose.bones}
+    control_world = _world(rig,"CTRL-rocket")
+    follow_delta = control_world @ unconstrained_control.inverted()
+    actual_world = _world(rig,ACTUAL_ROCKET)
+    rocket = bpy.data.objects[manifest["preview_objects"]["CTRL-rocket"]]
+    preview_before = rocket.evaluated_get(graph).matrix_world.copy()
+    low,high = _bounds(_mesh_points_in_frame(rocket,actual_world))
+    center = (low+high)*.5
+    desired = control_world.copy()
+    desired.translation = actual_world @ center
+    if bpy.context.object and bpy.context.object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.objects.active = rig
+    rig.hide_set(False)
+    rig.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    original_rest = rig.matrix_world @ rig.data.edit_bones["CTRL-rocket"].matrix
+    centered_rest = original_rest @ Matrix.Translation(center)
+    rig.data.edit_bones["CTRL-rocket"].matrix = rig.matrix_world.inverted() @ centered_rest
+    mechanisms = rig.data.collections["Warlock extra mechanisms"]
+    frame = _new_bone(rig,ROCKET_CONTROL_FRAME,original_rest,mechanisms)
+    frame.parent = rig.data.edit_bones["CTRL-rocket"]
+    bpy.ops.object.mode_set(mode="OBJECT")
+    rig.pose.bones["CTRL-rocket"].matrix = rig.matrix_world.inverted() @ follow_delta.inverted() @ desired
+    delta = rig.pose.bones[DELTA_ROCKET].constraints[0]
+    delta.subtarget = ROCKET_CONTROL_FRAME
+    prospective = _prospective_rocket_reference(rig,game)
+    quaternion,helpers = _normalized_rotation(prospective,"j_leftweaponcomponent2","WARLOCK_ROCKET_PIVOT_ROTATION")
+    pivot = bpy.data.objects.new(ROCKET_PIVOT_CENTER,None)
+    bpy.context.scene.collection.objects.link(pivot)
+    pivot["authoring_reference_only"] = True
+    pivot.hide_render = True
+    constraint = pivot.constraints.new("COPY_LOCATION")
+    constraint.target = rig
+    constraint.subtarget = "CTRL-rocket"
+    constraint.owner_space = constraint.target_space = "WORLD"
+    constraint = pivot.constraints.new("COPY_ROTATION")
+    constraint.target = quaternion
+    constraint.owner_space = constraint.target_space = "WORLD"
+    offset = bpy.data.objects.new(ROCKET_PIVOT_OFFSET,None)
+    bpy.context.scene.collection.objects.link(offset)
+    offset["authoring_reference_only"] = True
+    offset.hide_render = True
+    offset.parent = pivot
+    offset.matrix_parent_inverse = Matrix.Identity(4)
+    offset.matrix_basis = Matrix.Translation(-center)
+    native_constraints = game.pose.bones["j_leftweaponcomponent2"].constraints
+    native_constraints[-1].target = offset
+    native_constraints[-1].subtarget = ""
+    pivot.hide_set(True)
+    offset.hide_set(True)
+    manifest["helper_objects"].extend([prospective.name,pivot.name,offset.name,*[o.name for o in helpers]])
+    manifest["control_frames"] = {"CTRL-weapon":"CTRL-weapon","CTRL-rocket":ROCKET_CONTROL_FRAME}
+    manifest["rocket_pivot"] = {"schema":1,"policy":"centered-native-frame-v1",
+        "local_center":list(center),"coordinate_space":"normalized native j_leftweaponcomponent2 frame, metres",
+        "control_frame":ROCKET_CONTROL_FRAME,"rotation_reference":prospective.name,
+        "rotation_quaternion_helper":quaternion.name,"location_center_helper":pivot.name,
+        "location_target":offset.name,"native_parent":game.data.bones["j_leftweaponcomponent2"].parent.name}
+    _prop_widgets(rig,manifest)
+    rig[MANIFEST_KEY] = json.dumps(manifest)
+    rig.update_tag()
+    bpy.context.view_layer.update()
+    native = game.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    error = max(_matrix_error(protected[pb.name],native.matrix_world@pb.matrix) for pb in native.pose.bones)
+    preview_error = _matrix_error(preview_before,rocket.evaluated_get(bpy.context.evaluated_depsgraph_get()).matrix_world)
+    if error > 3e-5 or preview_error > 3e-5:
+        raise RuntimeError("Rocket pivot upgrade changed an existing native/preview pose: %.8g / %.8g" % (error,preview_error))
     return manifest
 
 

@@ -51,6 +51,41 @@ def skeleton(armature):
             for b in armature.data.bones]
 
 
+def scalar_rna(value):
+    """Stable scalar/array RNA including key modifiers and NLA timing flags."""
+    result = {}
+    for prop in value.bl_rna.properties:
+        name = prop.identifier
+        if name in {"rna_type", "users", "session_uid", "is_updated", "is_updated_data",
+                    "is_evaluated", "is_editable", "is_library_indirect", "tag"} or prop.type not in {
+                        "BOOLEAN", "INT", "FLOAT", "STRING", "ENUM"}:
+            continue
+        item = getattr(value, name)
+        if getattr(prop, "is_array", False):
+            item = list(item)
+        elif isinstance(item, set):
+            item = sorted(item)
+        result[name] = item
+    return result
+
+
+def curve_payload(curve):
+    return {"path": curve.data_path, "index": curve.array_index,
+        "extrapolation": curve.extrapolation, "mute": curve.mute,
+        "lock": curve.lock, "hide": curve.hide, "color": list(curve.color),
+        "color_mode": curve.color_mode, "auto_smoothing": curve.auto_smoothing,
+        "group": curve.group.name if curve.group else None,
+        "keys": [{"co": list(k.co), "left": list(k.handle_left),
+                  "right": list(k.handle_right), "left_type": k.handle_left_type,
+                  "right_type": k.handle_right_type, "interpolation": k.interpolation,
+                  "easing": k.easing, "amplitude": k.amplitude, "back": k.back,
+                  "period": k.period, "type": k.type} for k in curve.keyframe_points],
+        "samples": [list(p.co) for p in curve.sampled_points],
+        "modifiers": [{"settings": scalar_rna(m),
+                       "control_points": [scalar_rna(p) for p in getattr(m, "control_points", ())]}
+                      for m in curve.modifiers]}
+
+
 def action_payload():
     result = []
     for action in sorted(bpy.data.actions, key=lambda a: a.name):
@@ -60,24 +95,186 @@ def action_payload():
             for strip in layer.strips:
                 bags = []
                 for bag in getattr(strip, "channelbags", ()):
-                    curves = []
-                    for curve in bag.fcurves:
-                        curves.append({"path": curve.data_path, "index": curve.array_index,
-                            "extrapolation": curve.extrapolation,
-                            "keys": [{"co": list(k.co), "left": list(k.handle_left),
-                                      "right": list(k.handle_right),
-                                      "left_type": k.handle_left_type,
-                                      "right_type": k.handle_right_type,
-                                      "interpolation": k.interpolation, "easing": k.easing,
-                                      "amplitude": k.amplitude, "back": k.back,
-                                      "period": k.period} for k in curve.keyframe_points],
-                            "samples": [list(p.co) for p in curve.sampled_points]})
-                    bags.append({"slot": bag.slot_handle, "curves": curves})
+                    bags.append({"slot": bag.slot_handle,
+                        "groups": [{"name": g.name, "settings": scalar_rna(g)} for g in bag.groups],
+                        "curves": [curve_payload(c) for c in bag.fcurves]})
                 strips.append({"type": strip.type, "bags": bags})
             layers.append({"name": layer.name, "strips": strips})
         result.append({"name": action.name,
-            "slots": [(s.identifier, s.handle) for s in action.slots], "layers": layers})
+            "slots": [(s.identifier, s.handle, s.target_id_type) for s in action.slots],
+            "settings": scalar_rna(action), "fake_user": action.use_fake_user,
+            "markers": [(m.name, m.frame) for m in action.pose_markers], "layers": layers})
     return result
+
+
+def nla_strip_payload(strip):
+    return {"settings": scalar_rna(strip),
+            "action": strip.action.name if strip.action else None,
+            "slot": getattr(getattr(strip, "action_slot", None), "identifier", None),
+            "fcurves": [curve_payload(c) for c in strip.fcurves],
+            "modifiers": [{"settings": scalar_rna(m),
+                           "control_points": [scalar_rna(p) for p in getattr(m, "control_points", ())]}
+                          for m in strip.modifiers],
+            "strips": [nla_strip_payload(s) for s in strip.strips]}
+
+
+def animation_bindings():
+    result = {}
+    owners = {}
+    for obj in bpy.data.objects:
+        owners["OBJECT:" + obj.name] = obj
+        if obj.data:
+            owners[type(obj.data).__name__ + ":" + obj.data.name] = obj.data
+        if obj.type == "MESH" and obj.data.shape_keys:
+            owners["KEY:" + obj.data.shape_keys.name] = obj.data.shape_keys
+    for name, owner in owners.items():
+        ad = owner.animation_data
+        if ad is None:
+            # Disposable widget mesh/object IDs are intentionally replaced by
+            # display edits. Keep every animated owner and the export-lane
+            # armatures even when their source binding is empty.
+            if name in {"OBJECT:WARLOCK_CTRL", "OBJECT:WARLOCK_GAME"}:
+                result[name] = None
+            continue
+        result[name] = {"settings": scalar_rna(ad),
+            "action": ad.action.name if ad.action else None,
+            "slot": getattr(getattr(ad, "action_slot", None), "identifier", None),
+            "tracks": [{"settings": scalar_rna(track),
+                        "strips": [nla_strip_payload(strip) for strip in track.strips]}
+                       for track in ad.nla_tracks]}
+    return result
+
+
+def numeric_properties(bone):
+    result = {}
+    for key in bone.keys():
+        value = bone[key]
+        if isinstance(value, (float, int, bool)):
+            result[key] = value
+        elif hasattr(value, "to_list"):
+            values = value.to_list()
+            if all(isinstance(v, (float, int, bool)) for v in values):
+                result[key] = values
+    return result
+
+
+def pose_payload(armature):
+    return {b.name: {"basis": matrix_rows(b.matrix_basis), "rotation_mode": b.rotation_mode,
+                     "properties": numeric_properties(b)} for b in armature.pose.bones}
+
+
+def driver_payload(owner):
+    ad = owner.animation_data
+    if ad is None:
+        return {}
+    return {f"{fc.data_path}:{fc.array_index}": {"curve": curve_payload(fc),
+        "expression": fc.driver.expression,
+        "type": fc.driver.type, "use_self": fc.driver.use_self,
+        "mute": fc.mute, "variables": [{"name": v.name, "type": v.type,
+            "targets": [{"settings": scalar_rna(t), "id": t.id.name if t.id else None, "id_type": t.id_type,
+                         "data_path": t.data_path, "bone_target": t.bone_target,
+                         "transform_type": t.transform_type,
+                         "transform_space": t.transform_space,
+                         "rotation_mode": t.rotation_mode} for t in v.targets]}
+            for v in fc.driver.variables]} for fc in ad.drivers}
+
+
+def scene_state(rig=None, game=None, mesh=None):
+    """Reusable immutable-source comparison for upgrade functions, not a saver.
+
+    Existing action/binding/pose entries must remain exact; added reference-only
+    actions and objects can be separately approved without weakening those pins.
+    """
+    rig = rig or bpy.data.objects["WARLOCK_CTRL"]
+    game = game or bpy.data.objects["WARLOCK_GAME"]
+    mesh = mesh or next(o for o in bpy.data.objects if o.type == "MESH" and
+                       any(m.type == "ARMATURE" and m.object == game for m in o.modifiers))
+    actions = action_payload()
+    bpy.context.view_layer.update()
+    graph = bpy.context.evaluated_depsgraph_get()
+    native = game.evaluated_get(graph)
+    prop_points = {}
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or not obj.get("authoring_reference_only"):
+            continue
+        evaluated = obj.evaluated_get(graph)
+        temporary = evaluated.to_mesh()
+        prop_points[obj.name] = [list(evaluated.matrix_world @ v.co) for v in temporary.vertices]
+        evaluated.to_mesh_clear()
+    keyed_rocket = [f"{a['name']}:{c['path']}:{c['index']}" for a in actions for layer in a["layers"]
+                   for strip in layer["strips"] for bag in strip["bags"] for c in bag["curves"]
+                   if 'pose.bones["CTRL-rocket"]' in c["path"]]
+    return {"actions": {a["name"]: digest(a) for a in actions},
+            "action_counts": {a["name"]: {"curves": sum(len(b["curves"]) for l in a["layers"]
+                for s in l["strips"] for b in s["bags"]), "fake_user": a["fake_user"]} for a in actions},
+            "bindings": animation_bindings(), "control_pose": pose_payload(rig),
+            "game_pose": pose_payload(game), "control_drivers": driver_payload(rig),
+            "game_skeleton": digest(skeleton(game)),
+            "body_geometry_weights": snapshot(rig, game, mesh)["body_geometry_weights"],
+            "object_transforms": {o.name: matrix_rows(o.matrix_world) for o in (rig, game, mesh)},
+            "scene_frame": bpy.context.scene.frame_current,
+            "evaluated_game_world": {b.name: matrix_rows(native.matrix_world @ b.matrix)
+                                     for b in native.pose.bones},
+            "evaluated_prop_points": prop_points, "keyed_rocket_channels": keyed_rocket}
+
+
+def evaluated_errors(before, after):
+    bones = before["evaluated_game_world"]
+    candidate = after["evaluated_game_world"]
+    if any(name not in candidate for name in bones):
+        return {"game_world_matrix_error": 1e30, "prop_world_error_m": 1e30}
+    game_error = max((abs(m[r][c] - candidate[name][r][c]) for name, m in bones.items()
+                      for r in range(4) for c in range(4)), default=0.0)
+    prop_error = 0.0
+    for name, points in before["evaluated_prop_points"].items():
+        other = after["evaluated_prop_points"].get(name)
+        if other is None or len(points) != len(other):
+            return {"game_world_matrix_error": game_error, "prop_world_error_m": 1e30}
+        prop_error = max(prop_error, max((math.dist(a, b) for a, b in zip(points, other)), default=0.0))
+    return {"game_world_matrix_error": game_error, "prop_world_error_m": prop_error}
+
+
+def active_source_animation(state):
+    return [name for name, lane in state["bindings"].items()
+            if lane and (lane["action"] is not None or lane["tracks"])]
+
+
+def baseline_differences(before, after, allow_rocket_pivot=False):
+    """Return every altered or missing original lane, allowing added lanes."""
+    differences = {}
+    errors = evaluated_errors(before, after)
+    for field in ("actions", "bindings", "control_drivers", "control_pose", "game_pose", "object_transforms"):
+        altered = []
+        for name, value in before[field].items():
+            candidate = after[field].get(name)
+            if field in ("control_pose", "game_pose") and candidate is not None:
+                # New options are allowed; existing animated properties and TRS
+                # must remain byte-for-byte equal to the source scene.
+                same = (candidate["basis"] == value["basis"] and
+                        candidate["rotation_mode"] == value["rotation_mode"] and
+                        all(candidate["properties"].get(k) == v for k, v in value["properties"].items()))
+                if (not same and allow_rocket_pivot and field == "control_pose" and name == "CTRL-rocket"
+                        and not before["keyed_rocket_channels"]
+                        and not active_source_animation(before)
+                        and candidate["rotation_mode"] == value["rotation_mode"]
+                        and all(candidate["properties"].get(k) == v for k, v in value["properties"].items())
+                        and max(errors.values()) <= 2e-5):
+                    # The sole allowed TRS change is a rest-pivot relocation on
+                    # an unkeyed rocket control, independently proven to retain
+                    # every native pose and evaluated launcher/rocket vertex.
+                    same = True
+            else:
+                same = name in after[field] and candidate == value
+            if not same:
+                altered.append(name)
+        if altered:
+            differences[field] = altered
+    for field in ("game_skeleton", "body_geometry_weights", "scene_frame"):
+        if before[field] != after[field]:
+            differences[field] = {"before": before[field], "after": after[field]}
+    if max(errors.values()) > 2e-5:
+        differences["evaluated_pose"] = errors
+    return differences
 
 
 def snapshot(rig, game, mesh):
@@ -95,6 +292,8 @@ def snapshot(rig, game, mesh):
             "groups": [g.name for g in mesh.vertex_groups],
             "polygons": [list(p.vertices) for p in mesh.data.polygons]}),
         "actions": digest(action_payload()),
+        "animation_bindings": digest(animation_bindings()),
+        "object_transforms": digest({o.name: matrix_rows(o.matrix_world) for o in (rig, game, mesh)}),
     }
 
 
@@ -135,10 +334,34 @@ def production_hashes():
     return result
 
 
+def capture_scene_baseline(source):
+    source = Path(source).resolve()
+    source_hash = sha(source)
+    bpy.ops.wm.open_mainfile(filepath=str(source), use_scripts=False)
+    state = scene_state()
+    if sha(source) != source_hash:
+        raise AssertionError("Baseline input changed while reading")
+    return {"source": str(source), "source_sha256": source_hash,
+            "state_sha256": digest(state), "state": state}
+
+
 def run(options):
     source = options.rig.resolve()
     input_hash = sha(source)
     production_before = production_hashes()
+    if options.capture_baseline:
+        baseline = capture_scene_baseline(source)
+        baseline["schema"] = 2
+        baseline["production_sources"] = production_before
+        if options.output.exists():
+            if json.loads(options.output.read_text(encoding="utf-8")) != baseline:
+                raise FileExistsError("Refusing to overwrite a different immutable baseline")
+        else:
+            options.output.parent.mkdir(parents=True, exist_ok=True)
+            options.output.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+        print("WARLOCK_PRESERVATION_BASELINE", str(options.output), baseline["state_sha256"])
+        return
+    prior_baseline = capture_scene_baseline(options.baseline_rig) if options.baseline_rig else None
     bpy.ops.wm.open_mainfile(filepath=str(source), use_scripts=False)
     rig, game = (bpy.data.objects[n] for n in ("WARLOCK_CTRL", "WARLOCK_GAME"))
     mesh = next(o for o in bpy.data.objects if o.type == "MESH" and
@@ -150,6 +373,25 @@ def run(options):
     def check(name, passed, **details):
         checks.append({"name": name, "passed": bool(passed), **details})
         print(("PASS " if passed else "FAIL ") + name)
+
+    if prior_baseline:
+        saved_state = scene_state(rig, game, mesh)
+        differences = baseline_differences(prior_baseline["state"], saved_state,
+                                           allow_rocket_pivot=options.allow_rocket_pivot_migration)
+        check("saved_candidate_preserves_original_actions_nla_poses_skin_and_game_rest",
+              not differences, baseline_source=prior_baseline["source"],
+              baseline_sha256=prior_baseline["source_sha256"],
+              baseline_state_sha256=prior_baseline["state_sha256"], differences=differences,
+              preserved_actions=prior_baseline["state"]["actions"],
+              preserved_control_driver_count=len(prior_baseline["state"]["control_drivers"]))
+        if options.allow_rocket_pivot_migration:
+            errors = evaluated_errors(prior_baseline["state"], saved_state)
+            check("unkeyed_rocket_pivot_migration_retains_all_native_and_prop_world_poses",
+                  not prior_baseline["state"]["keyed_rocket_channels"] and
+                  not active_source_animation(prior_baseline["state"]) and max(errors.values()) <= 2e-5,
+                  source_keyed_rocket_channels=prior_baseline["state"]["keyed_rocket_channels"],
+                  source_active_animation_bindings=active_source_animation(prior_baseline["state"]),
+                  **errors)
 
     baseline_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True).stdout.decode().strip()
@@ -204,12 +446,33 @@ def run(options):
 
     # Give the scene real custom keys and an unkeyed correction pose; decorators
     # must retain these complete action payloads, not merely their action count.
+    rig.animation_data_create()
+    fixture = bpy.data.actions.new("WarlockPreservationCustomPoseFixture")
+    fixture.use_fake_user = True
+    rig.animation_data.action = fixture
     ctrl = rig.pose.bones["ORG-j_lefthandindex1"]
     ctrl.rotation_euler[0] = .123
-    ctrl.keyframe_insert(data_path="rotation_euler", frame=1)
+    ctrl.keyframe_insert(data_path="rotation_euler", frame=1, group="Preserved custom correction")
     ctrl.rotation_euler[0] = .234
-    ctrl.keyframe_insert(data_path="rotation_euler", frame=9)
+    ctrl.keyframe_insert(data_path="rotation_euler", frame=9, group="Preserved custom correction")
     ctrl.rotation_euler[1] = .035
+    fixture.pose_markers.new("Retained custom pose marker").frame = 5
+    fixture_curves = [c for layer in fixture.layers for strip in layer.strips
+                      for bag in strip.channelbags for c in bag.fcurves]
+    fixture_curves[0].modifiers.new("CYCLES")
+    nla_fixture = fixture.copy()
+    nla_fixture.name = "WarlockPreservationNlaFixture"
+    track = rig.animation_data.nla_tracks.new()
+    track.name = "Retained artist correction layer"
+    strip = track.strips.new("Retained additive custom pose", 1, nla_fixture)
+    strip.blend_type = "ADD"
+    strip.influence = .2
+    strip.use_animated_influence = False
+    strip.scale = 1.25
+    check("bound_action_and_unmuted_nla_fixture_include_keys_modifier_group_and_marker",
+          rig.animation_data.action == fixture and not track.mute and not strip.mute and
+          strip.action == nla_fixture and len(fixture.pose_markers) == 1 and
+          bool(fixture_curves[0].modifiers) and fixture_curves[0].group is not None)
     rig.update_tag()
     bpy.context.view_layer.update()
     with_custom_pose = snapshot(rig, game, mesh)
@@ -273,6 +536,9 @@ def run(options):
     check("all_runtime_and_native_source_bytes_unchanged", production_before == production_after,
           checked_files=len(production_before), source_manifest_sha256=digest(production_before))
     check("input_artist_blend_unchanged", sha(source) == input_hash, sha256=input_hash)
+    if prior_baseline:
+        check("original_baseline_blend_unchanged", sha(prior_baseline["source"]) ==
+              prior_baseline["source_sha256"], sha256=prior_baseline["source_sha256"])
     report = {"schema": 1, "scope": "Blender authoring preservation; zero game/native playback samples",
         "source": str(source), "source_sha256": input_hash,
         "production_sources": production_before, "face_channels": face,
@@ -280,6 +546,8 @@ def run(options):
         "tongue_support": "existing channel" if tongue else
             "No existing tongue bone; independent tongue deformation needs artist source support.",
         "checks": checks, "passed": all(c["passed"] for c in checks)}
+    if prior_baseline:
+        report["original_artist_baseline"] = {k: v for k, v in prior_baseline.items() if k != "state"}
     options.output.parent.mkdir(parents=True, exist_ok=True)
     options.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if not report["passed"]:
@@ -291,5 +559,11 @@ if __name__ == "__main__":
     parser.add_argument("--rig", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--exercise-widgets", action="store_true")
+    parser.add_argument("--baseline-rig", type=Path,
+                        help="Require preservation of all existing actions, NLA, poses and native data from this blend")
+    parser.add_argument("--capture-baseline", action="store_true",
+                        help="Read only: write an immutable compact source scene fingerprint instead of running fixtures")
+    parser.add_argument("--allow-rocket-pivot-migration", action="store_true",
+                        help="Permit only an unkeyed CTRL-rocket basis change with <=20um native/prop pose proof")
     args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     run(parser.parse_args(args))
