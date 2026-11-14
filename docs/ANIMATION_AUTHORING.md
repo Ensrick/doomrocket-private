@@ -80,14 +80,28 @@ comparisons pass the separate 0.5 mm gates; maximum head/axis/skin errors are
 0.492643/0.498122/0.487998 mm. The 110,309,099-byte library has SHA-256
 `4ac89a9506627e1addfe9b24ce47cb3567fefbba804f68e6619025ed927a5e37`.
 
-Portable archive freezing and public delivery remain pending. Native game
-playback and rendered acceptance are unverified: the isolated historical SDK
+The [rig 1.2 ZIP](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.99-dev/WarlockEngineer_AnimationRig_1.2_2026-11-14.zip),
+[distinct START_HERE guide](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.99-dev/WarlockEngineer_AnimationRig_1.2_2026-11-14_START_HERE.md)
+and [verification receipt](https://github.com/Ensrick/doomrocket-private/releases/download/v0.1.99-dev/WarlockEngineer_AnimationRig_1.2_2026-11-14.zip.verify.json)
+were completely downloaded anonymously and matched at
+`2026-11-14T07:21:19.469196Z`. The archive is 213,249,826 bytes with SHA-256
+`8cc08c47ce069057e5417cbcf953888bad42339db0a42ad9f106fdb4552b1296`.
+It binds reviewed source `a2c8b2ee7321253bf38fe1bf410f23a494af2a65`
+([PR #82](https://github.com/Ensrick/doomrocket-private/pull/82)); its packaged
+source documentation remains frozen at that source revision. The added artist
+assets do not change the v0.1.99-dev game archive, publication receipt or tag
+bound to `854d6142f1a405038fc4425a6d327f0dab855459`.
+
+The game installation is now present, as recorded in the November 14 project
+instructions. Native game playback and rendered acceptance are unverified:
+the isolated historical SDK
 oracle reaches runtime initialization but crashes with `0xc0000005` before
 Lua; zero native `Unit` poses were captured. Address/static evidence supports
 an internal allocator-policy assertion, without a proven initiating caller;
 see the [native oracle audit](../tools/animation_rig/NATIVE_POSE_ORACLE.md).
-This authoring revision does not change the Workshop build, release tag,
-published game archive or build receipt.
+The artist archive does not deploy or enable a runtime profile. Historical
+absence-based launch exceptions do not waive future installed-game candidate
+verification; see [the current scope](../AGENTS.md#current-installation-and-launch-scope-november-14-2026).
 
 ### November 11 artist feedback revision — published rig 1.1 history
 
