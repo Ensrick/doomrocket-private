@@ -16,6 +16,8 @@
   promote public alpha. Native visual acceptance remains a separate written
   in-game verdict; the game is not installed locally.
 
+Canonical VMB verified TEST v0.1.99-dev at `2026-11-14T02:26:27.6517918Z` from `854d6142f1a405038fc4425a6d327f0dab855459` ([PR #80](https://github.com/Ensrick/doomrocket-private/pull/80)): item 3794172730, content handle `5791976625640189420`, 96,193,801 bytes. Fresh native `UPLOADED`/finish-OK evidence, the committed source/build receipt, hosted QA, remote tag and public metadata agree. The release tag remains bound to that source; this documentation journal does not rebuild, retag or republish. No local game launch, deployment, native visual pass or alpha promotion is claimed.
+
 ## v0.1.98-dev - preserve the hose W shape and bridge legacy traversal (2026-11-05)
 
 - **Hose (#3):** preserve the authored resting bends at short backpack-to-launcher

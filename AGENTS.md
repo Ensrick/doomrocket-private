@@ -111,6 +111,12 @@ checks do not establish an in-game pass or authorize alpha promotion.
   vaulting fix; v0.1.98-dev supplies the shipping legacy traversal candidate. Keep the
   stock-idle rehearsal separate from traversal and custom-export acceptance.
   No repeated failure demonstration, video or arranged lobby is required.
+- The user authorized the stronger hose W and curved-end correction plus next TEST on
+  November 13. v0.1.99-dev has verified canonical publication; project status records
+  the source and transaction. Preserve the accepted physics, animation tracks and
+  custom poses. Crunch's positive November 7 legacy-traversal verdict remains valid;
+  no mandatory repeat is created by the version refresh. Custom-export, localized
+  outfit and native-oracle acceptance remain separate. Cloth physics is not included.
 - Historical receipts and artist-rig links retain their original scope.
 
 ## Build environment hygiene

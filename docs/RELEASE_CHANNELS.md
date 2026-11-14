@@ -48,6 +48,15 @@ animation tracks and authored/custom ownership. No accepted flame, sway or #65
 check becomes a mandatory retest. This authorization uses the same
 publication-only process and does not authorize alpha promotion.
 
+The November 13 request authorizes the stronger hose W and curved-end correction
+plus the next TEST. **v0.1.99-dev is canonically published**; [project status](../PROJECT_STATUS.md)
+records its source-bound native transaction. Accepted sway, spring 140, damping
+ratio 0.6 and secondary physics are retained. The original animation sources,
+compiled tracks and custom-pose ownership remain intact. The positive November 7
+legacy-traversal verdict remains valid; custom-export, localized-outfit and native
+oracle acceptance remain separate. No cloth physics, new artist package, local
+deployment or alpha promotion is included. Earlier receipts retain their scope.
+
 The v0.1.95-dev attempt ended October 23 at `14:31:45` in the native uploader
 log with `invalid param` (0x8), exit 1. Its description was 8,050 UTF-8 bytes;
 the SDK limit is 8,000 bytes. No verified-publication record was produced.
