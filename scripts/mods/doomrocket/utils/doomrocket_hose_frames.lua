@@ -165,10 +165,30 @@ function Frames.new(profile)
         self.roll_x[i]={dot(self.radials[i],x),dot(self.radials[i],y),dot(self.radials[i],z)}
         self.roll_y[i]={dot(self.tangents[i],x),dot(self.tangents[i],y),dot(self.tangents[i],z)}
     end
+    -- Preserve the original resampled reference as a separate numeric buffer.
+    -- Connector shaping must not modify solver positions, spring state or any
+    -- character/weapon animation pose while it fits a cosmetic target.
+    self.base_x,self.base_y,self.base_z={},{},{}
+    self.lengths=profile.lengths
+    self.directions,self.rest_edges,self.mobility={},{},{}
+    for i=1,n-1 do
+        self.directions[i]={0,0,0}
+        local a,b=profile.controls[i].rest.position,profile.controls[i+1].rest.position
+        local edge={b[1]-a[1],b[2]-a[2],b[3]-a[3]}
+        normalize(edge)
+        self.rest_edges[i]=local_direction(i<n/2 and first or last,edge)
+    end
+    self.proxy={owner=self}
+    self.proxy.set_shape_point=function(proxy,i,a,b,c)
+        local owner=proxy.owner
+        owner.base_x[i],owner.base_y[i],owner.base_z[i]=a,b,c
+        return true
+    end
+    self.proxy.enable_shape=function() return true end
     return self
 end
 
-function Frames:shape(solver,pack,weapon)
+function Frames:reference_shape(solver,pack,weapon)
     world_direction(pack,self.rest_chord,self.chord)
     if not normalize(self.chord) then return false end
     for j=1,3 do self.current_chord[j]=weapon.position[j]-pack.position[j] end
@@ -204,13 +224,14 @@ function Frames:shape(solver,pack,weapon)
     local half=half_angle(span,self.length)
     local radius=self.length/(2*half)
     local n=self.n
+    local gain=self.residual_gain or 1
     for i=1,n do
         local t=self.fractions[i]
         world_direction(pack,self.residuals[i],self.offset)
         rotate(self.offset,self.chord,self.current_chord,self.radial,self.rotated,self.k,self.work)
         local along=math.sin(half*(2*t-1))*radius
         local bulge=(math.cos(half*(2*t-1))-math.cos(half))*radius
-        for j=1,3 do self.rotated[j]=(.5*span+along)*self.current_chord[j]+bulge*self.scratch[j]+self.rotated[j] end
+        for j=1,3 do self.rotated[j]=(.5*span+along)*self.current_chord[j]+bulge*self.scratch[j]+gain*self.rotated[j] end
         along=dot(self.rotated,self.current_chord)
         self.along[i]=along
         self.target_x[i]=self.rotated[1]-along*self.current_chord[1]
@@ -255,6 +276,108 @@ function Frames:shape(solver,pack,weapon)
     self.fit_scale=scale
     for i=1,n do
         if not solver:set_shape_point(i,pack.position[1]+self.sample_x[i],pack.position[2]+self.sample_y[i],pack.position[3]+self.sample_z[i]) then return false end
+    end
+    return solver:enable_shape()
+end
+
+function Frames:shape(solver,pack,weapon)
+    local n=self.n
+    local ax,ay,az=pack.position[1],pack.position[2],pack.position[3]
+    local dx,dy,dz=weapon.position[1]-ax,weapon.position[2]-ay,weapon.position[3]-az
+    local span=sqrt(dx*dx+dy*dy+dz*dz)
+    -- Keep the accepted rest/stretched route exact. The new correction fades
+    -- smoothly to identity, including when an outlet has independent rotation.
+    if span>=self.rest_span then return self:reference_shape(solver,pack,weapon) end
+    local compression=math.min(1,(self.rest_span-span)/(.5*self.rest_span))
+    compression=compression*compression*(3-2*compression)
+    -- The circular slack reference overwhelms the authored reversing bend at a
+    -- short carried span. Strengthen that residual, then preserve native link
+    -- lengths by fitting directions rather than flattening its amplitude again.
+    self.residual_gain=1+compression
+    if not self:reference_shape(self.proxy,pack,weapon) then return false end
+    for i=1,n-1 do
+        local direction=self.directions[i]
+        direction[1],direction[2],direction[3]=self.base_x[i+1]-self.base_x[i],self.base_y[i+1]-self.base_y[i],self.base_z[i+1]-self.base_z[i]
+        if not normalize(direction) then return false end
+        -- Two complete intervals at either fitting retain their calibrated rest
+        -- directions. A six-link taper rejoins the flexible middle without a
+        -- sharp connector kink or a resampling pass which moves the cuffs again.
+        local distance=math.min(i,n-i)
+        local influence=math.max(0,math.min(1,(6-distance)/4))
+        self.mobility[i]=(distance<=2) and 0 or 1-influence*compression
+        influence=influence*influence*(3-2*influence)*compression
+        if influence>0 then
+            local endpoint=i<n/2 and pack or weapon
+            world_direction(endpoint,self.rest_edges[i],self.offset)
+            local cosine=dot(direction,self.offset)
+            local bias=0
+            if cosine<-.9 and influence<1 then
+                -- A half-weight average of opposing directions is zero. Use a
+                -- smooth fitting-frame bias near that pole, retaining exact
+                -- zero/full blend endpoints and ordinary-pose behaviour.
+                local t=math.min(1,(-cosine-.9)/.1)
+                bias=2*t*t*(3-2*t)*influence*(1-influence)
+                local projection=dot(endpoint.x_axis,direction)
+                for j=1,3 do self.scratch[j]=endpoint.x_axis[j]-projection*direction[j] end
+                if not normalize(self.scratch) then
+                    projection=dot(endpoint.z_axis,direction)
+                    for j=1,3 do self.scratch[j]=endpoint.z_axis[j]-projection*direction[j] end
+                    if not normalize(self.scratch) then return false end
+                end
+            end
+            for j=1,3 do direction[j]=(1-influence)*direction[j]+influence*self.offset[j]+bias*(self.scratch[j] or 0) end
+            if not normalize(direction) then return false end
+        end
+    end
+    -- Tangent-space Newton closure: each direction remains a unit vector, so
+    -- every segment keeps its original length. Only a 3x3 numeric system is
+    -- solved; the XPBD solver and its accepted inertia/damping are untouched.
+    local error
+    for iteration=1,32 do
+        local xx,xy,xz,yy,yz,zz=0,0,0,0,0,0
+        local ex,ey,ez=dx,dy,dz
+        for i=1,n-1 do
+            local u=self.directions[i]
+            local length=self.lengths[i]
+            local weight=self.mobility[i]*length
+            local x,y,z=u[1],u[2],u[3]
+            ex,ey,ez=ex-length*x,ey-length*y,ez-length*z
+            xx,xy,xz=xx+weight*(1-x*x),xy-weight*x*y,xz-weight*x*z
+            yy,yz,zz=yy+weight*(1-y*y),yz-weight*y*z,zz+weight*(1-z*z)
+        end
+        error=sqrt(ex*ex+ey*ey+ez*ez)
+        if error<1e-8 then break end
+        local a,b,c=yy*zz-yz*yz,xz*yz-xy*zz,xy*yz-xz*yy
+        local d,e,f=xx*zz-xz*xz,xy*xz-xx*yz,xx*yy-xy*xy
+        local determinant=xx*a+xy*b+xz*c
+        if abs(determinant)<1e-14 then return false end
+        local lx,ly,lz=(a*ex+b*ey+c*ez)/determinant,(b*ex+d*ey+e*ez)/determinant,(c*ex+e*ey+f*ez)/determinant
+        local peak=0
+        for i=3,n-3 do
+            local u=self.directions[i]
+            local projection=u[1]*lx+u[2]*ly+u[3]*lz
+            local weight=self.mobility[i]
+            local x,y,z=weight*(lx-projection*u[1]),weight*(ly-projection*u[2]),weight*(lz-projection*u[3])
+            peak=math.max(peak,sqrt(x*x+y*y+z*z))
+        end
+        local step=peak>.12 and .12/peak or 1
+        for i=3,n-3 do
+            local u=self.directions[i]
+            local projection=u[1]*lx+u[2]*ly+u[3]*lz
+            local weight=self.mobility[i]*step
+            u[1],u[2],u[3]=u[1]+weight*(lx-projection*u[1]),u[2]+weight*(ly-projection*u[2]),u[3]+weight*(lz-projection*u[3])
+            if not normalize(u) then return false end
+        end
+    end
+    if error>1e-7 then return false end
+    local x,y,z=ax,ay,az
+    if not solver:set_shape_point(1,x,y,z) then return false end
+    for i=1,n-1 do
+        local u=self.directions[i]
+        local length=self.lengths[i]
+        x,y,z=x+length*u[1],y+length*u[2],z+length*u[3]
+        if i==n-1 then x,y,z=weapon.position[1],weapon.position[2],weapon.position[3] end
+        if not solver:set_shape_point(i+1,x,y,z) then return false end
     end
     return solver:enable_shape()
 end

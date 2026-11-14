@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.99-dev - stronger hose W bends and corrected fitting approaches (2026-11-13)
+
+- **Hose (#3):** address Crunch's November 12 report of weak W-shaped bends
+  and curved tube ends. Preserve the authored terminal spans in each live
+  fitting's frame and fit the compressed interior without resampling those
+  approaches away. Strengthen the interior W while retaining the accepted
+  140 s^-2 stiffness, 0.6 damping ratio and secondary physics.
+- Preserve original models, all thirteen animation source pairs, 138-bone
+  tracks, controller transitions, and authored/custom pose ownership. Carry
+  forward the reviewed rig 1.1 export/runtime integration guards from PR #77;
+  the shipping authored-profile manifest stays empty and its body unmarked.
+- Existing flame, ordinary-spawn and sway acceptance remains valid. This
+  release does not add cloth physics, new production art or animation, or
+  promote public alpha. Native visual acceptance remains a separate written
+  in-game verdict; the game is not installed locally.
+
 ## v0.1.98-dev - preserve the hose W shape and bridge legacy traversal (2026-11-05)
 
 - **Hose (#3):** preserve the authored resting bends at short backpack-to-launcher

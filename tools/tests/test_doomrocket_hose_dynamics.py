@@ -362,6 +362,35 @@ function short_span_shape(span)
     local points={};for i=1,s.n do points[i]={s.shape_x[i],s.shape_y[i],s.shape_z[i]} end
     return points,a.position,b.position
 end
+function transformed_short_shape(span,y,z)
+    local s,f,a,b=new(0)
+    local dx,dy,dz=b.position[1]-a.position[1],b.position[2]-a.position[2],b.position[3]-a.position[3]
+    local length=sqrt(dx*dx+dy*dy+dz*dz)
+    b.position={a.position[1]+span*dx/length,a.position[2]+span*dy/length,a.position[3]+span*dz/length}
+    a=transformed(a,y,z,10,-20,3);b=transformed(b,y,z,10,-20,3)
+    assert(f:shape(s,a,b))
+    local points={};for i=1,s.n do points[i]={s.shape_x[i],s.shape_y[i],s.shape_z[i]} end
+    return points
+end
+function opposite_fitting_shape(epsilon,span)
+    local s,f,a,b=new(0)
+    local dx,dy,dz=-.02554240399004761,.3460374080041444,-.00383377883849234
+    span=span or .347
+    b.position={a.position[1]+dx*span/.347,a.position[2]+dy*span/.347,a.position[3]+dz*span/.347}
+    b.x_axis={-.5876985632131403,-.4325381337238803,-.6837551913308385}
+    b.y_axis={.547202716522943,-.8349962867723512,.05788253714460217}
+    b.z_axis={-.5959694504142983,-.3401352142178859,.7274121597978898}
+    local axis={-.9522689149212341,-.30526040305734936,0}
+    local c,sine=cos(epsilon),sin(epsilon)
+    for _,v in ipairs({b.x_axis,b.y_axis,b.z_axis}) do
+        local projection=v[1]*axis[1]+v[2]*axis[2]
+        local cross={axis[2]*v[3],-axis[1]*v[3],axis[1]*v[2]-axis[2]*v[1]}
+        for j=1,3 do v[j]=c*v[j]+(1-c)*projection*axis[j]+sine*cross[j] end
+    end
+    assert(f:shape(s,a,b),'antiparallel fitting rejected')
+    local points={};for i=1,s.n do points[i]={s.shape_x[i],s.shape_y[i],s.shape_z[i]} end
+    return points
+end
 function compressed_benchmark(count,frames)
     local list={}
     for i=1,count do
@@ -469,7 +498,78 @@ def turn_sign_runs(turns):
     return signs
 
 
+def middle_reverse_bend(points):
+    # Steering the connector neighbourhood can add an end inflection. Measure
+    # the actual reversing feature away from those cuffs, rather than counting
+    # every sign change or mistaking a cuff kink for a stronger W.
+    return sum(max(0, value) for value in projected_turns(points)[5:-5])
+
+
+def spatial_bends(points):
+    edges = [[b[j]-a[j] for j in range(3)] for a, b in zip(points, points[1:])]
+    return [math.degrees(math.acos(max(-1, min(1, sum(x*y for x, y in zip(a, b)) /
+                         math.dist(a, [0, 0, 0]) / math.dist(b, [0, 0, 0])))))
+            for a, b in zip(edges, edges[1:])]
+
+
 class HoseDynamicsTests(unittest.TestCase):
+    def test_carried_cuffs_retain_both_authored_terminal_intervals(self):
+        lua = runtime()
+        rest = [list(lua.globals().Profile.controls[i].rest.position.values()) for i in range(1, 30)]
+        for span in (.05, .347, .5):
+            points = lua_points(lua.globals().short_span_shape(span)[0])
+            for i in (0, 1, 26, 27):
+                expected = [rest[i+1][j] - rest[i][j] for j in range(3)]
+                actual = [points[i+1][j] - points[i][j] for j in range(3)]
+                self.assertLess(math.dist(expected, actual), 2e-7)
+
+    def test_compressed_w_has_real_middle_reversal_not_only_cuff_inflections(self):
+        points = lua_points(runtime().globals().short_span_shape(.347)[0])
+        # Immutable v98 on this profile measured 9.74 degrees in this region.
+        # Keep a substantial central W, not just extra turns beside a fitting.
+        self.assertGreater(middle_reverse_bend(points), 30)
+        self.assertLess(max(map(abs, projected_turns(points))), 55)
+
+    def test_compressed_direction_fit_preserves_every_native_link_length(self):
+        lua = runtime()
+        lengths = list(lua.globals().Profile.lengths.values())
+        for span in (1e-6, .05, .347, .894, .972):
+            points = lua_points(lua.globals().short_span_shape(span)[0])
+            self.assertLess(max(abs(math.dist(a, b)-length) for a, b, length in
+                                zip(points, points[1:], lengths)), 1e-7)
+
+    def test_compressed_shape_and_cuffs_are_rigid_transform_covariant(self):
+        lua = runtime()
+        baseline = lua_points(lua.globals().short_span_shape(.347)[0])
+        for y, z in ((.3, .7), (math.pi, -1), (0, math.pi)):
+            actual = lua_points(lua.globals().transformed_short_shape(.347, y, z))
+            expected = []
+            for px, py, pz in baseline:
+                x, zz = math.cos(y)*px+math.sin(y)*pz, -math.sin(y)*px+math.cos(y)*pz
+                expected.append([math.cos(z)*x-math.sin(z)*py+10,
+                                 math.sin(z)*x+math.cos(z)*py-20, zz+3])
+            self.assertLess(max(map(math.dist, expected, actual)), 2e-6)
+
+    def test_opposed_fitting_direction_blend_is_finite_and_continuous(self):
+        # At node 25 the unmodified normalized lerp cancels exactly to zero.
+        # This deliberately extreme outlet is a continuity case, not a claim
+        # that every possible flipped fitting has an ordinary-play bend angle.
+        lua = runtime()
+        snapshots = {}
+        for epsilon in (-1e-3, -1e-5, -1e-7, 0, 1e-7, 1e-5, 1e-3):
+            points = lua_points(lua.globals().opposite_fitting_shape(epsilon))
+            self.assertTrue(all(math.isfinite(value) for p in points for value in p))
+            self.assertLess(abs(polyline_length(points)-sum(lua.globals().Profile.lengths.values())), 1e-7)
+            snapshots[epsilon] = points
+        self.assertLess(max(map(math.dist, snapshots[-1e-7], snapshots[1e-7])), 2e-6)
+
+    def test_rotated_fitting_correction_fades_continuously_at_rest_span(self):
+        lua = runtime()
+        span = lua.globals().Frames.new(lua.globals().Profile).rest_span
+        before = lua_points(lua.globals().opposite_fitting_shape(0, span-1e-7))
+        after = lua_points(lua.globals().opposite_fitting_shape(0, span+1e-7))
+        self.assertLess(max(map(math.dist, before, after)), 2e-5)
+
     def test_zero_gravity_rest_shape_initializes_and_remains_authored(self):
         result = runtime().globals().static(0, 5)
         self.assertLess(result.initial, 1e-6)
@@ -543,7 +643,10 @@ class HoseDynamicsTests(unittest.TestCase):
         for fps in (30, 60, 144):
             # A W has a reversing bend, unlike the retired uniform circle.
             # Preserve that feature with smooth joints, far below a folded link.
-            for sway, bend in ((.05, 50), (.15, 75)):
+            # The stronger requested W has deliberate tighter bends than v98's
+            # almost circular target. Keep ordinary motion below 60 degrees and
+            # the same 75-degree bound for the large 15 cm perturbation.
+            for sway, bend in ((.05, 60), (.15, 75)):
                 with self.subTest(fps=fps, sway=sway):
                     result = runtime().globals().carried(fps, sway)
                     self.assertLess(abs(result.target - result.length), .006)
@@ -566,9 +669,12 @@ class HoseDynamicsTests(unittest.TestCase):
                 self.assertLess(math.dist(points[-1], list(end.values())), 1e-7)
                 self.assertLess(abs(polyline_length(points) - length), 2e-5)
                 turns = projected_turns(points)
-                self.assertEqual(turn_sign_runs(turns), [-1, 1, -1])
+                if span >= .2:
+                    self.assertGreater(middle_reverse_bend(points), 8)
                 self.assertGreater(max(turns), 2)
-                self.assertLess(max(map(abs, turns)), 55)
+                # Fitting steering makes the curve genuinely three-dimensional;
+                # flattening it can exaggerate a bend. Bound its actual joints.
+                self.assertLess(max(spatial_bends(points)), 55)
 
     def test_short_target_has_no_discontinuity_at_the_old_arc_boundary_or_rest_span(self):
         lua = runtime()
@@ -603,8 +709,8 @@ class HoseDynamicsTests(unittest.TestCase):
                         lua = runtime()
                         native_case = lua.table_from({key: lua.table_from(value) for key, value in case.items()})
                         result = lua.globals().logged_carried(native_case, fps, roll, pack_roll)
-                        self.assertEqual(turn_sign_runs(projected_turns(lua_points(result.target))), [-1, 1, -1])
-                        self.assertEqual(turn_sign_runs(projected_turns(lua_points(result.points))), [-1, 1, -1])
+                        self.assertGreater(middle_reverse_bend(lua_points(result.target)), 8)
+                        self.assertGreater(middle_reverse_bend(lua_points(result.points)), 5)
                         self.assertLess(result.peak, 75)
                         self.assertLess(result.links, .002)
                         self.assertLess(result.frames, 2e-6)
